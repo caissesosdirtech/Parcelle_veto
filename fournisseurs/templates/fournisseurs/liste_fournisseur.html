@@ -1,0 +1,83 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="page-title">🏭 Gestion des Fournisseurs</div>
+
+<style>
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 15px;
+}
+
+.card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    transition: 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+}
+
+.card h4 {
+    margin: 0;
+    color: #0f172a;
+}
+
+.meta {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 6px;
+}
+
+.actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+}
+
+.btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+.btn-edit {
+    background: #38bdf8;
+    color: #0f172a;
+}
+
+.btn-delete {
+    background: #ef4444;
+    color: white;
+}
+</style>
+
+<div class="card-grid">
+
+    {% for f in fournisseurs %}
+    <div class="card">
+        <h4>🏭 {{ f.nom }}</h4>
+
+        <div class="meta">📞 {{ f.telephone|default:"-" }}</div>
+        <div class="meta">📧 {{ f.email|default:"-" }}</div>
+        <div class="meta">📍 {{ f.adresse|default:"-" }}</div>
+
+        <div class="actions">
+            <a href="{% url 'fournisseur_update' f.id %}" class="btn btn-edit">Modifier</a>
+            <a href="#" class="btn btn-delete">Supprimer</a>
+        </div>
+    </div>
+    {% empty %}
+        <p>Aucun fournisseur enregistré</p>
+    {% endfor %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,27 @@
+{% load static %}
+
+<header class="dashboard-header-global">
+
+    <div class="dashboard-banner">
+        <img src="{% static 'images/logo_veto 1.png' %}" alt="Bannière clinique vétérinaire">
+
+        <div class="banner-overlay">
+            <div class="banner-content">
+                <!-- <h1>Bienvenue à Parcelles Veto 🐾</h1>
+                <p>Soin, consultation et suivi de vos animaux avec expertise</p> -->
+
+                <div class="banner-actions">
+                    <a href="{% url 'nouvelle_consultation' %}" class="btn-premium">
+                        <button class="btn-outline">Nouvelle consultation</button>
+                    </a>
+
+                    <a href="{% url 'rendez_vous_list' %}" class="btn-premium">
+                        <button class="btn-outline">Liste Rendez-Vous</button>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</header>

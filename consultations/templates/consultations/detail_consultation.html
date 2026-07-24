@@ -1,0 +1,221 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block content %}
+
+<style>
+
+/* ===== PAGE ===== */
+.page-title{
+    font-size: 18px;
+    font-weight: 700;
+    color:#1f6feb;
+    margin-bottom:15px;
+}
+
+/* ===== WRAPPER ===== */
+.detail-wrapper{
+    display:grid;
+    grid-template-columns: 2fr 1fr;
+    gap:20px;
+}
+
+/* ===== CARD ===== */
+.card{
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.08);
+    overflow:hidden;
+}
+
+.card-header{
+    padding:16px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff;
+    font-weight:600;
+}
+
+.card-body{
+    padding:20px;
+}
+
+/* ===== INFO ROW ===== */
+.info-row{
+    display:flex;
+    justify-content:space-between;
+    padding:10px 0;
+    border-bottom:1px solid #eee;
+    font-size:14px;
+}
+
+.info-label{
+    font-weight:600;
+    color:#555;
+}
+
+.info-value{
+    color:#222;
+}
+
+/* ===== BADGE ===== */
+.badge{
+    padding:6px 10px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.badge.en_cours{
+    background:#fff3cd;
+    color:#856404;
+}
+
+.badge.terminee{
+    background:#d4edda;
+    color:#155724;
+}
+
+.badge.annulee{
+    background:#f8d7da;
+    color:#721c24;
+}
+
+/* ===== SUMMARY ===== */
+.summary{
+    background:#fff;
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.06);
+}
+
+ /* Style général des boutons */
+.btn {
+        display: inline-block;
+        padding: 8px 14px;
+        margin-right: 35px; /* espace entre les boutons */
+        text-decoration: none; /* enlève le soulignement */
+        border-radius: 6px;
+        font-weight: 600;
+        color: #fff;
+}
+
+    /* Bouton Modifier en rouge */
+.btn-edit {
+        background-color: #dc3545;
+}
+
+.btn-edit:hover {
+        background-color: #bb2d3b;
+        text-decoration: none;
+}
+
+.btn-success {
+    background-color: #198754;
+}
+
+.btn-success:hover {
+    background-color: #157347;
+    text-decoration: none;
+}
+
+</style>
+
+<div class="page-title">
+    🩺 Détail de la consultation
+</div>
+
+<div class="detail-wrapper">
+
+    <!-- ================= LEFT ================= -->
+    <div class="card">
+
+        <div class="card-header">
+            Consultation #{{ consultation.id }}
+        </div>
+
+        <div class="card-body">
+
+            <div class="info-row">
+                <span class="info-label">Client</span>
+                <span class="info-value">{{ consultation.client.nom }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Téléphone</span>
+                <span class="info-value">{{ consultation.client.telephone }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Animal</span>
+                <span class="info-value">
+                    {{ consultation.animal.nom }} ({{ consultation.animal.espece }})
+                </span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Motif</span>
+                <span class="info-value">{{ consultation.motif }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Observations</span>
+                <span class="info-value">{{ consultation.observations|default:"-" }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Vétérinaire</span>
+                <span class="info-value">{{ consultation.veterinaire|default:"Non assigné" }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Date</span>
+                <span class="info-value">{{ consultation.date }}</span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ================= RIGHT ================= -->
+    <div class="summary">
+
+        <h4 style="color:#1f6feb;">Statut</h4>
+
+        <p>
+            {% if consultation.statut == "en_cours" %}
+                <span class="badge en_cours">En cours</span>
+            {% elif consultation.statut == "terminee" %}
+                <span class="badge terminee">Terminée</span>
+            {% else %}
+                <span class="badge annulee">Annulée</span>
+            {% endif %}
+        </p>
+
+        <hr>
+
+        <h4 style="color:#1f6feb;">Actions</h4>
+
+{% if consultation.statut != "terminee" %}
+<a href="{% url 'edit_consultation' consultation.id %}" class="btn btn-edit">
+    ✏ Modifier
+</a>
+{% endif %}
+
+{% if consultation.ordonnance %}
+    <a href="{% url 'ordonnance_detail' consultation.ordonnance.id %}" class="btn btn-success">
+        📋 Consulter l'ordonnance
+    </a>
+{% else %}
+    <a href="{% url 'ordonnance_create' consultation.id %}" class="btn btn-success">
+        ➕ Ajouter Ordonnance
+    </a>
+{% endif %}
+        
+        <!--{% if consultation.statut == "en_cours" %}
+        <a href="{% url 'terminer_consultation' consultation.id %}" class="btn"> ✔ Terminer</a>
+        {% endif %} -->
+
+    </div>
+
+</div>
+
+{% endblock %}

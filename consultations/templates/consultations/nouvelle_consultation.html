@@ -1,0 +1,559 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+.page-title{ font-size:18px; font-weight:700; margin-bottom:15px; color:#1f6feb; }
+.mode-switch{ display:flex; gap:10px; margin-bottom:20px; }
+.mode-btn{ flex:1; padding:12px; border-radius:12px; border:1px solid #ddd; cursor:pointer; text-align:center; font-weight:600; background:#fff; }
+.mode-btn.active.existing{ background:#1f6feb; color:#fff; border-color:#1f6feb; }
+.mode-btn.active.new{ background:#28a745; color:#fff; border-color:#28a745; }
+.wrapper{ display:grid; grid-template-columns:2fr 1fr; gap:20px; }
+.card{ background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); }
+.card-header{ padding:16px; background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff; font-weight:600; border-radius:16px 16px 0 0; }
+.card-body{ padding:20px; }
+.section{ margin-bottom:14px; }
+.section label{ display:block; font-size:.78rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; margin-bottom:5px; }
+.form-control,.form-select{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #e7ecf2; font-size:.9rem; margin-bottom:10px; }
+.row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.row-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.section-divider{ font-size:.75rem; font-weight:800; color:#1f6feb; margin:18px 0 10px; display:flex; align-items:center; gap:8px; }
+.section-divider::before,.section-divider::after{ content:''; flex:1; height:1px; background:#e7ecf2; }
+.btn-submit{ width:100%; padding:13px; border:none; border-radius:10px; background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff; font-weight:700; font-size:.95rem; cursor:pointer; }
+.hidden{ display:none; }
+
+.summary{ background:#fff; border-radius:16px; padding:20px; box-shadow:0 8px 20px rgba(0,0,0,0.06); position:sticky; top:20px; }
+.sum-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f4f8; font-size:.85rem; }
+.sum-label{ color:#7c8a9e; font-weight:600; }
+.sum-value{ font-weight:700; color:#1e2a3a; }
+
+/* Nouvel animal pour client existant */
+#newAnimalForClientForm {
+    background:#f8faff;
+    border:1px dashed #c0d3f5;
+    border-radius:12px;
+    padding:16px;
+    margin-bottom:14px;
+}
+</style>
+
+<div class="page-title">🩺 Nouvelle consultation vétérinaire</div>
+
+<div class="mode-switch">
+    <div class="mode-btn active existing" id="btnExisting" onclick="setMode('existing')">👤 Client existant</div>
+    <div class="mode-btn" id="btnNew" onclick="setMode('new')">➕ Nouveau client & animal</div>
+</div>
+
+<div class="wrapper">
+
+    <!-- FORM -->
+    <div class="card">
+        <div class="card-header">📋 Formulaire de consultation</div>
+        <div class="card-body">
+
+            <!-- EXISTING -->
+            <div id="existingMode">
+                <div class="section-divider">Client & Animal</div>
+
+                <div class="section">
+                    <label>Client</label>
+                    <select id="clientSelect" class="form-select">
+                        <option value="">-- Choisir un client --</option>
+                        {% for client in clients %}
+                        <option 
+                            value="{{ client.id }}"
+                            data-phone="{{ client.telephone }}"
+                            data-adresse="{{ client.adresse }}">
+                            {{ client.nom }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- AFFICHAGE CLIENT (séparé) -->
+                <div class="row-2">
+                    <div class="section">
+                        <label>Téléphone</label>
+                        <input class="form-control" id="clientPhone" readonly>
+                    </div>
+
+                    <div class="section">
+                        <label>Adresse</label>
+                        <input class="form-control" id="clientAdresse" readonly>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <label>Animal</label>
+                    <select id="animalSelect" class="form-select">
+                        <option value="">-- Sélectionner un animal --</option>
+                    </select>
+                </div>
+
+                <!-- MINI FORM : NOUVEL ANIMAL POUR CE CLIENT -->
+                <div id="newAnimalForClientForm" class="hidden">
+                    <div class="section-divider">🆕 Nouvel animal pour ce client</div>
+
+                    <div class="row-2">
+                        <div class="section">
+                            <label>Nom animal <span style="color:#b0bcc9; font-weight:400; text-transform:none;">(facultatif)</span></label>
+                            <input class="form-control" id="newAnimalForClientName" placeholder="Laisser vide si non nommé">
+                        </div>
+                        <div class="section">
+                            <label>Espèce</label>
+                            <select class="form-select" id="newAnimalForClientEspece">
+                                <option value="">-- Choisir --</option>
+                                <option value="Chien">🐕 Chien</option>
+                                <option value="Chat">🐈 Chat</option>
+                                <option value="Bovin">🐄 Bovin</option>
+                                <option value="Ovin">🐑 Ovin</option>
+                                <option value="Caprin">🐐 Caprin</option>
+                                <option value="Volaille">🐓 Volaille</option>
+                                <option value="Cheval">🐴 Cheval</option>
+                                <option value="Poisson">🐟 Poisson</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row-3">
+                        <div class="section">
+                            <label>Race</label>
+                            <select class="form-select" id="newAnimalForClientRace"></select>
+                        </div>
+                        <div class="section">
+                            <label>Sexe</label>
+                            <select class="form-select" id="newAnimalForClientSexe">
+                                <option value="M">Mâle</option>
+                                <option value="F">Femelle</option>
+                            </select>
+                        </div>
+                        <div class="section">
+                            <label>Poids /Kg</label>
+                            <input class="form-control" id="newAnimalForClientPoids">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEW -->
+            <div id="newMode" class="hidden">
+                <div class="section-divider">Nouveau client</div>
+
+                <div class="row-2">
+                    <div class="section">
+                        <label>Nom</label>
+                        <input class="form-control" id="newClientName">
+                    </div>
+
+                    <div class="section">
+                        <label>Téléphone</label>
+                        <input class="form-control" id="newClientPhone">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <label>Adresse</label>
+                    <input class="form-control" id="newClientAdresse">
+                </div>
+
+                <div class="section-divider">Animal</div>
+
+                <div class="row-2">
+                    <div class="section">
+                        <label>Nom animal</label>
+                        <input class="form-control" id="newAnimalName">
+                    </div>
+
+                    <div class="section">
+                        <label>Espèce</label>
+                        <select class="form-select" id="newAnimalEspece">
+    <option value="">-- Choisir --</option>
+    <option value="Chien">🐕 Chien</option>
+    <option value="Chat">🐈 Chat</option>
+    <option value="Bovin">🐄 Bovin</option>
+    <option value="Ovin">🐑 Ovin</option>
+    <option value="Caprin">🐐 Caprin</option>
+    <option value="Volaille">🐓 Volaille</option>
+    <option value="Cheval">🐴 Cheval</option>
+    <option value="Poisson">🐟 Poisson</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row-3">
+                    <div class="section">
+                        <label>Race</label>
+                        <select class="form-select" id="newAnimalRace"></select>
+                    </div>
+
+                    <div class="section">
+                        <label>Sexe</label>
+                        <select class="form-select" id="newAnimalSexe">
+                            <option value="M">Male</option>
+                            <option value="F">Femelle</option>
+                        </select>
+                    </div>
+
+                    <div class="section">
+                        <label>Poids /Kg</label>
+                        <input class="form-control" id="newAnimalPoids">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <label>Motif</label>
+                <input class="form-control" id="motif">
+            </div>
+            
+            <div class="section">
+                <label>Observations</label>
+                <input class="form-control" id="observations">
+            </div>
+
+            <div class="section">
+                <label>Lieu</label>
+                <select class="form-select" id="lieu">
+                    <option value="cabinet">🏥 Cabinet</option>
+                    <option value="domicile">🏠 Domicile</option>
+                </select>
+            </div>
+
+            <button class="btn-submit" id="submitBtn">✔ Créer</button>
+
+        </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="summary">
+        <h4>Résumé</h4>
+        <div class="sum-row"><span>Client</span><span id="sumClient">—</span></div>
+        <div class="sum-row"><span>Téléphone</span><span id="sumPhone">—</span></div>
+        <div class="sum-row"><span>Adresse</span><span id="sumAdresse">—</span></div>
+        <div class="sum-row"><span>Animal</span><span id="sumAnimal">—</span></div>
+        <div class="sum-row"><span>Espèce</span><span id="sumEspece">—</span></div>
+        <div class="sum-row"><span>Race</span><span id="sumRace">—</span></div>
+        <div class="sum-row"><span>Sexe</span><span id="sumSexe">—</span></div>
+        <div class="sum-row"><span>Poids</span><span id="sumPoids">—</span></div>
+        <div class="sum-row"><span>Lieu</span><span id="sumLieu">—</span></div>
+        <div class="sum-row"><span>Motif</span><span id="sumMotif">—</span></div>
+        <div class="sum-row"><span>Observations</span><span id="sumObservations">—</span></div>
+    </div>
+
+</div>
+
+<script>
+const races = {
+    "Chien":   ["Chien local","Berger allemand", "Berger belge Malinois", "Labrador","Rottweiler","Husky","Caniche","Autre"],
+    "Chat":    ["Siamois","Persan","Maine Coon","Bengal","Autre"],
+    "Bovin":   ["Gobra","Maure", "Djiakoré", "N'dama", "Zébu","Holstein","Autre"],
+    "Caprin":  ["Checre du Sahel", "Chevre naine d'Afrique de l'Ouest", "Chevre rousse de Maradi", "Boer","Alpine","Autre"],
+    "Ovin":    ["Ladoum", "Mouton Peul-Peul", "Touabir", "Mérinos","Suffolk","Autre"],
+    "Volaille":["Poulet local","poulet de chair (Broiler)","Pondeuse", "Oie", "Dinde", "Canard", "Pintade","Autre"],
+    "Cheval":  ["M'bayar", "Cheval du fleuve", "Barbe", "Pur-sang arabe","Autre"],
+    "Poisson": ["Tilapia","Silure","Autre"],
+    "Autre":   ["Autre"]
+};
+
+function setMode(mode){
+    document.getElementById("existingMode").classList.toggle("hidden", mode !== "existing");
+    document.getElementById("newMode").classList.toggle("hidden", mode !== "new");
+
+    document.getElementById("btnExisting").className =
+        "mode-btn" + (mode === "existing" ? " active existing" : "");
+
+    document.getElementById("btnNew").className =
+        "mode-btn" + (mode === "new" ? " active new" : "");
+
+    // reset résumé
+    ["sumClient","sumAnimal","sumEspece","sumRace","sumSexe","sumPoids","sumPhone","sumAdresse","sumObservations"]
+    .forEach(id => document.getElementById(id).textContent = "—");
+
+    // reset mini-form nouvel animal pour client existant
+    document.getElementById("newAnimalForClientForm").classList.add("hidden");
+}
+
+// CSRF
+function getCookie(name){
+    let v = null;
+    document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if(c.startsWith(name+'=')) v = decodeURIComponent(c.slice(name.length+1));
+    });
+    return v;
+}
+
+//
+// ======================
+// CLIENT EXISTANT
+// ======================
+document.getElementById("clientSelect").addEventListener("change", function(){
+
+    const opt = this.options[this.selectedIndex];
+
+    const phone = opt.dataset.phone || "—";
+    const adresse = opt.dataset.adresse || "—";
+
+    document.getElementById("sumClient").textContent = opt.text || "—";
+    document.getElementById("sumPhone").textContent = phone;
+    document.getElementById("sumAdresse").textContent = adresse;
+
+    document.getElementById("clientPhone").value = phone;
+    document.getElementById("clientAdresse").value = adresse;
+
+    // reset animaux + mini-form
+    const a = document.getElementById("animalSelect");
+    a.innerHTML = "<option value=''>-- choisir --</option>";
+    document.getElementById("newAnimalForClientForm").classList.add("hidden");
+
+    if (!this.value) return;
+
+    fetch(`/consultations/clients/${this.value}/animaux/`)
+    .then(r => r.json())
+    .then(data => {
+        data.forEach(x => {
+            a.innerHTML += `
+                <option value="${x.id}"
+                    data-espece="${x.espece}"
+                    data-race="${x.race}"
+                    data-sexe="${x.sexe}"
+                    data-poids="${x.poids}">
+                    ${x.nom} (${x.espece})
+                </option>`;
+        });
+        // Option pour ajouter un nouvel animal à ce client
+        a.innerHTML += `<option value="__new__">➕ Nouvel animal pour ce client</option>`;
+    });
+});
+
+//
+// ======================
+// ANIMAL EXISTANT / NOUVEL ANIMAL POUR CE CLIENT
+// ======================
+document.getElementById("animalSelect").addEventListener("change", function(){
+
+    const newAnimalForm = document.getElementById("newAnimalForClientForm");
+
+    if (this.value === "__new__") {
+        newAnimalForm.classList.remove("hidden");
+        // reset résumé animal, sera rempli par le mini-form
+        ["sumAnimal","sumEspece","sumRace","sumSexe","sumPoids"]
+            .forEach(id => document.getElementById(id).textContent = "—");
+        return;
+    }
+
+    newAnimalForm.classList.add("hidden");
+
+    const opt = this.options[this.selectedIndex];
+    if(!this.value) return;
+
+    document.getElementById("sumAnimal").textContent = opt.text || "—";
+    document.getElementById("sumEspece").textContent = opt.dataset.espece || "—";
+    document.getElementById("sumRace").textContent = opt.dataset.race || "—";
+    document.getElementById("sumSexe").textContent =
+        opt.dataset.sexe === "M" ? "Mâle" :
+        opt.dataset.sexe === "F" ? "Femelle" : "—";
+
+    document.getElementById("sumPoids").textContent =
+        opt.dataset.poids ? opt.dataset.poids + " kg" : "—";
+});
+
+//
+// ======================
+// ESPÈCE → RACE (NOUVEL ANIMAL POUR CLIENT EXISTANT)
+// ======================
+document.getElementById("newAnimalForClientEspece").addEventListener("change", function(){
+    const raceSelect = document.getElementById("newAnimalForClientRace");
+    raceSelect.innerHTML = "<option value=''>-- Race --</option>";
+
+    (races[this.value] || []).forEach(r => {
+        raceSelect.innerHTML += `<option value="${r}">${r}</option>`;
+    });
+
+    updateNewAnimalForClientSummary();
+});
+
+["newAnimalForClientName","newAnimalForClientRace","newAnimalForClientSexe","newAnimalForClientPoids"]
+.forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+        el.addEventListener("input", updateNewAnimalForClientSummary);
+        el.addEventListener("change", updateNewAnimalForClientSummary);
+    }
+});
+
+function updateNewAnimalForClientSummary(){
+    document.getElementById("sumAnimal").textContent =
+        document.getElementById("newAnimalForClientName").value || "—";
+
+    document.getElementById("sumEspece").textContent =
+        document.getElementById("newAnimalForClientEspece").value || "—";
+
+    document.getElementById("sumRace").textContent =
+        document.getElementById("newAnimalForClientRace").value || "—";
+
+    const sexe = document.getElementById("newAnimalForClientSexe").value;
+    document.getElementById("sumSexe").textContent =
+        sexe === "M" ? "Mâle" :
+        sexe === "F" ? "Femelle" : "—";
+
+    const poids = document.getElementById("newAnimalForClientPoids").value;
+    document.getElementById("sumPoids").textContent =
+        poids ? poids + " kg" : "—";
+}
+
+//
+// ======================
+// ESPÈCE → RACE (NOUVEAU CLIENT)
+// ======================
+document.getElementById("newAnimalEspece").addEventListener("change", function(){
+
+    const raceSelect = document.getElementById("newAnimalRace");
+    raceSelect.innerHTML = "<option value=''>-- Race --</option>";
+
+    (races[this.value] || []).forEach(r => {
+        raceSelect.innerHTML += `<option value="${r}">${r}</option>`;
+    });
+
+    document.getElementById("sumEspece").textContent = this.value || "—";
+});
+
+//
+// ======================
+// LIVE NEW CLIENT SUMMARY
+// ======================
+["newClientName","newAnimalName","newAnimalRace","newAnimalSexe","newAnimalPoids"]
+.forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+        el.addEventListener("input", updateNewSummary);
+        el.addEventListener("change", updateNewSummary);
+    }
+});
+
+function updateNewSummary(){
+
+    document.getElementById("sumClient").textContent =
+        document.getElementById("newClientName").value || "—";
+
+    document.getElementById("sumAnimal").textContent =
+        document.getElementById("newAnimalName").value || "—";
+
+    document.getElementById("sumRace").textContent =
+        document.getElementById("newAnimalRace").value || "—";
+
+    const sexe = document.getElementById("newAnimalSexe").value;
+    document.getElementById("sumSexe").textContent =
+        sexe === "M" ? "Mâle" :
+        sexe === "F" ? "Femelle" : "—";
+
+    const poids = document.getElementById("newAnimalPoids").value;
+    document.getElementById("sumPoids").textContent =
+        poids ? poids + " kg" : "—";
+}
+
+//
+// ======================
+// OBSERVATIONS
+// ======================
+document.getElementById("observations").addEventListener("input", function(){
+    document.getElementById("sumObservations").textContent = this.value || "—";
+});
+
+//
+// ======================
+// LIEU + MOTIF
+// ======================
+document.getElementById("lieu").addEventListener("change", function(){
+    document.getElementById("sumLieu").textContent =
+        this.options[this.selectedIndex].text;
+});
+
+document.getElementById("motif").addEventListener("input", function(){
+    document.getElementById("sumMotif").textContent = this.value || "—";
+});
+
+//
+// ======================
+// SUBMIT
+// ======================
+document.getElementById("submitBtn").addEventListener("click", async function(){
+
+    const isExisting = !document.getElementById("existingMode").classList.contains("hidden");
+    const isNewAnimalForClient = isExisting && document.getElementById("animalSelect").value === "__new__";
+
+    if(isExisting){
+        if(!document.getElementById("clientSelect").value){
+            alert("Sélectionnez un client"); return;
+        }
+        if(!document.getElementById("animalSelect").value){
+            alert("Sélectionnez un animal"); return;
+        }
+    } else {
+        if(!document.getElementById("newClientName").value){
+            alert("Nom client requis");
+            return;
+        }
+    }
+
+    const payload = {
+        mode: isExisting ? (isNewAnimalForClient ? "existing_new_animal" : "existing") : "new",
+        motif: document.getElementById("motif").value,
+        observations: document.getElementById("observations").value,
+        lieu: document.getElementById("lieu").value
+    };
+
+    if (isNewAnimalForClient) {
+        payload.client_id = document.getElementById("clientSelect").value;
+        payload.animal_nom = document.getElementById("newAnimalForClientName").value || "Non renseigné";
+        payload.animal_espece = document.getElementById("newAnimalForClientEspece").value;
+        payload.animal_race = document.getElementById("newAnimalForClientRace").value;
+        payload.animal_sexe = document.getElementById("newAnimalForClientSexe").value;
+        payload.animal_poids = document.getElementById("newAnimalForClientPoids").value;
+    } else if(isExisting){
+        payload.client_id = document.getElementById("clientSelect").value;
+        payload.animal_id = document.getElementById("animalSelect").value;
+    } else {
+        payload.client_nom = document.getElementById("newClientName").value;
+        payload.client_phone = document.getElementById("newClientPhone").value;
+        payload.client_adresse = document.getElementById("newClientAdresse").value;
+
+        payload.animal_nom =
+            document.getElementById("newAnimalName").value.trim() || "Non renseigné";
+        payload.animal_espece = document.getElementById("newAnimalEspece").value;
+        payload.animal_race = document.getElementById("newAnimalRace").value;
+        payload.animal_sexe = document.getElementById("newAnimalSexe").value;
+        payload.animal_poids = document.getElementById("newAnimalPoids").value;
+    }
+
+    this.disabled = true;
+    this.textContent = "⏳ Enregistrement...";
+
+    try {
+        const res = await fetch("/consultations/nouvelle/save/", {
+            method: "POST",
+            headers: {
+                "Content-Type":"application/json",
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if(res.ok){
+            window.location.href = `/consultations/${data.id}/`;
+        } else {
+            alert(data.error || "Erreur serveur");
+        }
+
+    } catch(e){
+        alert("Erreur réseau: " + e.message);
+    }
+
+    this.disabled = false;
+    this.textContent = "✔ Créer";
+});
+</script>
+
+{% endblock %}

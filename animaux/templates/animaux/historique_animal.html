@@ -1,0 +1,284 @@
+{% extends "base_dashboard.html" %}
+{% block content %}
+
+<style>
+/* ===== HEADER ANIMAL ===== */
+.animal-card {
+    background: linear-gradient(135deg, #1f6feb, #0d47a1);
+    color: #fff;
+    padding: 28px 30px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    box-shadow: 0 14px 32px rgba(31, 111, 235, 0.25);
+}
+
+.animal-identity { 
+    display: flex; 
+    align-items: center; 
+    gap: 18px; 
+}
+
+.animal-avatar {
+    width: 72px; 
+    height: 72px; 
+    border-radius: 18px;
+    background: rgba(255,255,255,.18);
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    font-size: 2.2rem; 
+    flex-shrink: 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+.animal-info h1 { 
+    margin: 0 0 6px; 
+    font-size: 1.85rem; 
+    font-weight: 800; 
+}
+
+.animal-info p { 
+    margin: 4px 0; 
+    font-size: .9rem; 
+    opacity: .92; 
+}
+
+.animal-stats {
+    display: flex; 
+    gap: 12px; 
+    flex-wrap: wrap;
+}
+
+/* ===== GRID & CARDS ===== */
+.wrapper { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 22px; 
+}
+
+.card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 20px rgba(15,40,80,.06);
+    padding: 0;
+    overflow: hidden;
+}
+
+.card-head {
+    display: flex; 
+    align-items: center; 
+    gap: 12px;
+    padding: 18px 22px;
+    border-bottom: 1px solid #f1f4f8;
+}
+
+.card-head .ic-pill {
+    width: 38px; 
+    height: 38px; 
+    border-radius: 12px;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    font-size: 1.25rem; 
+    flex-shrink: 0;
+}
+
+.card-head h3 { 
+    margin: 0; 
+    font-size: 1.05rem; 
+    font-weight: 700; 
+    color: #1e2a3a; 
+}
+
+/* Couleurs spécifiques */
+.card.consults .ic-pill { background: #e6f4ea; color: #28a745; }
+.card.rdv     .ic-pill { background: #fff3e0; color: #fd7e14; }
+.card.ordo    .ic-pill { background: #f3e8fd; color: #6f42c1; }
+
+/* Item */
+.item {
+    padding: 14px 16px;
+    border: 1px solid #eef2f7;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    transition: .15s;
+    display: flex; 
+    align-items: flex-start; 
+    gap: 14px;
+}
+
+.item:last-child { margin-bottom: 0; }
+.item:hover { 
+    background: #f8fbff; 
+    border-color: #dce8fb; 
+}
+
+.item .item-ic { 
+    font-size: 1.3rem; 
+    margin-top: 2px; 
+    flex-shrink: 0; 
+}
+
+.item .item-body { 
+    flex: 1; 
+    min-width: 0; 
+}
+
+.meta { 
+    font-size: .82rem; 
+    color: #7c8a9e; 
+    margin-top: 4px; 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    flex-wrap: wrap; 
+}
+
+.badge {
+    padding: 3px 11px;
+    font-size: .73rem;
+    font-weight: 700;
+    border-radius: 20px;
+}
+
+.empty-mini { 
+    text-align: center; 
+    padding: 40px 20px; 
+    color: #b0bcc9; 
+    font-size: .9rem; 
+}
+.empty-mini .ic { 
+    font-size: 2.2rem; 
+    margin-bottom: 8px; 
+    display: block; 
+}
+
+@media (max-width: 920px) {
+    .animal-card { flex-direction: column; align-items: flex-start; }
+    .animal-stats { justify-content: flex-start; }
+    .wrapper { grid-template-columns: 1fr; }
+}
+</style>
+
+<!-- ===== HEADER ANIMAL ===== -->
+<div class="animal-card">
+    <div class="animal-identity">
+        <div class="animal-avatar">🐾</div>
+        <div class="animal-info">
+            <h1>{{ animal.nom }}</h1>
+            <p>{{ animal.espece }} • {{ animal.race|default:"Race non renseignée" }}</p>
+            <p>Sexe : {{ animal.sexe|title }}</p>
+        </div>
+    </div>
+    
+    <div class="animal-stats">
+        <div class="stat-pill">
+            <div class="num">{{ consultations|length }}</div>
+            <div class="lbl">Consultations</div>
+        </div>
+        <div class="stat-pill">
+            <div class="num">{{ rendezvous|length }}</div>
+            <div class="lbl">Rendez-vous</div>
+        </div>
+        <div class="stat-pill">
+            <div class="num">{{ ordonnances|length }}</div>
+            <div class="lbl">Ordonnances</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CONTENT GRID ===== -->
+<div class="wrapper">
+
+    <!-- CONSULTATIONS -->
+    <div class="card consults">
+        <div class="card-head">
+            <div class="ic-pill">🩺</div>
+            <h3>Historique des Consultations</h3>
+        </div>
+        <div class="card-body">
+            {% for c in consultations %}
+            <div class="item">
+                <span class="item-ic">🩺</span>
+                <div class="item-body">
+                    <div class="link">{{ c.motif }}</div>
+                    <div class="meta">
+                        📅 {{ c.date|date:"d MMM yyyy" }}
+                        {% if c.veterinaire %} • Dr. {{ c.veterinaire }}{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-mini">
+                <span class="ic">🩺</span>
+                Aucune consultation enregistrée
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- RENDEZ-VOUS -->
+    <div class="card rdv">
+        <div class="card-head">
+            <div class="ic-pill">📅</div>
+            <h3>Rendez-vous</h3>
+        </div>
+        <div class="card-body">
+            {% for r in rendezvous %}
+            <div class="item">
+                <span class="item-ic">📅</span>
+                <div class="item-body">
+                    <div class="link">Rendez-vous</div>
+                    <div class="meta">
+                        <span>{{ r.date|date:"d MMM yyyy à H:i" }}</span>
+                        <span class="badge badge-{{ r.statut|lower }}">{{ r.statut }}</span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-mini">
+                <span class="ic">📅</span>
+                Aucun rendez-vous
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card ordo">
+    <div class="card-head">
+        <div class="ic-pill">💊</div>
+        <h3>Ordonnances</h3>
+    </div>
+
+    <div class="card-body">
+        {% for o in ordonnances %}
+        <div class="item">
+            <span class="item-ic">💊</span>
+
+            <div class="item-body">
+                
+                <!-- LIEN CLIQUABLE -->
+                <a class="link" href="{% url 'ordonnance_detail' o.id %}">
+                    Consultez Ordonnance #{{ o.id }}
+                </a>
+
+                <div class="meta">
+                    📅 {{ o.date_creation|date:"d/m/Y H:i" }}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-mini">
+            <span class="ic">💊</span>Aucune ordonnance
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+</div>
+
+{% endblock %}

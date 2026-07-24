@@ -1,0 +1,181 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block title %}Liste des médicaments{% endblock %}
+
+{% block content %}
+
+<style>
+/* ====== TON CSS INCHANGÉ ====== */
+.page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
+.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
+
+.search-card{
+    background:#fff;
+    padding:15px;
+    border-radius:14px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.06);
+    margin-bottom:15px;
+    display:flex;
+    gap:10px;
+}
+
+.search-card input{
+    flex:1;
+    padding:10px;
+    border-radius:10px;
+    border:1px solid #ddd;
+}
+
+.search-card button{
+    padding:10px 15px;
+    border:none;
+    border-radius:10px;
+    background:#1f6feb;
+    color:#fff;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.table-card {
+    background:#fff; border-radius:16px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.08);
+    overflow:hidden;
+}
+
+.table-card-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff;
+    font-weight:600;
+}
+
+.med-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+
+.med-table th {
+    background:#f4f7fb;
+    padding:11px 16px;
+    text-align:left;
+    font-size:.72rem;
+    text-transform:uppercase;
+    color:#7c8a9e;
+}
+
+.med-table td {
+    padding:12px 16px;
+    border-bottom:1px solid #f1f4f8;
+}
+
+.badge { padding:4px 10px; border-radius:20px; font-size:.75rem; }
+.badge-ok { background:#e6f4ea; color:#1e7e34; }
+.badge-alerte { background:#fff3e0; color:#e65100; }
+.badge-critique { background:#fce8e6; color:#c62828; }
+.badge-famille { background:#e8f0fe; color:#1f6feb; }
+
+.btn-add {
+    display: inline-block;
+    padding: 20px 20px;          /* réduit la hauteur et la largeur */
+    border-radius: 8px;
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;           
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.btn-add:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+</style>
+
+<!-- HEADER -->
+<div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+    <div>
+        <div class="page-title">💊 Médicaments</div>
+        <div class="page-sub">Gestion du stock pharmacie</div>
+    </div>
+    <a href="{% url 'medicament_create' %}" class="btn-add">➕ Ajouter Medicament</a>
+</div>
+
+<!-- 🔎 SEARCH -->
+<div class="search-card">
+    <input type="text" id="search" placeholder="Rechercher médicament...">
+
+    <select id="famille">
+        <option value="">Toutes familles</option>
+        {% for f in familles %}
+            <option value="{{ f.nom }}">{{ f.nom }}</option>
+        {% endfor %}
+    </select>
+
+    <button onclick="loadData()">🔍 Rechercher</button>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-card-header">📦 Stock pharmacie</div>
+
+    <table class="med-table">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Famille</th>
+                <th>Fournisseur</th>
+                <th>Stock</th>
+                <th>Prix</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+
+function loadData(){
+
+    let search = document.getElementById("search").value;
+    let famille = document.getElementById("famille").value;
+
+    fetch(`/pharmacie/api/medicaments/?search=${search}&famille=${famille}`)
+    .then(res => res.json())
+    .then(data => {
+
+        let html = "";
+
+        data.results.forEach(m => {
+
+            html += `
+                <tr>
+                    <td><b>${m.nom}</b></td>
+                    <td>${m.famille || "-"}</td>
+                    <td>${m.fournisseur || "-"}</td>
+                    <td>${m.stock}</td>
+                    <td>${m.prix} FCFA</td>
+                    <td>
+                        <span class="badge">
+                            ${m.statut}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        document.getElementById("tableBody").innerHTML = html;
+    });
+}
+
+// 🔥 recherche live
+document.getElementById("search").addEventListener("input", loadData);
+document.getElementById("famille").addEventListener("change", loadData);
+
+window.onload = loadData;
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,354 @@
+{% extends "base_dashboard.html" %}
+{% block content %}
+
+<div class="page-title">🐾 Liste des Clients et leurs Animaux</div>
+
+<style>
+.table-wrapper {
+    background:#fff;
+    border-radius:16px;
+    padding:22px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.06);
+}
+
+/* ===== TOP BAR ===== */
+.top-bar {
+    display:flex;
+    gap:12px;
+    margin-bottom:16px;
+    align-items:center;
+}
+.top-bar input,
+.top-bar select {
+    padding:11px 14px;
+    border:1.5px solid #e7ecf2;
+    border-radius:10px;
+    font-size:.86rem;
+    color:#1e2a3a;
+    background:#fafcff;
+    transition:border-color .15s, box-shadow .15s;
+}
+.top-bar input:focus,
+.top-bar select:focus {
+    outline:none; border-color:#1f6feb; background:#fff;
+    box-shadow:0 0 0 4px rgba(31,111,235,.1);
+}
+.top-bar input { flex:1; }
+
+/* ===== STATS + ACTIONS ROW ===== */
+.toolbar-row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+    gap:12px;
+}
+.stats-pills { display:flex; gap:10px; }
+.stat-pill {
+    background:#f4f7fb;
+    border-radius:12px;
+    padding:9px 16px;
+    font-size:.82rem;
+    font-weight:700;
+    color:#1e2a3a;
+    display:flex; align-items:center; gap:6px;
+}
+.stat-pill .num { color:#1f6feb; }
+
+.action-bar { display:flex; gap:10px; }
+.action-bar a {
+    padding:9px 16px;
+    border-radius:10px;
+    font-size:.82rem;
+    font-weight:700;
+    text-decoration:none;
+    display:inline-flex; align-items:center; gap:6px;
+    transition:opacity .15s;
+}
+.action-bar a:hover { opacity:.85; }
+.btn-excel { background:#e6f4ea; color:#1e7e34; }
+.btn-pdf   { background:#fce8e6; color:#c62828; }
+
+/* ===== TABLE ===== */
+.table-scroll { overflow-x:auto; border-radius:14px; }
+table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:.87rem;
+}
+thead th {
+    background:#f4f7fb;
+    color:#7c8a9e;
+    font-size:.72rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    padding:12px 14px;
+    text-align:left;
+    border-bottom:2px solid #e7ecf2;
+    white-space:nowrap;
+}
+tbody td {
+    padding:14px;
+    border-bottom:1px solid #f1f4f8;
+    color:#1e2a3a;
+    vertical-align:top;
+}
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover td { background:#f9fbff; }
+
+/* ===== CLIENT CELL ===== */
+.client-name {
+    font-weight:700;
+    color:#1e2a3a;
+    display:flex; align-items:center; gap:6px;
+}
+.client-meta { font-size:.78rem; color:#7c8a9e; margin-top:3px; }
+
+/* ===== ANIMAL LIST ===== */
+.animal-box {
+    padding:8px 10px;
+    margin-bottom:6px;
+    background:#f8fbff;
+    border:1px solid #eef2f7;
+    border-radius:10px;
+}
+.animal-box:last-child { margin-bottom:0; }
+.animal-name {
+    font-weight:700;
+    color:#1e2a3a;
+    font-size:.85rem;
+    display:flex; align-items:center; gap:5px;
+}
+.badge-row { margin-top:5px; display:flex; gap:5px; flex-wrap:wrap; }
+.badge {
+    display:inline-block;
+    padding:2px 9px;
+    border-radius:20px;
+    font-size:.68rem;
+    font-weight:700;
+}
+.badge-espece { background:#e8f0fe; color:#1f6feb; }
+.badge-race   { background:#f3e8fd; color:#6f42c1; }
+.badge-sexe   { background:#fff3e0; color:#e65100; }
+
+.no-animal { color:#b0bcc9; font-size:.82rem; font-style:italic; }
+
+/* ===== HISTORIQUE COLUMN ===== */
+.histo-col { min-width:140px; }
+.histo-link {
+    display:flex; align-items:center; gap:6px;
+    padding:7px 12px;
+    border-radius:9px;
+    background:#e8f0fe;
+    color:#1f6feb;
+    font-size:.78rem;
+    font-weight:700;
+    text-decoration:none;
+    margin-bottom:6px;
+    transition:all .15s;
+}
+.histo-link:last-child { margin-bottom:0; }
+.histo-link:hover { background:#1f6feb; color:#fff; }
+.histo-link.client-histo { background:#0f172a; color:#fff; }
+.histo-link.client-histo:hover { background:#1f6feb; }
+
+/* ===== PAGINATION ===== */
+.pagination {
+    margin-top:18px;
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+}
+.pagination button {
+    padding:8px 14px;
+    border:1.5px solid #e7ecf2;
+    background:#fff;
+    border-radius:9px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:.82rem;
+    color:#5a6a7e;
+    transition:all .15s;
+}
+.pagination button:hover { border-color:#1f6feb; color:#1f6feb; }
+.pagination button.active { background:#1f6feb; color:#fff; border-color:#1f6feb; }
+
+/* ===== EMPTY ===== */
+.empty-state { text-align:center; padding:50px 20px; color:#b0bcc9; }
+.empty-state .icon { font-size:2.8rem; margin-bottom:12px; }
+</style>
+
+<div class="table-wrapper">
+
+    <!-- SEARCH -->
+    <div class="top-bar">
+        <input type="text" id="search" placeholder="🔎 Client, téléphone, adresse, animal...">
+        <select id="espece">
+            <option value="">Toutes espèces</option>
+            <option value="Chien">Chien</option>
+            <option value="Chat">Chat</option>
+            <option value="Bovin">Bovin</option>
+            <option value="Ovin">Ovin</option>
+            <option value="Caprin">Caprin</option>
+            <option value="Volaille">Volaille</option>
+            <option value="Cheval">Cheval</option>
+        </select>
+    </div>
+
+    <!-- TOOLBAR : STATS + ACTIONS -->
+    <div class="toolbar-row">
+        <div class="stats-pills">
+            <div class="stat-pill">👤 Clients : <span class="num" id="totalClients">0</span></div>
+            <div class="stat-pill">🐾 Animaux : <span class="num" id="totalAnimaux">0</span></div>
+        </div>
+        <div class="action-bar">
+            <a href="/clients/export/excel/" class="btn-excel">📊 Excel</a>
+            <a href="/clients/export/pdf/" class="btn-pdf">🖨️ PDF</a>
+        </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-scroll">
+        <div id="tableContainer"></div>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+
+</div>
+
+<script>
+
+let page = 1;
+let timer = null;
+
+function loadData(){
+
+    const search = document.getElementById("search").value;
+    const espece = document.getElementById("espece").value;
+
+    fetch(`/clients/api/?search=${search}&espece=${espece}&page=${page}`)
+    .then(r => r.json())
+    .then(data => {
+
+        document.getElementById("totalClients").innerText = data.total_clients;
+        document.getElementById("totalAnimaux").innerText = data.total_animaux;
+
+        if (!data.results.length) {
+            document.getElementById("tableContainer").innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">🐾</div>
+                    <p style="font-weight:700; margin:0;">Aucun client trouvé</p>
+                    <p style="font-size:.85rem; margin:4px 0 0;">Essayez une autre recherche ou un autre filtre.</p>
+                </div>
+            `;
+            document.getElementById("pagination").innerHTML = "";
+            return;
+        }
+
+        let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Téléphone</th>
+                    <th>Adresse</th>
+                    <th>Animaux</th>
+                    <th class="histo-col">Historique</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        data.results.forEach(c => {
+
+            let animaux = "";
+            let histoAnimaux = "";
+
+            if (c.animaux.length) {
+                c.animaux.forEach(a => {
+                    animaux += `
+                        <div class="animal-box">
+                            <div class="animal-name">🐾 ${a.nom}</div>
+                            <div class="badge-row">
+                                <span class="badge badge-espece">${a.espece}</span>
+                                ${a.race ? `<span class="badge badge-race">${a.race}</span>` : ""}
+                                ${a.sexe ? `<span class="badge badge-sexe">${a.sexe}</span>` : ""}
+                            </div>
+                        </div>
+                    `;
+                    histoAnimaux += `
+                        <a class="histo-link" href="/animaux/${a.id}/historique/">
+                            📜 ${a.nom}
+                        </a>
+                    `;
+                });
+            } else {
+                animaux = `<span class="no-animal">Aucun animal</span>`;
+            }
+
+            html += `
+                <tr>
+                    <td>
+                        <div class="client-name">👤 ${c.nom}</div>
+                    </td>
+                    <td>${c.telephone || "-"}</td>
+                    <td>${c.adresse || "-"}</td>
+                    <td>${animaux}</td>
+                    <td class="histo-col">
+                        <a class="histo-link client-histo" href="/clients/${c.id}/historique/">
+                            📁 Dossier client
+                        </a>
+                        ${histoAnimaux}
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += "</tbody></table>";
+
+        document.getElementById("tableContainer").innerHTML = html;
+
+        renderPagination(data);
+    });
+}
+
+function renderPagination(data){
+
+    let html = "";
+
+    if(data.has_previous){
+        html += `<button onclick="changePage(${page-1})">⬅ Précédent</button>`;
+    }
+
+    html += `<button class="active">${page}</button>`;
+
+    if(data.has_next){
+        html += `<button onclick="changePage(${page+1})">Suivant ➡</button>`;
+    }
+
+    document.getElementById("pagination").innerHTML = html;
+}
+
+function changePage(p){
+    page = p;
+    loadData();
+}
+
+document.getElementById("search").addEventListener("input", function(){
+    clearTimeout(timer);
+    page = 1;
+    timer = setTimeout(loadData, 300);
+});
+
+document.getElementById("espece").addEventListener("change", function(){
+    page = 1;
+    loadData();
+});
+
+window.onload = loadData;
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,389 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% block title %}Nouvelle vente directe{% endblock %}
+
+{% block content %}
+<style>
+.page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#28a745; }
+.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
+
+.wrapper { display:grid; grid-template-columns:2fr 1fr; gap:24px; }
+
+.card { background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); margin-bottom:20px; }
+.card-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#28a745,#1e7e34);
+    color:#fff; font-weight:600; font-size:.95rem;
+    border-radius:16px 16px 0 0;
+    display:flex; align-items:center; gap:8px;
+}
+.card-header.blue { background:linear-gradient(135deg,#1f6feb,#0d47a1); }
+.card-body { padding:20px; }
+
+.form-group { margin-bottom:14px; }
+.form-group label { display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; margin-bottom:5px; }
+.form-control, .form-select {
+    width:100%; padding:10px 13px; border-radius:10px;
+    border:1px solid #e7ecf2; font-size:.9rem; color:#1e2a3a; background:#fff;
+}
+.form-control:focus, .form-select:focus { outline:none; border-color:#28a745; box-shadow:0 0 0 3px rgba(40,167,69,.1); }
+.form-control::placeholder { color:#b0bcc9; }
+
+.row-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+/* PANIER */
+.panier-card { background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); overflow:hidden; margin-bottom:20px; }
+.panier-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#28a745,#1e7e34);
+    color:#fff; font-weight:600;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.panier-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+.panier-table th {
+    background:#f4f7fb; color:#7c8a9e;
+    font-size:.72rem; font-weight:700; text-transform:uppercase;
+    padding:10px 16px; text-align:left; border-bottom:2px solid #e7ecf2;
+}
+.panier-table td { padding:11px 16px; border-bottom:1px solid #f1f4f8; vertical-align:middle; }
+.panier-table tfoot td { background:#f4f7fb; font-weight:700; border-top:2px solid #e7ecf2; padding:13px 16px; }
+
+.badge-med { display:inline-block; padding:3px 10px; border-radius:20px; background:#e6f4ea; color:#28a745; font-weight:700; font-size:.8rem; }
+.qty-input { width:70px; padding:5px 8px; border-radius:8px; border:1px solid #e7ecf2; text-align:center; font-weight:700; }
+.btn-remove { background:#fce8e6; color:#dc3545; border:none; border-radius:8px; padding:5px 10px; cursor:pointer; font-weight:700; transition:all .15s; }
+.btn-remove:hover { background:#dc3545; color:#fff; }
+
+/* ADD FORM */
+.add-form { background:#f8faff; border:1px dashed #b2d4b2; border-radius:12px; padding:16px; }
+.add-row { display:grid; grid-template-columns:2fr 1fr auto; gap:12px; align-items:end; }
+
+/* SUMMARY */
+.summary { background:#fff; border-radius:16px; box-shadow:0 8px 20px rgba(0,0,0,0.07); padding:20px; position:sticky; top:20px; }
+.summary h4 { font-size:.95rem; font-weight:700; color:#1e2a3a; margin-bottom:16px; }
+.sum-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f1f4f8; font-size:.84rem; }
+.sum-row:last-of-type { border-bottom:none; }
+.sum-label { color:#7c8a9e; font-weight:600; }
+.sum-value { font-weight:700; color:#1e2a3a; }
+.sum-total { font-size:1.25rem; color:#28a745; }
+.divider { border:none; border-top:1px solid #e7ecf2; margin:14px 0; }
+
+/* BUTTONS */
+.btn { padding:11px 22px; border-radius:10px; border:none; font-weight:700; font-size:.9rem; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition:opacity .2s; }
+.btn-success { background:linear-gradient(135deg,#28a745,#1e7e34); color:#fff; width:100%; justify-content:center; font-size:.95rem; }
+.btn-back    { background:#fff; color:#7c8a9e; border:1px solid #e7ecf2; }
+.btn:hover { opacity:.9; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+
+/* EMPTY */
+.empty-panier { text-align:center; padding:30px; color:#b0bcc9; }
+</style>
+
+<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+    <div>
+        <div class="page-title">🛒 Nouvelle vente directe</div>
+        <div class="page-sub">Vente de médicaments sans ordonnance</div>
+    </div>
+    <a href="{% url 'ventes_list' %}" class="btn btn-back">← Retour</a>
+</div>
+
+<div class="wrapper">
+
+    <!-- COLONNE PRINCIPALE -->
+    <div>
+
+        <!-- CLIENT (optionnel) -->
+        <div class="card">
+            <div class="card-header blue">👤 Client <span style="font-size:.8rem; font-weight:400; opacity:.8;">(optionnel)</span></div>
+            <div class="card-body">
+                <div class="row-2">
+                    <div class="form-group">
+                        <label>Client existant</label>
+                        <select class="form-select" id="clientSelect">
+                            <option value="">-- Anonyme / non référencé --</option>
+                            {% for c in clients %}
+                            <option value="{{ c.id }}" data-phone="{{ c.telephone }}">{{ c.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Téléphone</label>
+                        <input type="text" class="form-control" id="clientPhone" readonly placeholder="Auto-rempli">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AJOUTER MÉDICAMENT -->
+        <div class="card">
+            <div class="card-header">➕ Ajouter un médicament</div>
+            <div class="card-body">
+                <div class="add-form">
+                    <div class="add-row">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Médicament</label>
+                            <select class="form-select" id="medSelect">
+                                <option value="">-- Choisir --</option>
+                                {% for med in medicaments %}
+                                <option value="{{ med.id }}"
+                                    data-prix="{{ med.prix }}"
+                                    data-nom="{{ med.catalogue.nom }}"
+                                    data-stock="{{ med.stock }}">
+                                    {{ med.catalogue.nom }} — {{ med.prix|floatformat:0 }} FCFA (stock: {{ med.stock }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Quantité</label>
+                            <input type="number" class="form-control" id="qteInput" min="1" value="1">
+                        </div>
+                        <div style="padding-top:22px;">
+                            <button type="button" class="btn" style="background:#28a745; color:#fff; padding:10px 18px;" onclick="ajouterAuPanier()">
+                                ✔ Ajouter
+                            </button>
+                        </div>
+                    </div>
+                    <!-- STOCK HINT -->
+                    <div id="stockHint" style="margin-top:10px; font-size:.78rem; color:#7c8a9e; display:none;">
+                        📦 Stock disponible : <strong id="stockDispo">—</strong> unités
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANIER -->
+        <div class="panier-card">
+            <div class="panier-header">
+                🛒 Panier
+                <span style="font-size:.82rem; font-weight:400; opacity:.85;" id="pnbItems">0 article(s)</span>
+            </div>
+            <table class="panier-table">
+                <thead>
+                    <tr>
+                        <th>Médicament</th>
+                        <th style="text-align:center;">Qté</th>
+                        <th style="text-align:right;">Prix unit.</th>
+                        <th style="text-align:right;">Sous-total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="panierBody">
+                    <tr id="emptyRow">
+                        <td colspan="5">
+                            <div class="empty-panier">🛒 Panier vide — ajoutez des médicaments ci-dessus.</div>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" style="text-align:right; color:#7c8a9e; font-size:.85rem;">TOTAL</td>
+                        <td style="text-align:right; color:#28a745; font-size:1.1rem;" id="panierTotal">0 FCFA</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- RÉSUMÉ + VALIDATION -->
+    <div>
+        <div class="summary">
+            <h4>📋 Résumé</h4>
+
+            <div class="sum-row">
+                <span class="sum-label">Client</span>
+                <span class="sum-value" id="sumClient">Anonyme</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Articles</span>
+                <span class="sum-value" id="sumArticles">0</span>
+            </div>
+
+            <hr class="divider">
+
+            <div class="sum-row" style="padding:12px 0;">
+                <span class="sum-label" style="font-size:.9rem;">TOTAL</span>
+                <span class="sum-value sum-total" id="sumTotal">0 FCFA</span>
+            </div>
+
+            <hr class="divider">
+
+            <button id="btnValider" class="btn btn-success" onclick="validerVente()" disabled>
+                ✅ Valider la vente
+            </button>
+
+            <div style="text-align:center; margin-top:12px;">
+                <a href="{% url 'ventes_list' %}" style="font-size:.82rem; color:#7c8a9e; text-decoration:none;">Annuler</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ========================
+// ÉTAT DU PANIER
+// ========================
+let panier = []; // [{id, nom, prix, qte}]
+
+function getCookie(name) {
+    let v = null;
+    document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+    });
+    return v;
+}
+
+// ========================
+// CLIENT
+// ========================
+document.getElementById('clientSelect').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    document.getElementById('clientPhone').value = opt.dataset.phone || '';
+    document.getElementById('sumClient').textContent = opt.value ? opt.text.split('—')[0].trim() : 'Anonyme';
+});
+
+// ========================
+// STOCK HINT
+// ========================
+document.getElementById('medSelect').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const hint = document.getElementById('stockHint');
+    if (opt.value) {
+        document.getElementById('stockDispo').textContent = opt.dataset.stock;
+        hint.style.display = 'block';
+    } else {
+        hint.style.display = 'none';
+    }
+});
+
+// ========================
+// AJOUTER AU PANIER
+// ========================
+function ajouterAuPanier() {
+    const medSel = document.getElementById('medSelect');
+    const qte    = parseInt(document.getElementById('qteInput').value) || 1;
+    const opt    = medSel.options[medSel.selectedIndex];
+
+    if (!medSel.value) { alert('Sélectionnez un médicament'); return; }
+    if (qte < 1)       { alert('Quantité invalide'); return; }
+    if (qte > parseInt(opt.dataset.stock)) {
+        alert(`Stock insuffisant (disponible : ${opt.dataset.stock} unités)`); return;
+    }
+
+    // Si déjà dans le panier → augmenter qté
+    const exist = panier.find(p => p.id === medSel.value);
+    if (exist) {
+        exist.qte += qte;
+    } else {
+        panier.push({
+            id:   medSel.value,
+            nom:  opt.dataset.nom,
+            prix: parseFloat(opt.dataset.prix),
+            qte:  qte
+        });
+    }
+
+    medSel.value = '';
+    document.getElementById('qteInput').value = 1;
+    document.getElementById('stockHint').style.display = 'none';
+    renderPanier();
+}
+
+// ========================
+// RENDER PANIER
+// ========================
+function renderPanier() {
+    const tbody = document.getElementById('panierBody');
+    tbody.innerHTML = '';
+
+    if (panier.length === 0) {
+        tbody.innerHTML = `<tr id="emptyRow"><td colspan="5"><div class="empty-panier">🛒 Panier vide — ajoutez des médicaments ci-dessus.</div></td></tr>`;
+        document.getElementById('btnValider').disabled = true;
+        updateTotals();
+        return;
+    }
+
+    panier.forEach((item, i) => {
+        const sous = item.prix * item.qte;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="badge-med">${item.nom}</span></td>
+            <td style="text-align:center;">
+                <input type="number" class="qty-input" value="${item.qte}" min="1"
+                    onchange="changerQte(${i}, this.value)">
+            </td>
+            <td style="text-align:right;">${item.prix.toLocaleString('fr-FR')} FCFA</td>
+            <td style="text-align:right; font-weight:700; color:#28a745;">${sous.toLocaleString('fr-FR')} FCFA</td>
+            <td><button class="btn-remove" onclick="retirerDuPanier(${i})">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('btnValider').disabled = false;
+    updateTotals();
+}
+
+function changerQte(i, val) {
+    panier[i].qte = Math.max(1, parseInt(val) || 1);
+    renderPanier();
+}
+
+function retirerDuPanier(i) {
+    panier.splice(i, 1);
+    renderPanier();
+}
+
+function updateTotals() {
+    const total = panier.reduce((s, p) => s + p.prix * p.qte, 0);
+    const nb    = panier.reduce((s, p) => s + p.qte, 0);
+
+    document.getElementById('panierTotal').textContent = total.toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('sumTotal').textContent    = total.toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById('sumArticles').textContent = nb + ' article(s)';
+    document.getElementById('pnbItems').textContent    = panier.length + ' article(s)';
+}
+
+// ========================
+// VALIDER LA VENTE
+// ========================
+async function validerVente() {
+    if (panier.length === 0) { alert('Le panier est vide'); return; }
+
+    const btn = document.getElementById('btnValider');
+    btn.disabled = true;
+    btn.textContent = '⏳ Enregistrement...';
+
+    const payload = {
+        client_id: document.getElementById('clientSelect').value || null,
+        lignes: panier.map(p => ({ medicament_id: p.id, quantite: p.qte }))
+    };
+
+    try {
+        const res = await fetch("/ventes/directe/save/", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            window.location.href = `/ventes/${data.id}/`;
+        } else {
+            alert(data.error || 'Erreur serveur');
+            btn.disabled = false;
+            btn.textContent = '✅ Valider la vente';
+        }
+    } catch(e) {
+        alert('Erreur réseau : ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '✅ Valider la vente';
+    }
+}
+</script>
+{% endblock %}

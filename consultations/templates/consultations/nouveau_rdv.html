@@ -1,0 +1,414 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block title %}Nouveau rendez-vous{% endblock %}
+
+{% block content %}
+<style>
+.rdv-page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
+.rdv-page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:24px; }
+
+.rdv-wrapper { display:grid; grid-template-columns:1.4fr 1fr; gap:24px; align-items:start; }
+
+/* ===== FORM CARD ===== */
+.rdv-card {
+    background:#fff;
+    border-radius:18px;
+    box-shadow:0 10px 30px rgba(15,40,80,.07);
+    overflow:hidden;
+}
+.rdv-card-header {
+    padding:20px 26px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff;
+}
+.rdv-card-header h2 { font-size:1.05rem; font-weight:700; margin:0 0 2px; }
+.rdv-card-header p  { font-size:.8rem; opacity:.85; margin:0; }
+.rdv-card-body { padding:26px; }
+
+.rdv-section { margin-bottom:24px; }
+.rdv-section:last-child { margin-bottom:0; }
+.rdv-section-label {
+    display:flex; align-items:center; gap:8px;
+    font-size:.72rem; font-weight:700; text-transform:uppercase;
+    color:#7c8a9e; letter-spacing:.04em; margin-bottom:14px;
+}
+.rdv-section-label .num {
+    width:20px; height:20px; border-radius:50%;
+    background:#e8f0fe; color:#1f6feb;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.68rem; font-weight:800;
+}
+
+.rdv-row { display:grid; gap:14px; }
+.rdv-row.cols-2 { grid-template-columns:1fr 1fr; }
+.rdv-row.cols-3 { grid-template-columns:1.4fr 1fr 1fr; }
+
+.rdv-field label {
+    display:block; font-size:.75rem; font-weight:600;
+    color:#4a5a6e; margin-bottom:6px;
+}
+.rdv-field .optional { color:#b0bcc9; font-weight:400; text-transform:none; }
+.rdv-field input,
+.rdv-field select,
+.rdv-field textarea {
+    width:100%; padding:11px 14px; border-radius:10px;
+    border:1.5px solid #e7ecf2; font-size:.9rem; color:#1e2a3a;
+    background:#fafcff; transition:border-color .15s, box-shadow .15s;
+}
+.rdv-field input:focus,
+.rdv-field select:focus,
+.rdv-field textarea:focus {
+    outline:none; border-color:#1f6feb; background:#fff;
+    box-shadow:0 0 0 4px rgba(31,111,235,.1);
+}
+.rdv-field textarea { resize:vertical; min-height:80px; }
+
+/* lieu toggle */
+.lieu-toggle { display:flex; gap:10px; }
+.lieu-option {
+    flex:1; position:relative;
+}
+.lieu-option input { position:absolute; opacity:0; inset:0; cursor:pointer; }
+.lieu-option .lieu-card {
+    display:flex; align-items:center; gap:10px;
+    padding:13px 16px; border-radius:12px;
+    border:1.5px solid #e7ecf2; background:#fafcff;
+    font-size:.86rem; font-weight:600; color:#5a6a7e;
+    transition:all .15s; cursor:pointer;
+}
+.lieu-option .lieu-card .emoji { font-size:1.1rem; }
+.lieu-option input:checked + .lieu-card {
+    border-color:#1f6feb; background:#e8f0fe; color:#0d47a1;
+    box-shadow:0 0 0 4px rgba(31,111,235,.08);
+}
+
+.rdv-actions {
+    display:flex; justify-content:flex-end; gap:12px;
+    margin-top:28px; padding-top:22px; border-top:1px solid #f1f4f8;
+}
+.btn { padding:12px 22px; border-radius:11px; border:none; font-weight:700; font-size:.88rem; cursor:pointer; transition:opacity .2s; }
+.btn-ghost { background:#fff; color:#7c8a9e; border:1.5px solid #e7ecf2; }
+.btn-ghost:hover { background:#f4f7fb; }
+.btn-submit { background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff; box-shadow:0 8px 20px rgba(31,111,235,.3); }
+.btn-submit:hover { opacity:.92; }
+
+/* ===== PREVIEW (signature element) ===== */
+.preview-sticky { position:sticky; top:20px; }
+.preview-card {
+    background:#0f172a;
+    border-radius:18px;
+    padding:0;
+    color:#fff;
+    overflow:hidden;
+    box-shadow:0 14px 35px rgba(15,23,42,.25);
+}
+.preview-tab {
+    background:#1f6feb;
+    padding:8px 22px;
+    font-size:.68rem; font-weight:800; letter-spacing:.08em;
+    text-transform:uppercase; color:#fff;
+}
+.preview-body { padding:24px 26px 26px; }
+.preview-client-name {
+    font-size:1.25rem; font-weight:800; line-height:1.2;
+    margin-bottom:2px;
+    min-height:1.5em;
+}
+.preview-client-name.empty { color:#5a6a82; font-weight:600; font-size:1rem; }
+.preview-animal-line {
+    font-size:.85rem; color:#9fb3d1; margin-bottom:18px; min-height:1.2em;
+}
+.preview-divider { border:none; border-top:1px solid rgba(255,255,255,.1); margin:18px 0; }
+.preview-row { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
+.preview-row:last-child { margin-bottom:0; }
+.preview-row .ic { font-size:1rem; opacity:.8; margin-top:1px; }
+.preview-row .info-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:#7c8aa8; margin-bottom:2px; }
+.preview-row .info-value { font-size:.9rem; font-weight:600; color:#fff; }
+.preview-row .info-value.muted { color:#5a6a82; font-weight:400; }
+.preview-lieu-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700;
+    background:rgba(31,111,235,.18); color:#7eb2ff;
+}
+
+@media (max-width:900px) {
+    .rdv-wrapper { grid-template-columns:1fr; }
+    .rdv-row.cols-2, .rdv-row.cols-3 { grid-template-columns:1fr; }
+    .preview-sticky { position:static; }
+}
+</style>
+
+<div class="rdv-page-title">📅 Nouveau rendez-vous</div>
+<div class="rdv-page-sub">Enregistrer un rendez-vous client directement depuis le cabinet</div>
+
+<form method="post" id="rdvForm">
+    {% csrf_token %}
+    <div class="rdv-wrapper">
+
+        <!-- COLONNE FORMULAIRE -->
+        <div class="rdv-card">
+            <div class="rdv-card-header">
+                <h2>Fiche de rendez-vous</h2>
+                <p>Renseignez les informations du client et de l'animal</p>
+            </div>
+            <div class="rdv-card-body">
+
+                <!-- CLIENT / ANIMAL -->
+                <div class="rdv-section">
+                    <div class="rdv-section-label"><span class="num">1</span> Client &amp; animal</div>
+                    <div class="rdv-row cols-2" style="margin-bottom:14px;">
+                        <div class="rdv-field">
+                            <label>Nom du client</label>
+                            <input type="text" name="nom_client" id="nom_client" placeholder="Ex : Diaba Dioungue" required>
+                        </div>
+
+                    <div class="rdv-field">
+                        <label>Téléphone</label>
+                            <input type="text" name="telephone" id="telephone" placeholder="Ex : 77 123 45 67" required>
+                    </div>
+
+                        <div class="rdv-field">
+                            <label>Nom de l'animal <span class="optional">(facultatif)</span></label>
+                                <input
+                                    type="text"
+                                    name="nom_animal"
+                                    id="nom_animal"
+                                    value="Non précisé"
+                                    placeholder="Ex : Médor">
+                        </div>               
+                    </div>
+                    <div class="rdv-row cols-2">
+                        <div class="rdv-field">
+                            <label>Espèce</label>
+                            <select name="espece" id="espece" required>
+                                <option value="">-- Choisir une espèce --</option>
+                            </select>
+                        </div>
+                        <div class="rdv-field">
+                            <label>Race <span class="optional">(facultatif)</span></label>
+                            <select name="race" id="race" disabled>
+                                <option value="">-- Choisir d'abord une espèce --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DATE / HEURE -->
+                <div class="rdv-section">
+                    <div class="rdv-section-label"><span class="num">2</span> Date &amp; heure</div>
+                    <div class="rdv-row cols-2">
+                        <div class="rdv-field">
+                            <label>Date du rendez-vous</label>
+                            <input type="date" name="date" id="date" required>
+                        </div>
+                        <div class="rdv-field">
+                            <label>Heure</label>
+                            <input type="time" name="heure" id="heure" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MOTIF -->
+                <div class="rdv-section">
+                    <div class="rdv-section-label"><span class="num">3</span> Motif</div>
+                    <div class="rdv-field">
+                        <textarea name="motif" id="motif" placeholder="Ex : Contrôle vaccinal, suivi post-opératoire, consultation générale..." required></textarea>
+                    </div>
+                </div>
+
+                <!-- LIEU -->
+                <div class="rdv-section">
+                    <div class="rdv-section-label"><span class="num">4</span> Lieu du rendez-vous</div>
+                    <div class="lieu-toggle">
+                        <label class="lieu-option">
+                            <input type="radio" name="lieu" value="cabinet" id="lieu_cabinet" checked>
+                            <div class="lieu-card"><span class="emoji">🏥</span> Au cabinet</div>
+                        </label>
+                        <label class="lieu-option">
+                            <input type="radio" name="lieu" value="domicile" id="lieu_domicile">
+                            <div class="lieu-card"><span class="emoji">🏠</span> À domicile</div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ADRESSE -->
+                <div class="rdv-section">
+                    <div class="rdv-section-label"><span class="num">5</span> Adresse</div>
+                    <div class="rdv-field">
+                        <input type="text" name="adresse" id="adresse" placeholder="Ex : Parcelles Assainies U2, Thiès" required>
+                    </div>
+                </div>
+
+                <div class="rdv-actions">
+                    <a href="{% url 'rendez_vous_list' %}" class="btn btn-ghost">Annuler</a>
+                    <button type="submit" class="btn btn-submit">✔ Enregistrer le rendez-vous</button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- COLONNE APERÇU -->
+        <div class="preview-sticky">
+            <div class="preview-card">
+                <div class="preview-tab">Aperçu de la fiche</div>
+                <div class="preview-body">
+                    <div class="preview-client-name empty" id="prevClient">Nom du client</div>
+                    <div class="preview-row">
+    <span class="ic">📞</span>
+    <div>
+        <div class="info-label">Téléphone</div>
+        <div class="info-value muted" id="prevTelephone">À définir</div>
+    </div>
+</div>
+                    <div class="preview-animal-line" id="prevAnimal">Aucun animal renseigné</div>
+
+                    <hr class="preview-divider">
+
+                    <div class="preview-row">
+                        <span class="ic">📅</span>
+                        <div>
+                            <div class="info-label">Date &amp; heure</div>
+                            <div class="info-value muted" id="prevDate">À définir</div>
+                        </div>
+                    </div>
+                    <div class="preview-row">
+                        <span class="ic">📝</span>
+                        <div>
+                            <div class="info-label">Motif</div>
+                            <div class="info-value muted" id="prevMotif">À définir</div>
+                        </div>
+                    </div>
+                    <div class="preview-row">
+                        <span class="ic">📍</span>
+                        <div>
+                            <div class="info-label">Lieu</div>
+                            <div><span class="preview-lieu-pill" id="prevLieu">🏥 Au cabinet</span></div>
+                        </div>
+                    </div>
+                    <div class="preview-row">
+                        <span class="ic">🏠</span>
+                        <div>
+                            <div class="info-label">Adresse</div>
+                            <div class="info-value muted" id="prevAdresse">À définir</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</form>
+
+<script>
+const RACES = {{ races_json|safe }};
+
+const ESPECE_ICONS = {
+    "Chien":   "🐕",
+    "Chat":    "🐈",
+    "Bovin":   "🐄",
+    "Caprin":  "🐐",
+    "Ovin":    "🐑",
+    "Volaille":"🐔",
+    "Cheval":  "🐎",
+    "Poisson": "🐟",
+    "Autre":   "🐾"
+};
+
+const especeSelect = document.getElementById('espece');
+const raceSelect   = document.getElementById('race');
+
+// Remplir la liste des espèces au chargement
+Object.keys(RACES).forEach(espece => {
+    const opt = document.createElement('option');
+    opt.value = espece;
+    const icone = ESPECE_ICONS[espece] || "🐾";
+    opt.textContent = `${icone}  ${espece}`;
+    especeSelect.appendChild(opt);
+});
+
+function majRaces() {
+    const especeChoisie = especeSelect.value;
+    raceSelect.innerHTML = '';
+
+    if (!especeChoisie) {
+        raceSelect.disabled = true;
+        raceSelect.innerHTML = '<option value="">-- Choisir d\'abord une espèce --</option>';
+        return;
+    }
+
+    raceSelect.disabled = false;
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '-- Choisir une race --';
+    raceSelect.appendChild(placeholder);
+
+    RACES[especeChoisie].forEach(race => {
+        const opt = document.createElement('option');
+        opt.value = race;
+        opt.textContent = race;
+        raceSelect.appendChild(opt);
+    });
+}
+
+especeSelect.addEventListener('change', () => { majRaces(); maj(); });
+
+function val(id) { return document.getElementById(id).value.trim(); }
+
+function maj() {
+    const client = val('nom_client');
+    const animal = val('nom_animal');
+    const espece = val('espece');
+    const race   = val('race');
+    const date   = val('date');
+    const heure  = val('heure');
+    const motif  = val('motif');
+    const adresse = val('adresse');
+    const telephone = val('telephone');
+    const prevTel = document.getElementById('prevTelephone');
+          prevTel.textContent = telephone || 'À définir';
+          prevTel.classList.toggle('muted', !telephone);
+
+    const prevClient = document.getElementById('prevClient');
+    prevClient.textContent = client || 'Nom du client';
+    prevClient.classList.toggle('empty', !client);
+
+    const animalParts = [];
+    if (animal) animalParts.push(animal);
+    if (espece) animalParts.push(`${ESPECE_ICONS[espece] || ''} ${espece}`.trim());
+    if (race) animalParts.push(race);
+    document.getElementById('prevAnimal').textContent = animalParts.length
+        ? animalParts.join(' · ')
+        : 'Aucun animal renseigné';
+
+    const prevDate = document.getElementById('prevDate');
+    if (date && heure) {
+        const d = new Date(date + 'T' + heure);
+        const opts = { day:'2-digit', month:'long', year:'numeric' };
+        prevDate.textContent = d.toLocaleDateString('fr-FR', opts) + ' à ' + heure;
+        prevDate.classList.remove('muted');
+    } else {
+        prevDate.textContent = 'À définir';
+        prevDate.classList.add('muted');
+    }
+
+    const prevMotif = document.getElementById('prevMotif');
+    prevMotif.textContent = motif || 'À définir';
+    prevMotif.classList.toggle('muted', !motif);
+
+    const lieu = document.querySelector('input[name="lieu"]:checked').value;
+    document.getElementById('prevLieu').innerHTML = lieu === 'domicile'
+        ? '🏠 À domicile'
+        : '🏥 Au cabinet';
+
+    const prevAdresse = document.getElementById('prevAdresse');
+    prevAdresse.textContent = adresse || 'À définir';
+    prevAdresse.classList.toggle('muted', !adresse);
+}
+
+document.getElementById('rdvForm').addEventListener('input', maj);
+document.getElementById('rdvForm').addEventListener('change', maj);
+maj();
+</script>
+
+{% endblock %}

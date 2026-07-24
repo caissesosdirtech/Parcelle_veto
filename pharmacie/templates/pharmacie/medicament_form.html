@@ -1,0 +1,300 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block title %}Ajouter un médicament{% endblock %}
+
+{% block content %}
+<style>
+.page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
+.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:24px; }
+
+.wrapper { display:grid; grid-template-columns:2fr 1fr; gap:24px; }
+
+.card { background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); margin-bottom:20px; }
+.card-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff; font-weight:600; font-size:.95rem;
+    border-radius:16px 16px 0 0;
+    display:flex; align-items:center; gap:8px;
+}
+.card-body { padding:24px; }
+
+.section-divider {
+    font-size:.72rem; font-weight:800; color:#1f6feb;
+    text-transform:uppercase; letter-spacing:.05em;
+    margin:20px 0 14px;
+    display:flex; align-items:center; gap:8px;
+}
+.section-divider::before,
+.section-divider::after { content:''; flex:1; height:1px; background:#e7ecf2; }
+
+.form-group { margin-bottom:16px; }
+.form-group label {
+    display:block; font-size:.75rem; font-weight:700;
+    text-transform:uppercase; color:#7c8a9e; margin-bottom:6px;
+    letter-spacing:.03em;
+}
+.form-control, .form-select {
+    width:100%; padding:11px 14px;
+    border-radius:10px; border:1px solid #e7ecf2;
+    font-size:.9rem; color:#1e2a3a; background:#fff;
+    transition:border-color .2s, box-shadow .2s;
+}
+.form-control:focus, .form-select:focus {
+    outline:none; border-color:#1f6feb;
+    box-shadow:0 0 0 3px rgba(31,111,235,.1);
+}
+.form-control::placeholder { color:#b0bcc9; }
+
+.row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+.input-with-suffix { position:relative; }
+.input-with-suffix .form-control { padding-right:60px; }
+.input-suffix {
+    position:absolute; right:14px; top:50%; transform:translateY(-50%);
+    font-size:.8rem; font-weight:700; color:#7c8a9e;
+}
+
+.hint { font-size:.75rem; color:#b0bcc9; margin-top:4px; }
+
+.btn-submit {
+    width:100%; padding:13px; border:none; border-radius:10px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff; font-weight:700; font-size:.95rem; cursor:pointer;
+    transition:opacity .2s;
+}
+.btn-submit:hover { opacity:.9; }
+.btn-back {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:10px 16px; border-radius:10px;
+    border:1px solid #e7ecf2; background:#fff;
+    color:#7c8a9e; font-size:.85rem; font-weight:600;
+    text-decoration:none; transition:all .2s;
+}
+.btn-back:hover { border-color:#1f6feb; color:#1f6feb; }
+
+/* SUMMARY */
+.summary { background:#fff; border-radius:16px; box-shadow:0 8px 20px rgba(0,0,0,0.07); padding:20px; position:sticky; top:20px; }
+.summary h4 { font-size:.95rem; font-weight:700; color:#1e2a3a; margin-bottom:16px; }
+.sum-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f1f4f8; font-size:.84rem; }
+.sum-row:last-of-type { border-bottom:none; }
+.sum-label { color:#7c8a9e; font-weight:600; }
+.sum-value { font-weight:700; color:#1e2a3a; max-width:55%; text-align:right; word-break:break-word; }
+.divider { border:none; border-top:1px solid #e7ecf2; margin:16px 0; }
+
+/* STOCK INDICATOR */
+.stock-bar { height:6px; border-radius:3px; background:#e7ecf2; margin-top:8px; overflow:hidden; }
+.stock-fill { height:100%; border-radius:3px; background:#28a745; transition:width .4s; }
+</style>
+
+<div class="page-title">💊 Ajouter un médicament</div>
+<div class="page-sub">Enregistrement dans le stock pharmacie</div>
+
+<form method="post">
+{% csrf_token %}
+
+<div class="wrapper">
+
+    <!-- COLONNE PRINCIPALE -->
+    <div>
+
+        <!-- SECTION 1 : IDENTIFICATION -->
+        <div class="card">
+            <div class="card-header">📦 Identification du médicament</div>
+            <div class="card-body">
+
+                <div class="row-2">
+                    <div class="form-group">
+                        <label>Médicament</label>
+                        <select name="catalogue" class="form-select" required id="medSelect">
+                            <option value="">-- Choisir --</option>
+                            {% regroup catalogues by famille.nom as grouped %}
+                            {% for group in grouped %}
+                            <optgroup label="{{ group.grouper }}">
+                                {% for c in group.list %}
+                                <option value="{{ c.id }}">{{ c.nom }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Famille</label>
+                        <select name="famille" class="form-select" required id="familleSelect">
+                            <option value="">-- Choisir --</option>
+                            {% for f in familles %}
+                            <option value="{{ f.id }}">{{ f.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SECTION 2 : STOCK & PRIX -->
+        <div class="card">
+            <div class="card-header">💰 Stock & Tarification</div>
+            <div class="card-body">
+
+                <div class="row-3">
+                    <div class="form-group">
+                        <label>Stock initial</label>
+                        <div class="input-with-suffix">
+                            <input type="number" name="stock" class="form-control"
+                                min="0" value="0" required id="stockInput">
+                            <span class="input-suffix">unités</span>
+                        </div>
+                        <div class="stock-bar"><div class="stock-fill" id="stockBar" style="width:0%"></div></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Prix de vente</label>
+                        <div class="input-with-suffix">
+                            <input type="number" name="prix" class="form-control"
+                                min="0" required id="prixInput" placeholder="0">
+                            <span class="input-suffix">FCFA</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Seuil d'alerte</label>
+                        <div class="input-with-suffix">
+                            <input type="number" name="seuil_alerte" class="form-control"
+                                value="5" id="seuilInput">
+                            <span class="input-suffix">unités</span>
+                        </div>
+                        <p class="hint">Alerte si stock ≤ seuil</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+      <!-- SECTION FOURNISSEUR -->
+<div class="card">
+    <div class="card-header">🏭 Fournisseur <span style="font-size:.8rem;opacity:.7;">(optionnel)</span></div>
+
+    <div class="card-body">
+
+        <div class="row-2">
+
+            <div class="form-group">
+                <label>Nom du fournisseur</label>
+                <input type="text" name="fournisseur_nom" class="form-control"
+                       placeholder="Ex: PharmaVet Sénégal" id="foNom">
+            </div>
+
+            <div class="form-group">
+                <label>Téléphone</label>
+                <input type="text" name="fournisseur_contact" class="form-control"
+                       placeholder="+221 77 000 00 00">
+            </div>
+
+            <div class="form-group">
+                <label>Email (optionnel)</label>
+                <input type="email" name="fournisseur_email" class="form-control"
+                    placeholder="exemple@gmail.com">
+            </div>
+
+            <div class="form-group">
+                <label>Adresse</label>
+                <textarea name="fournisseur_adresse" class="form-control"
+                          placeholder="Adresse complète du fournisseur"></textarea>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+        <!-- ACTIONS -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+            <a href="{% url 'medicaments_list' %}" class="btn-back">← Liste des médicaments</a>
+            <button type="submit" class="btn-submit" style="width:auto; padding:13px 32px;">
+                💾 Enregistrer le médicament
+            </button>
+        </div>
+
+    </div>
+
+    <!-- RÉSUMÉ -->
+    <div>
+        <div class="summary">
+            <h4>📋 Résumé</h4>
+
+            <div class="sum-row">
+                <span class="sum-label">Médicament</span>
+                <span class="sum-value" id="sumNom">—</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Famille</span>
+                <span class="sum-value" id="sumFamille">—</span>
+            </div>
+
+            <hr class="divider">
+
+            <div class="sum-row">
+                <span class="sum-label">Stock initial</span>
+                <span class="sum-value" id="sumStock">0 unités</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Prix de vente</span>
+                <span class="sum-value" id="sumPrix">— FCFA</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Seuil alerte</span>
+                <span class="sum-value" id="sumSeuil">5 unités</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Valeur stock</span>
+                <span class="sum-value" id="sumValeur" style="color:#1f6feb;">— FCFA</span>
+            </div>
+
+            <hr class="divider">
+
+            <div class="sum-row">
+                <span class="sum-label">Fournisseur</span>
+                <span class="sum-value" id="sumFo">—</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+</form>
+
+<script>
+function updateSummary() {
+    const medOpt    = document.getElementById('medSelect');
+    const faOpt     = document.getElementById('familleSelect');
+    const stock     = parseInt(document.getElementById('stockInput').value) || 0;
+    const prix      = parseInt(document.getElementById('prixInput').value)  || 0;
+    const seuil     = parseInt(document.getElementById('seuilInput').value) || 5;
+    const foNom     = document.getElementById('foNom').value;
+
+    document.getElementById('sumNom').textContent     = medOpt.options[medOpt.selectedIndex]?.text || '—';
+    document.getElementById('sumFamille').textContent = faOpt.options[faOpt.selectedIndex]?.text   || '—';
+    document.getElementById('sumStock').textContent   = stock + ' unités';
+    document.getElementById('sumPrix').textContent    = prix ? prix.toLocaleString('fr-FR') + ' FCFA' : '— FCFA';
+    document.getElementById('sumSeuil').textContent   = seuil + ' unités';
+    document.getElementById('sumValeur').textContent  = prix && stock ? (prix * stock).toLocaleString('fr-FR') + ' FCFA' : '— FCFA';
+    document.getElementById('sumFo').textContent      = foNom || '—';
+
+    // Barre stock (max visuel = 100 unités)
+    const pct = Math.min(stock / 100 * 100, 100);
+    const bar = document.getElementById('stockBar');
+    bar.style.width = pct + '%';
+    bar.style.background = stock <= seuil ? '#dc3545' : stock <= seuil * 2 ? '#fd7e14' : '#28a745';
+}
+
+['medSelect','familleSelect','stockInput','prixInput','seuilInput','foNom']
+    .forEach(id => {
+        const el = document.getElementById(id);
+        el?.addEventListener('change', updateSummary);
+        el?.addEventListener('input',  updateSummary);
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,404 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% block title %}Rendez-vous{% endblock %}
+
+{% block content %}
+<style>
+.page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
+.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
+
+/* STATS */
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.stat-card {
+    background:#fff; border-radius:14px;
+    box-shadow:0 4px 16px rgba(0,0,0,0.07);
+    padding:16px 20px; display:flex; align-items:center; gap:14px;
+    border-left:4px solid transparent;
+}
+.stat-card.blue   { border-left-color:#1f6feb; }
+.stat-card.green  { border-left-color:#28a745; }
+.stat-card.orange { border-left-color:#fd7e14; }
+.stat-card.red    { border-left-color:#dc3545; }
+.stat-icon { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
+.stat-card.blue   .stat-icon { background:#e8f0fe; }
+.stat-card.green  .stat-icon { background:#e6f4ea; }
+.stat-card.orange .stat-icon { background:#fff3e0; }
+.stat-card.red    .stat-icon { background:#fce8e6; }
+.stat-label { font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; }
+.stat-value { font-size:1.35rem; font-weight:800; color:#1e2a3a; line-height:1.1; }
+
+/* FILTER */
+.filter-card { background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,0.06); padding:16px 20px; margin-bottom:20px; }
+.filter-row { display:grid; grid-template-columns:2fr 1fr 1fr auto auto; gap:12px; align-items:end; }
+.form-group label { display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; margin-bottom:5px; }
+.form-control, .form-select {
+    width:100%; padding:10px 13px; border-radius:10px;
+    border:1px solid #e7ecf2; font-size:.88rem; color:#1e2a3a;
+}
+.form-control:focus, .form-select:focus { outline:none; border-color:#1f6feb; box-shadow:0 0 0 3px rgba(31,111,235,.1); }
+
+/* TABLE */
+.table-card { background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); overflow:hidden; }
+.table-card-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff; font-weight:600;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.rdv-table { width:100%; border-collapse:collapse; font-size:.87rem; }
+.rdv-table th {
+    background:#f4f7fb; color:#7c8a9e;
+    font-size:.7rem; font-weight:700; text-transform:uppercase;
+    padding:11px 14px; text-align:left; border-bottom:2px solid #e7ecf2;
+    white-space:nowrap;
+}
+.rdv-table td { padding:12px 14px; border-bottom:1px solid #f1f4f8; color:#1e2a3a; vertical-align:middle; }
+.rdv-table tr:last-child td { border-bottom:none; }
+.rdv-table tr:hover td { background:#f9fbff; }
+
+.id-badge { display:inline-block; padding:3px 9px; border-radius:20px; background:#e8f0fe; color:#1f6feb; font-weight:700; font-size:.78rem; }
+
+.client-cell .nom { font-weight:700; color:#1e2a3a; }
+.client-cell .phone { font-size:.78rem; color:#7c8a9e; margin-top:2px; }
+
+.animal-cell .nom { font-weight:700; color:#1e2a3a; }
+.animal-cell .meta { font-size:.78rem; color:#7c8a9e; margin-top:2px; }
+
+.date-cell .date { font-weight:700; color:#1e2a3a; }
+.date-cell .heure { font-size:.78rem; color:#1f6feb; font-weight:600; margin-top:2px; }
+.date-cell .relative { font-size:.72rem; color:#b0bcc9; margin-top:1px; }
+
+/* BADGES */
+.badge { display:inline-block; padding:4px 11px; border-radius:20px; font-size:.74rem; font-weight:700; }
+.badge-attente  { background:#fff3e0; color:#e65100; }
+.badge-confirme { background:#e6f4ea; color:#1e7e34; }
+.badge-annule   { background:#fce8e6; color:#c62828; }
+.badge-termine  { background:#e8f0fe; color:#1f6feb; }
+
+.type-badge { display:inline-block; padding:3px 9px; border-radius:8px; font-size:.74rem; font-weight:600; }
+.type-cabinet  { background:#f3e8fd; color:#6f42c1; }
+.type-domicile { background:#fff3e0; color:#e65100; }
+
+/* ACTIONS */
+.btn-action { padding:6px 12px; border-radius:8px; border:none; font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; transition:all .15s; }
+.btn-view   { background:#e8f0fe; color:#1f6feb; }
+.btn-view:hover   { background:#1f6feb; color:#fff; }
+.btn-cancel { background:#fce8e6; color:#dc3545; }
+.btn-cancel:hover { background:#dc3545; color:#fff; }
+
+/* STATUT SELECT */
+.statut-select {
+    padding:6px 10px; border-radius:20px; border:none;
+    font-size:.78rem; font-weight:700; cursor:pointer;
+}
+.statut-select.statut-en_attente { background:#fff3e0; color:#e65100; }
+.statut-select.statut-confirme   { background:#e6f4ea; color:#1e7e34; }
+.statut-select.statut-annule     { background:#fce8e6; color:#c62828; }
+.statut-select.statut-termine    { background:#e8f0fe; color:#1f6feb; }
+
+/* BOUTON ADD */
+.btn-add { padding:10px 20px; border-radius:10px; border:none; background:linear-gradient(135deg,#28a745,#1e7e34); color:#fff; font-weight:700; font-size:.88rem; cursor:pointer; text-decoration:none; display:inline-block; }
+
+/* EMPTY */
+.empty-state { text-align:center; padding:50px; color:#b0bcc9; }
+.empty-state .icon { font-size:3rem; margin-bottom:12px; }
+
+/* ===== MODALE DETAIL RDV ===== */
+.modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(15,23,42,.55);
+    z-index:1000; align-items:center; justify-content:center; padding:20px;
+}
+.modal-overlay.active { display:flex; }
+.modal-card {
+    background:#fff; border-radius:18px; max-width:480px; width:100%;
+    box-shadow:0 25px 60px rgba(0,0,0,.25); overflow:hidden;
+    animation:modalIn .18s ease-out;
+}
+@keyframes modalIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.modal-header {
+    background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff;
+    padding:20px 24px; display:flex; justify-content:space-between; align-items:flex-start;
+}
+.modal-header h3 { margin:0 0 2px; font-size:1.1rem; font-weight:800; }
+.modal-header p { margin:0; font-size:.8rem; opacity:.85; }
+.modal-close { background:rgba(255,255,255,.15); border:none; color:#fff; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:1rem; line-height:1; }
+.modal-close:hover { background:rgba(255,255,255,.28); }
+.modal-body { padding:22px 24px; }
+.modal-row { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid #f1f4f8; }
+.modal-row:last-child { border-bottom:none; }
+.modal-row .ic { font-size:1.05rem; opacity:.75; margin-top:1px; }
+.modal-row .ml { font-size:.7rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; letter-spacing:.03em; margin-bottom:3px; }
+.modal-row .mv { font-size:.92rem; font-weight:600; color:#1e2a3a; }
+</style>
+
+<!-- HEADER -->
+<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+    <div>
+        <div class="page-title">📅 Rendez-vous</div>
+        <div class="page-sub">Tous les rendez-vous programmés</div>
+    </div>
+    <a href="{% url 'nouveau_rendez_vous' %}" class="btn-add">
+    ➕ Nouveau rendez-vous
+</a>
+</div>
+
+<!-- STATS -->
+<div class="stats-grid">
+    <div class="stat-card blue">
+        <div class="stat-icon">📅</div>
+        <div>
+            <div class="stat-label">Total</div>
+            <div class="stat-value">{{ rendezvous|length }}</div>
+        </div>
+    </div>
+    <div class="stat-card orange">
+        <div class="stat-icon">⏳</div>
+        <div>
+            <div class="stat-label">En attente</div>
+            <div class="stat-value">{{ nb_attente|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-icon">✅</div>
+        <div>
+            <div class="stat-label">Confirmés</div>
+            <div class="stat-value">{{ nb_confirme|default:0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-icon">❌</div>
+        <div>
+            <div class="stat-label">Annulés</div>
+            <div class="stat-value">{{ nb_annule|default:0 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- FILTRES -->
+<div class="filter-card">
+    <form method="GET">
+        <div class="filter-row">
+            <div class="form-group">
+                <label>Rechercher</label>
+                <input type="text" name="search" class="form-control" placeholder="Client, animal..." value="{{ request.GET.search }}">
+            </div>
+            <div class="form-group">
+                <label>Statut</label>
+                <select name="statut" class="form-select">
+                    <option value="">Tous</option>
+                    <option value="EN_ATTENTE" {% if request.GET.statut == "EN_ATTENTE" %}selected{% endif %}>En attente</option>
+                    <option value="CONFIRME"   {% if request.GET.statut == "CONFIRME" %}selected{% endif %}>Confirmé</option>
+                    <option value="ANNULE"     {% if request.GET.statut == "ANNULE" %}selected{% endif %}>Annulé</option>
+                    <option value="TERMINE"    {% if request.GET.statut == "TERMINE" %}selected{% endif %}>Terminé</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" name="date" class="form-control" value="{{ request.GET.date }}">
+            </div>
+            <button type="submit" style="padding:10px 20px; border-radius:10px; background:#1f6feb; color:#fff; border:none; font-weight:700; cursor:pointer;">🔍 Filtrer</button>
+            <a href="?" style="padding:10px 14px; border-radius:10px; border:1px solid #e7ecf2; background:#fff; color:#7c8a9e; font-weight:600; text-decoration:none;">✕</a>
+        </div>
+    </form>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-card-header">
+        <span>📋 Liste des rendez-vous</span>
+        <span style="font-size:.82rem; font-weight:400; opacity:.85;">{{ rendezvous|length }} résultat(s)</span>
+    </div>
+    <table class="rdv-table">
+        <thead>
+            <tr>
+                <th>N°</th>
+                <th>Client</th>
+                <th>Téléphone</th>
+                <th>Animal</th>
+                <th>Espèce / Race</th>
+                <th>Date & heure</th>
+                <th>Type</th>
+                <th>Motif</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rdv in rendezvous %}
+            <tr {% if rdv.date_rdv|date:"Y-m-d" == today|date:"Y-m-d" %}class="rdv-today"{% endif %}>
+                <td><span class="id-badge">#{{ rdv.id }}</span></td>
+
+                <td class="client-cell">
+                    <div class="nom">{{ rdv.animal.client.nom }}</div>
+                </td>
+
+                <td>
+    <div class="client-cell">
+        <div class="phone">
+            📞 {{ rdv.animal.client.telephone|default:"—" }}
+        </div>
+    </div>
+</td>
+
+                <td class="animal-cell">
+                    <div class="nom">{{ rdv.animal.nom }}</div>
+                </td>
+
+                <td class="animal-cell">
+                    <div class="meta">{{ rdv.animal.espece }}{% if rdv.animal.race %} — {{ rdv.animal.race }}{% endif %}</div>
+                </td>
+
+                <td class="date-cell">
+    <div class="date">
+        {{ rdv.date_rdv|date:"d/m/Y" }}
+
+        {% if rdv.date_rdv|date:"Y-m-d" == today|date:"Y-m-d" %}
+            <span class="today-badge">🔥 Aujourd'hui</span>
+        {% endif %}
+    </div>
+
+    <div class="heure">
+        🕐 {{ rdv.date_rdv|date:"H:i" }}
+    </div>
+</td>
+
+                <td>
+                    {% if rdv.type_rdv == "CABINET" %}
+                    <span class="type-badge type-cabinet">🏥 Cabinet</span>
+                    {% else %}
+                    <span class="type-badge type-domicile">🏠 Domicile</span>
+                    {% endif %}
+                </td>
+
+                <td style="color:#5a6a7e; max-width:180px;">
+                    {{ rdv.motif|truncatechars:40 }}
+                </td>
+
+                <td>
+                    <form method="post" action="{% url 'changer_statut_rdv' rdv.source|default:'classique' rdv.id %}" class="statut-form">
+                        {% csrf_token %}
+                        <select name="statut" class="statut-select statut-{{ rdv.statut|lower }}" onchange="this.form.submit()">
+                            <option value="EN_ATTENTE" {% if rdv.statut == "EN_ATTENTE" %}selected{% endif %}>⏳ En attente</option>
+                            <option value="CONFIRME"   {% if rdv.statut == "CONFIRME" %}selected{% endif %}>✅ Confirmé</option>
+                            <option value="ANNULE"     {% if rdv.statut == "ANNULE" %}selected{% endif %}>❌ Annulé</option>
+                            <option value="TERMINE"    {% if rdv.statut == "TERMINE" %}selected{% endif %}>🏁 Terminé</option>
+                        </select>
+                    </form>
+                </td>
+
+                <td>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn-action btn-view"
+                            onclick='ouvrirDetailRdv({
+                                "id": "{{ rdv.id }}",
+                                "client": "{{ rdv.animal.client.nom|escapejs }}",
+                                "telephone": "{{ rdv.animal.client.telephone|default:"—"|escapejs }}",
+                                "animal": "{{ rdv.animal.nom|escapejs }}",
+                                "espece": "{{ rdv.animal.espece|escapejs }}",
+                                "race": "{{ rdv.animal.race|default:""|escapejs }}",
+                                "date": "{{ rdv.date_rdv|date:"d/m/Y"|escapejs }}",
+                                "heure": "{{ rdv.date_rdv|date:"H:i"|escapejs }}",
+                                "motif": "{{ rdv.motif|escapejs }}",
+                                "type_rdv": "{{ rdv.type_rdv|escapejs }}",
+                                "adresse": "{% if rdv.source == "manuel" %}{{ rdv.adresse|default:"—"|escapejs }}{% else %}—{% endif %}",
+                                "statut": "{{ rdv.statut|escapejs }}"
+                            })'>👁️ Voir</button>
+                        <form method="post" action="{% url 'supprimer_rdv' rdv.source|default:'classique' rdv.id %}"
+                              onsubmit="return confirm('Supprimer définitivement ce rendez-vous ?')" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-action btn-cancel" style="border:none; cursor:pointer;">🗑 Supprimer</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="10">
+                    <div class="empty-state">
+                        <div class="icon">📅</div>
+                        <p style="font-weight:700; margin:0;">Aucun rendez-vous trouvé</p>
+                        <p style="font-size:.85rem; margin:4px 0 0;">Créez un nouveau rendez-vous pour commencer.</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- MODALE DETAIL -->
+<div class="modal-overlay" id="modalDetailRdv">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h3 id="modalClientNom">—</h3>
+                <p id="modalAnimalLigne">—</p>
+            </div>
+            <button class="modal-close" onclick="fermerDetailRdv()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-row">
+                <span class="ic">📅</span>
+                <div>
+                    <div class="ml">Date &amp; heure</div>
+                    <div class="mv" id="modalDate">—</div>
+                </div>
+            </div>
+            <div class="modal-row">
+                <span class="ic">📝</span>
+                <div>
+                    <div class="ml">Motif</div>
+                    <div class="mv" id="modalMotif">—</div>
+                </div>
+            </div>
+            <div class="modal-row">
+                <span class="ic">📍</span>
+                <div>
+                    <div class="ml">Lieu</div>
+                    <div class="mv" id="modalLieu">—</div>
+                </div>
+            </div>
+            <div class="modal-row">
+                <span class="ic">🏠</span>
+                <div>
+                    <div class="ml">Adresse</div>
+                    <div class="mv" id="modalAdresse">—</div>
+                </div>
+            </div>
+            <div class="modal-row">
+                <span class="ic">📞</span>
+                <div>
+                    <div class="ml">Téléphone</div>
+                    <div class="mv" id="modalTelephone">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function ouvrirDetailRdv(rdv) {
+    document.getElementById('modalClientNom').textContent = rdv.client;
+
+    const animalParts = [rdv.animal, rdv.espece, rdv.race].filter(Boolean);
+    document.getElementById('modalAnimalLigne').textContent = animalParts.join(' · ');
+
+    document.getElementById('modalDate').textContent = rdv.date + ' à ' + rdv.heure;
+    document.getElementById('modalMotif').textContent = rdv.motif || '—';
+    document.getElementById('modalLieu').textContent = rdv.type_rdv === 'CABINET' ? '🏥 Au cabinet' : '🏠 À domicile';
+    document.getElementById('modalAdresse').textContent = rdv.adresse || '—';
+    document.getElementById('modalTelephone').textContent = rdv.telephone || '—';
+
+    document.getElementById('modalDetailRdv').classList.add('active');
+}
+
+function fermerDetailRdv() {
+    document.getElementById('modalDetailRdv').classList.remove('active');
+}
+
+document.getElementById('modalDetailRdv').addEventListener('click', function(e) {
+    if (e.target === this) fermerDetailRdv();
+});
+</script>
+
+{% endblock %}

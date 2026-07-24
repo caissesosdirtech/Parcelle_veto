@@ -1,0 +1,318 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% block title %}Vente #{{ vente.id }}{% endblock %}
+
+{% block content %}
+<style>
+.page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
+.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
+
+.wrapper { display:grid; grid-template-columns:2fr 1fr; gap:24px; }
+
+.card { background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); margin-bottom:20px; }
+.card-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff; font-weight:600; font-size:.95rem;
+    border-radius:16px 16px 0 0;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.card-header.green { background:linear-gradient(135deg,#28a745,#1e7e34); }
+.card-body { padding:20px; }
+
+/* INFO GRID */
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.info-item label { display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; margin-bottom:3px; }
+.info-item span  { font-size:.9rem; font-weight:600; color:#1e2a3a; }
+
+/* TABLE */
+.vente-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+.vente-table th {
+    background:#f4f7fb; color:#7c8a9e;
+    font-size:.72rem; font-weight:700; text-transform:uppercase;
+    padding:11px 16px; text-align:left; border-bottom:2px solid #e7ecf2;
+}
+.vente-table td { padding:13px 16px; border-bottom:1px solid #f1f4f8; color:#1e2a3a; vertical-align:middle; }
+.vente-table tr:last-child td { border-bottom:none; }
+.vente-table tr:hover td { background:#f9fbff; }
+.vente-table tfoot td { background:#f4f7fb; font-weight:700; border-top:2px solid #e7ecf2; padding:14px 16px; }
+
+.badge-med { display:inline-block; padding:3px 10px; border-radius:20px; background:#e8f0fe; color:#1f6feb; font-weight:700; font-size:.8rem; }
+.qty-badge { display:inline-block; padding:3px 10px; border-radius:20px; background:#e6f4ea; color:#28a745; font-weight:700; font-size:.8rem; }
+
+/* SUMMARY */
+.summary { background:#fff; border-radius:16px; box-shadow:0 8px 20px rgba(0,0,0,0.07); padding:20px; position:sticky; top:20px; }
+.summary h4 { font-size:.95rem; font-weight:700; color:#1e2a3a; margin-bottom:16px; }
+.sum-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f1f4f8; font-size:.84rem; }
+.sum-row:last-of-type { border-bottom:none; }
+.sum-label { color:#7c8a9e; font-weight:600; }
+.sum-value { font-weight:700; color:#1e2a3a; }
+.sum-total { font-size:1.2rem; color:#28a745; }
+.divider { border:none; border-top:1px solid #e7ecf2; margin:16px 0; }
+
+/* BADGE TYPE */
+.badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700; }
+.badge-ordo   { background:#e6f4ea; color:#1e7e34; }
+.badge-direct { background:#fff3e0; color:#e65100; }
+
+/* BUTTONS */
+.btn { padding:10px 20px; border-radius:10px; border:none; font-weight:600; font-size:.88rem; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition:opacity .2s; }
+.btn-primary { background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff; }
+.btn-back    { background:#fff; color:#7c8a9e; border:1px solid #e7ecf2; }
+.btn:hover { opacity:.9; }
+
+/* PRINT */
+@media print {
+    .no-print { display:none !important; }
+    .wrapper  { grid-template-columns:1fr; }
+    .card     { box-shadow:none; border:1px solid #ddd; }
+
+    .print-header {
+        display:flex !important;
+        justify-content:space-between;
+        align-items:center;
+        border-bottom:2px solid #1f6feb;
+        padding-bottom:12px;
+        margin-bottom:20px;
+    }
+}
+.print-header { display:none; }
+
+/* ================= IMPRESSION ================= */
+@media print {
+
+    /* Cacher tout le dashboard */
+    .sidebar,
+    .dashboard-header-global,
+    .dashboard-footer,
+    header,
+    footer,
+    nav,
+    .no-print,
+    button,
+    a.btn {
+        display: none !important;
+    }
+
+    body,
+    .shell,
+    .main,
+    .content-wrapper {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        background: #fff !important;
+    }
+
+    /* Afficher seulement la partie principale */
+    .wrapper {
+        display: block !important;
+    }
+
+    .card,
+    .summary {
+        box-shadow: none !important;
+        border: 1px solid #ccc;
+        margin-bottom: 20px;
+    }
+
+    /* Afficher l'en-tête d'impression */
+    .print-header {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 10px;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
+}
+</style>
+
+<!-- PRINT HEADER -->
+<div class="print-header">
+    <h1>🐾 Parcelles Veto THIÈS</h1>
+    
+    <p>Historique des ventes</p>
+
+    <p>
+        Date d'impression : {% now "d/m/Y à H:i" %}
+    </p>
+
+    <p style="margin-top:6px; font-weight:600; color:#1e2a3a;">
+        📞 Tel: 775385729 / 768331623
+    </p>
+
+    <p style="font-weight:600; color:#1e2a3a;">
+        ✉️ Mail: parcelles-veto@gmail.com
+    </p>
+</div>
+
+<!-- HEADER PAGE -->
+<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;" class="no-print">
+    <div>
+        <div class="page-title">🧾 Vente #{{ vente.id }}</div>
+        <div class="page-sub">{{ vente.date|date:"d/m/Y à H:i" }} —
+            {% if vente.ordonnance %}
+            <span class="badge badge-ordo">Via ordonnance</span>
+            {% else %}
+            <span class="badge badge-direct">Vente directe</span>
+            {% endif %}
+        </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <button onclick="window.print()" class="btn btn-back">🖨️ Imprimer</button>
+        <a href="{% url 'ventes_list' %}" class="btn btn-back">← Retour</a>
+    </div>
+</div>
+
+<div class="wrapper">
+
+    <!-- COLONNE PRINCIPALE -->
+    <div>
+
+        <!-- INFO CLIENT / ANIMAL -->
+        {% if vente.ordonnance %}
+        <div class="card">
+            <div class="card-header">🩺 Consultation liée</div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Client</label>
+                        <span>{{ vente.ordonnance.consultation.client.nom }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Téléphone</label>
+                        <span>{{ vente.ordonnance.consultation.client.telephone|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Animal</label>
+                        <span>{{ vente.ordonnance.consultation.animal.nom }} ({{ vente.ordonnance.consultation.animal.espece }})</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Motif consultation</label>
+                        <span>{{ vente.ordonnance.consultation.motif|default:"—" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% elif vente.client %}
+        <div class="card">
+            <div class="card-header">👤 Client</div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Nom</label>
+                        <span>{{ vente.client.nom }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Téléphone</label>
+                        <span>{{ vente.client.telephone|default:"—" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- LIGNES DE VENTE -->
+        <div class="card">
+            <div class="card-header green">
+                💊 Médicaments vendus
+                <span style="font-size:.8rem; font-weight:400; opacity:.85;">{{ vente.lignes.count }} ligne(s)</span>
+            </div>
+            <div style="padding:0;">
+                <table class="vente-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Médicament</th>
+                            <th>Quantité</th>
+                            <th style="text-align:right;">Prix unitaire</th>
+                            <th style="text-align:right;">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ligne in vente.lignes.all %}
+                        <tr>
+                            <td style="color:#b0bcc9; font-weight:700;">{{ forloop.counter }}</td>
+                            <td><span class="badge-med">{{ ligne.medicament.catalogue.nom }}</span></td>
+                            <td><span class="qty-badge">× {{ ligne.quantite }}</span></td>
+                            <td style="text-align:right;">{{ ligne.prix_unitaire|floatformat:0 }} FCFA</td>
+                            <td style="text-align:right; font-weight:700; color:#28a745;">{{ ligne.montant_total|floatformat:0 }} FCFA</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" style="text-align:center; padding:40px; color:#b0bcc9;">
+                                Aucune ligne de vente.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align:right; color:#7c8a9e;">TOTAL</td>
+                            <td style="text-align:right; font-size:1.1rem; color:#28a745;">{{ vente.total|floatformat:0 }} FCFA</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RÉSUMÉ -->
+    <div class="no-print">
+        <div class="summary">
+            <h4>📋 Récapitulatif</h4>
+
+            <div class="sum-row">
+                <span class="sum-label">N° vente</span>
+                <span class="sum-value">#{{ vente.id }}</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Date</span>
+                <span class="sum-value">{{ vente.date|date:"d/m/Y" }}</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Heure</span>
+                <span class="sum-value">{{ vente.date|date:"H:i" }}</span>
+            </div>
+            <div class="sum-row">
+                <span class="sum-label">Type</span>
+                <span class="sum-value">
+                    {% if vente.ordonnance %}
+                    <span class="badge badge-ordo">Ordonnance</span>
+                    {% else %}
+                    <span class="badge badge-direct">Directe</span>
+                    {% endif %}
+                </span>
+            </div>
+
+            <hr class="divider">
+
+            <div class="sum-row">
+                <span class="sum-label">Nb. articles</span>
+                <span class="sum-value">{{ vente.lignes.count }}</span>
+            </div>
+            <div class="sum-row" style="padding:12px 0;">
+                <span class="sum-label" style="font-size:.9rem;">TOTAL</span>
+                <span class="sum-value sum-total">{{ vente.total|floatformat:0 }} FCFA</span>
+            </div>
+
+            <hr class="divider">
+
+            <button onclick="window.print()" class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:10px;">
+                🖨️ Imprimer le reçu
+            </button>
+            <a href="{% url 'ventes_list' %}" class="btn btn-back" style="width:100%; justify-content:center;">
+                ← Retour à la liste
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

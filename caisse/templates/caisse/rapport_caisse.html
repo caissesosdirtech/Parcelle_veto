@@ -1,0 +1,481 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% block title %}Historique des ventes{% endblock %}
+
+{% block content %}
+
+<style>
+.page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
+.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
+
+/* FILTER */
+.filter-card {
+    background:#fff;
+    border-radius:14px;
+    box-shadow:0 4px 16px rgba(0,0,0,0.06);
+    padding:18px 20px;
+    margin-bottom:24px;
+}
+
+.filter-row {
+    display:grid;
+    grid-template-columns:1fr 1fr auto auto;
+    gap:14px;
+    align-items:end;
+}
+
+.form-group label {
+    display:block;
+    font-size:.72rem;
+    font-weight:700;
+    text-transform:uppercase;
+    color:#7c8a9e;
+    margin-bottom:6px;
+}
+
+.form-control {
+    width:100%;
+    padding:10px 13px;
+    border-radius:10px;
+    border:1px solid #e7ecf2;
+}
+
+/* BUTTONS */
+.btn {
+    padding:10px 16px;
+    border-radius:10px;
+    border:none;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.btn-primary {
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff;
+}
+
+.btn-print {
+    background:#fff;
+    color:#7c8a9e;
+    border:1px solid #e7ecf2;
+}
+
+/* TABLE */
+.table-card {
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.08);
+    overflow:hidden;
+}
+
+.table-card-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff;
+    display:flex;
+    justify-content:space-between;
+}
+
+.caisse-table {
+    width:100%;
+    border-collapse:collapse;
+}
+
+.caisse-table th {
+    background:#f4f7fb;
+    padding:11px 16px;
+    font-size:.72rem;
+    text-transform:uppercase;
+    color:#7c8a9e;
+}
+
+.caisse-table td {
+    padding:13px 16px;
+    border-bottom:1px solid #f1f4f8;
+}
+
+.id-badge {
+    padding:3px 10px;
+    border-radius:20px;
+    background:#e8f0fe;
+    color:#1f6feb;
+    font-weight:700;
+}
+
+.montant-cell {
+    font-weight:700;
+    color:#28a745;
+}
+
+/* BADGES */
+.badge {
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:.75rem;
+    font-weight:700;
+}
+
+.badge-ordo { background:#e6f4ea; color:#1e7e34; }
+.badge-direct { background:#fff3e0; color:#e65100; }
+
+/* PRINT HEADER */
+.print-header {
+    display:none;
+}
+
+/* ================= PRINT ================= */
+@media print {
+
+    .print-total {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    }
+    body * {
+        visibility: hidden !important;
+    }
+    #printArea, #printArea * {
+        visibility: visible !important;
+    }
+    #printArea {
+        position:absolute;
+        left:0;
+        top:0;
+        width:100%;
+    }
+
+    /* Cacher éléments UI */
+    .stats-grid,
+    .no-print,
+    button,
+    .btn,
+    aside,
+    nav,
+    header,
+    footer {
+        display:none !important;
+    }
+
+    /* PRINT HEADER */
+    .print-header {
+        display:block !important;
+        text-align:center;
+        margin-bottom:20px;
+        border-bottom:2px solid #1f6feb;
+        padding-bottom:10px;
+    }
+    .print-header h1 {
+        font-size:20px;
+        margin:0;
+        color:#1f6feb;
+    }
+    .print-header p {
+        margin:3px 0;
+        color:#7c8a9e;
+    }
+
+    /* TABLE PRINT */
+    .table-card {
+        box-shadow:none !important;
+        border:1px solid #ddd !important;
+    }
+    .caisse-table th {
+        background:#eee !important;
+        -webkit-print-color-adjust: exact;
+    }
+
+    /* === TOTAL SEULEMENT SUR LA DERNIÈRE PAGE === */
+    tfoot.total-row {
+        display: none !important;
+    }
+
+    /* Cette règle est plus fiable que :last-of-type sur tfoot */
+    .caisse-table:last-of-type tfoot.total-row {
+        display: table-footer-group !important;
+    }
+
+    tr {
+        break-inside: avoid;
+    }
+    .caisse-table {
+        page-break-inside: auto;
+    }
+}
+
+/* ================= STATS SECTION ================= */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin: 25px 0;
+}
+
+/* CARD STATS */
+.stat-card {
+    background: linear-gradient(135deg, #ffffff, #f9fbff);
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.25s ease;
+    border-left: 4px solid transparent;
+}
+
+/* effet hover */
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.10);
+}
+
+/* ICON */
+.stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    background: #e8f0fe;
+}
+
+/* LABEL */
+.stat-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #7c8a9e;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+/* VALUE */
+.stat-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #1e2a3a;
+    line-height: 1.2;
+}
+
+/* ================= COULEURS DES CARDS ================= */
+.stat-card:nth-child(1) {
+    border-left-color: #28a745;
+}
+.stat-card:nth-child(1) .stat-icon {
+    background: #e6f4ea;
+    color: #28a745;
+}
+
+.stat-card:nth-child(2) {
+    border-left-color: #1f6feb;
+}
+.stat-card:nth-child(2) .stat-icon {
+    background: #e8f0fe;
+    color: #1f6feb;
+}
+
+.stat-card:nth-child(3) {
+    border-left-color: #fd7e14;
+}
+.stat-card:nth-child(3) .stat-icon {
+    background: #fff3e0;
+    color: #fd7e14;
+}
+
+.stat-card:nth-child(4) {
+    border-left-color: #6f42c1;
+}
+.stat-card:nth-child(4) .stat-icon {
+    background: #f3e8fd;
+    color: #6f42c1;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 992px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<!-- ZONE IMPRIMABLE -->
+<div id="printArea">
+
+<!-- HEADER IMPRESSION -->
+<div class="print-header">
+    <h1>🐾 Parcelles Veto THIÈS</h1>
+    
+    <p>Historique des ventes</p>
+
+    <p>
+        Date d'impression : {% now "d/m/Y à H:i" %}
+    </p>
+
+    <p style="margin-top:6px; font-weight:600; color:#1e2a3a;">
+        📞 Tel: 775385729 / 768331623
+    </p>
+
+    <p style="font-weight:600; color:#1e2a3a;">
+        ✉️ Mail: parcelles-veto@gmail.com
+    </p>
+</div>
+
+<!-- HEADER ÉCRAN -->
+<div class="no-print" style="display:flex;justify-content:space-between;margin-bottom:20px;">
+    <div>
+        <div class="page-title">💰 Historique des ventes</div>
+        <div class="page-sub">Toutes les transactions enregistrées</div>
+    </div>
+
+    <div style="display:flex; gap:10px;">
+        <a href="{% url 'vente_create' %}" class="btn-add"
+           style="padding:10px 16px;border-radius:10px;background:#1f6feb;color:#fff;text-decoration:none;">
+            ➕ Nouvelle vente
+        </a>
+
+        <button onclick="window.print()" class="btn btn-print">
+            🖨️ Imprimer
+        </button>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div>
+            <div class="stat-label">Total</div>
+            <div class="stat-value">{{ total_recettes|floatformat:0 }} FCFA</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">📅</div>
+        <div>
+            <div class="stat-label">Jour</div>
+            <div class="stat-value">{{ recettes_jour|floatformat:0 }} FCFA</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🧾</div>
+        <div>
+            <div class="stat-label">Ventes</div>
+            <div class="stat-value">{{ nombre_ventes }}</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div>
+            <div class="stat-label">Ticket</div>
+            <div class="stat-value">{{ ticket_moyen|floatformat:0 }} FCFA</div>
+        </div>
+    </div>
+</div>
+
+<!-- FILTER -->
+<div class="filter-card no-print">
+    <form method="get">
+        <div class="filter-row">
+            <div class="form-group">
+                <label>Date début</label>
+                <input type="date" name="date_debut" value="{{ date_debut }}" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label>Date fin</label>
+                <input type="date" name="date_fin" value="{{ date_fin }}" class="form-control">
+            </div>
+
+            <button class="btn btn-primary">Filtrer</button>
+            <a href="?" class="btn btn-print">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+
+<div class="table-card-header">
+    <span>🧾 Historique des ventes</span>
+    <span>{{ ventes|length }} vente(s)</span>
+</div>
+
+<table class="caisse-table">
+
+<thead>
+<tr>
+    <th>N°</th>
+    <th>Date</th>
+    <th>Client</th>
+    <th>Animal</th>
+    <th>Type</th>
+    <th style="text-align:right;">Montant</th>
+</tr>
+</thead>
+
+<tbody>
+{% for vente in ventes %}
+<tr>
+    <td><span class="id-badge">#{{ vente.id }}</span></td>
+    <td>{{ vente.date|date:"d/m/Y H:i" }}</td>
+
+    <td>
+        {% if vente.ordonnance %}
+            {{ vente.ordonnance.consultation.client.nom }}
+        {% elif vente.client %}
+            {{ vente.client.nom }}
+        {% else %}
+            Anonyme
+        {% endif %}
+    </td>
+
+    <td>
+        {% if vente.ordonnance %}
+            {{ vente.ordonnance.consultation.animal.nom }}
+        {% else %}
+            —
+        {% endif %}
+    </td>
+
+    <td>
+        {% if vente.ordonnance %}
+            <span class="badge badge-ordo">Ordonnance</span>
+        {% else %}
+            <span class="badge badge-direct">Directe</span>
+        {% endif %}
+    </td>
+
+    <td style="text-align:right;" class="montant-cell">
+        {{ vente.total|floatformat:0 }} FCFA
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+
+</table>
+
+<!-- TOTAL GÉNÉRAL - Version plus fiable -->
+{% if ventes %}
+<div class="print-total" style="margin-top:25px; text-align:right; font-size:1.15rem; padding-top:15px; border-top:3px solid #1f6feb;">
+    <strong>TOTAL GÉNÉRAL : 
+        <span style="color:#28a745;">{{ total_recettes|floatformat:0 }} FCFA</span>
+    </strong>
+</div>
+{% endif %}
+
+</table>
+
+</div>
+
+</div>
+
+{% endblock %}

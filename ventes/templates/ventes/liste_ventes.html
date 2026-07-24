@@ -1,0 +1,357 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% block title %}Historique des Ventes{% endblock %}
+
+{% block content %}
+<style>
+.page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
+.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
+
+/* STATS */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.stat-card {
+    background:#fff; border-radius:14px;
+    box-shadow:0 4px 16px rgba(0,0,0,0.07);
+    padding:16px 20px; display:flex; align-items:center; gap:14px;
+}
+.stat-icon { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
+.stat-icon.blue   { background:#e8f0fe; }
+.stat-icon.green  { background:#e6f4ea; }
+.stat-icon.purple { background:#f3e8fd; }
+.stat-icon.orange { background:#fff3e0; }
+.stat-label { font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; }
+.stat-value { font-size:1.35rem; font-weight:800; color:#1e2a3a; line-height:1.1; }
+
+/* SEARCH */
+.search-card { background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,0.06); padding:16px 20px; margin-bottom:20px; }
+.search-row  { display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:12px; align-items:end; }
+.form-group label { display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; margin-bottom:5px; }
+.form-control, .form-select {
+    width:100%; padding:10px 13px; border-radius:10px;
+    border:1px solid #e7ecf2; font-size:.88rem; color:#1e2a3a;
+}
+.form-control:focus, .form-select:focus { outline:none; border-color:#1f6feb; box-shadow:0 0 0 3px rgba(31,111,235,.1); }
+
+/* TABLE */
+.table-card { background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); overflow:hidden; }
+.table-card-header {
+    padding:14px 20px;
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff; font-weight:600;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.vente-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+.vente-table th {
+    background:#f4f7fb; color:#7c8a9e;
+    font-size:.72rem; font-weight:700; text-transform:uppercase;
+    padding:11px 16px; text-align:left; border-bottom:2px solid #e7ecf2;
+}
+.vente-table td { padding:13px 16px; border-bottom:1px solid #f1f4f8; vertical-align:middle; }
+.vente-table tr:last-child td { border-bottom:none; }
+.vente-table tr:hover td { background:#f9fbff; }
+.vente-table tfoot td { background:#f4f7fb; font-weight:700; border-top:2px solid #e7ecf2; }
+
+.id-badge { display:inline-block; padding:3px 10px; border-radius:20px; background:#e8f0fe; color:#1f6feb; font-weight:700; font-size:.8rem; }
+.montant-cell { font-weight:700; color:#1e2a3a; }
+.total-general { font-size:1rem; color:#1f6feb; }
+
+/* TYPE BADGE */
+.badge { display:inline-block; padding:4px 11px; border-radius:20px; font-size:.75rem; font-weight:700; }
+.badge-ordo   { background:#e6f4ea; color:#1e7e34; }
+.badge-direct { background:#fff3e0; color:#e65100; }
+
+/* ACTIONS */
+.btn-action { padding:6px 12px; border-radius:8px; border:none; font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; transition:all .15s; }
+.btn-view  { background:#e8f0fe; color:#1f6feb; }
+.btn-view:hover  { background:#1f6feb; color:#fff; }
+.btn-print { background:#f4f7fb; color:#7c8a9e; }
+.btn-print:hover { background:#7c8a9e; color:#fff; }
+
+/* BOUTON ADD */
+.btn-add { padding:10px 20px; border-radius:10px; border:none; background:linear-gradient(135deg,#28a745,#1e7e34); color:#fff; font-weight:700; font-size:.88rem; cursor:pointer; text-decoration:none; display:inline-block; }
+
+/* EMPTY */
+.empty-state { text-align:center; padding:50px; color:#b0bcc9; }
+.empty-state .icon { font-size:3rem; margin-bottom:12px; }
+
+@media print {
+
+    .sidebar,
+    .dashboard-header-global,
+    .dashboard-footer,
+    .search-card,
+    .stats-row,
+    .btn-add,
+    .btn-action,
+    button,
+    script {
+        display: none !important;
+    }
+
+    html,
+    body {
+        overflow: visible !important;
+        height: auto !important;
+        background: #fff !important;
+    }
+
+    .shell,
+    .main,
+    .content-wrapper {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    .table-card {
+        overflow: visible !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    .table-card-header {
+        background: none !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000;
+    }
+
+    table {
+        width: 100% !important;
+        page-break-inside: auto;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tfoot {
+    display: table-row-group;
+}
+
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+
+    .print-header {
+        display: block !important;
+        text-align: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 10px;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
+}    
+/* ================= PRINT HEADER ================= */
+
+.print-header {
+    display: none;
+}
+
+@media print {
+
+    .print-header {
+        display: block !important;
+        text-align: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #000;
+    }
+
+    .print-header h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: bold;
+        color: #000;
+        text-transform: uppercase;
+    }
+
+    .print-header p {
+        margin: 4px 0;
+        font-size: 13px;
+        color: #444;
+    }
+}
+</style>
+
+<!-- En-tête visible uniquement à l'impression -->
+<div class="print-header">
+    <h1>🐾 Parcelles Veto THIÈS</h1>
+    <p>Historique des ventes</p>
+    <p>Date d'impression : {% now "d/m/Y à H:i" %}</p>
+</div>
+
+<!-- HEADER -->
+<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+    <div>
+        <div class="page-title">💰 Historique des ventes</div>
+        <div class="page-sub">Toutes les transactions enregistrées</div>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="{% url 'vente_create' %}" class="btn-add">➕ Nouvelle vente</a>
+        <button onclick="window.print()" style="padding:10px 16px; border-radius:10px; border:1px solid #e7ecf2; background:#fff; color:#7c8a9e; font-weight:600; cursor:pointer;">🖨️ Imprimer</button>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-icon blue">💰</div>
+        <div>
+            <div class="stat-label">Total général</div>
+            <div class="stat-value" style="font-size:1rem;">{{ total_ventes|floatformat:0 }} FCFA</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">📅</div>
+        <div>
+            <div class="stat-label">Aujourd'hui</div>
+            <div class="stat-value" style="font-size:1rem;">{{ ventes_aujourdhui|floatformat:0 }} FCFA</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">🧾</div>
+        <div>
+            <div class="stat-label">Nb. ventes</div>
+            <div class="stat-value">{{ nb_ventes }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon orange">📊</div>
+        <div>
+            <div class="stat-label">Ticket moyen</div>
+            <div class="stat-value" style="font-size:1rem;">{{ ticket_moyen|floatformat:0 }} FCFA</div>
+        </div>
+    </div>
+</div>
+
+<!-- RECHERCHE -->
+<div class="search-card">
+    <form method="GET">
+        <div class="search-row">
+            <div class="form-group">
+                <label>Rechercher</label>
+                <input type="text" name="search" class="form-control" placeholder="Client, animal, ID..." value="{{ request.GET.search }}">
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select name="type" class="form-select">
+                    <option value="">Tous</option>
+                    <option value="ordonnance" {% if request.GET.type == "ordonnance" %}selected{% endif %}>Via ordonnance</option>
+                    <option value="direct"     {% if request.GET.type == "direct" %}selected{% endif %}>Vente directe</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" name="date" class="form-control" value="{{ request.GET.date }}">
+            </div>
+            <div style="display:flex; gap:8px; padding-bottom:0;">
+                <button type="submit" style="padding:10px 20px; border-radius:10px; background:#1f6feb; color:#fff; border:none; font-weight:700; cursor:pointer; white-space:nowrap;">🔍 Filtrer</button>
+                <a href="." style="padding:10px 14px; border-radius:10px; border:1px solid #e7ecf2; background:#fff; color:#7c8a9e; font-weight:600; text-decoration:none;">✕</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-card-header">
+        <span>🧾 Transactions</span>
+        <span style="font-size:.82rem; font-weight:400; opacity:.85;">{{ ventes|length }} résultat(s)</span>
+    </div>
+    <table class="vente-table">
+        <thead>
+            <tr>
+                <th>N°</th>
+                <th>Date & heure</th>
+                <th>Client</th>
+                <th>Animal</th>
+                <th>Type</th>
+                <th style="text-align:right;">Montant</th>
+                <th style="text-align:center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in ventes %}
+            <tr>
+                <td><span class="id-badge">#{{ v.id }}</span></td>
+                <td style="color:#7c8a9e;">{{ v.date|date:"d/m/Y à H:i" }}</td>
+                <td style="font-weight:600;">
+                    {% if v.ordonnance %}{{ v.ordonnance.consultation.client.nom }}
+                    {% elif v.client %}{{ v.client.nom }}
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if v.ordonnance %}{{ v.ordonnance.consultation.animal.nom }}
+                    {% else %}<span style="color:#b0bcc9;">—</span>{% endif %}
+                </td>
+                <td>
+                    {% if v.ordonnance %}
+                    <span class="badge badge-ordo">Ordonnance</span>
+                    {% else %}
+                    <span class="badge badge-direct">Directe</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:right;" class="montant-cell">{{ v.total|floatformat:0 }} FCFA</td>
+                <td style="text-align:center;">
+                    <a href="{% url 'vente_detail' v.id %}" class="btn-action btn-view">👁️ Voir</a>
+                    <button onclick="window.print()" class="btn-action btn-print">🖨️</button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7">
+                    <div class="empty-state">
+                        <div class="icon">🧾</div>
+                        <p style="font-weight:700; margin:0;">Aucune vente enregistrée</p>
+                        <p style="font-size:.85rem; margin:4px 0 16px;">Commencez par créer une nouvelle vente.</p>
+                        <a href="{% url 'vente_create' %}" class="btn-add">➕ Nouvelle vente</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </tbody>
+
+{% if ventes %}
+<tbody class="grand-total-row">
+    <tr>
+        <td colspan="5"
+            style="text-align:right;
+                   font-weight:700;
+                   background:#f4f7fb;
+                   border-top:2px solid #e7ecf2;">
+            TOTAL GÉNÉRAL
+        </td>
+        <td style="text-align:right;
+                   font-weight:700;
+                   color:#1f6feb;
+                   background:#f4f7fb;
+                   border-top:2px solid #e7ecf2;">
+            {{ total_ventes|floatformat:0 }} FCFA
+        </td>
+        <td style="background:#f4f7fb; border-top:2px solid #e7ecf2;"></td>
+    </tr>
+</tbody>
+{% endif %}
+    </table>
+</div>
+
+<script>
+// Recherche live (en complément du filtre serveur)
+document.querySelector('input[name="search"]')?.addEventListener('keyup', function(){
+    const f = this.value.toUpperCase();
+    document.querySelectorAll('.vente-table tbody tr').forEach(row => {
+        if(row.cells.length < 3) return;
+        row.style.display = row.textContent.toUpperCase().includes(f) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,351 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block content %}
+
+<style>
+:root{
+    --primary:#0d9488;
+    --primary-dark:#0f766e;
+    --bg:#f4f6f9;
+    --text:#1e2a3a;
+    --muted:#7c8a9e;
+    --line:#e7ecf2;
+    --danger:#e11d48;
+    --warn:#f59e0b;
+}
+
+/* ===== HEADER ===== */
+.page-title{
+    font-size:22px;
+    font-weight:900;
+    color:var(--primary);
+    margin-bottom:14px;
+}
+
+/* ===== KPI ===== */
+.kpi-grid{
+    display:flex;
+    flex-wrap:nowrap;      /* force une seule ligne */
+    gap:16px;
+    margin-bottom:22px;
+    overflow-x:auto;       /* scroll si petit écran */
+    padding-bottom:5px;
+}
+
+/* KPI CARD */
+.kpi{
+    flex:1;               /* toutes même largeur */
+    min-width:220px;      /* empêche écrasement */
+    background:#fff;
+    border-radius:18px;
+    padding:16px;
+    box-shadow:0 6px 20px rgba(0,0,0,0.06);
+    position:relative;
+    transition:.2s;
+}
+
+/* effet hover */
+.kpi:hover{
+    transform:translateY(-3px);
+}
+
+/* ICONE */
+.kpi-icon{
+    width:44px;
+    height:44px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.2rem;
+    color:#fff;
+    margin-bottom:10px;
+}
+
+/* couleurs */
+.kpi-icon.blue{ background:#1f6feb; }
+.kpi-icon.orange{ background:#f59e0b; }
+.kpi-icon.green{ background:#10b981; }
+.kpi-icon.purple{ background:#8b5cf6; }
+
+/* titre */
+.kpi h4{
+    font-size:.75rem;
+    color:#7c8a9e;
+    text-transform:uppercase;
+    margin-bottom:6px;
+}
+
+/* valeur */
+.kpi .value{
+    font-size:1.6rem;
+    font-weight:900;
+    color:#1e2a3a;
+}
+
+/* ===== TOP BAR ===== */
+.top-bar{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:16px;
+}
+
+.search{
+    flex:1;
+    padding:10px 14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    outline:none;
+}
+
+.search:focus{
+    border-color:var(--primary);
+    box-shadow:0 0 0 3px rgba(13,148,136,0.15);
+}
+
+.btn{
+    padding:10px 14px;
+    border-radius:12px;
+    font-weight:700;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+
+.btn-primary{
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    color:#fff;
+}
+
+.btn-primary:hover{ opacity:.9; }
+
+/* ===== CARD ===== */
+.card{
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.05);
+    overflow:hidden;
+}
+
+.card-header{
+    padding:14px 18px;
+    font-weight:800;
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    color:#fff;
+}
+
+/* ===== TABLE ===== */
+.table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.table th{
+    text-align:left;
+    font-size:.72rem;
+    text-transform:uppercase;
+    color:var(--muted);
+    padding:12px;
+    border-bottom:1px solid var(--line);
+}
+
+.table td{
+    padding:12px;
+    border-bottom:1px solid #f1f4f8;
+    font-size:.9rem;
+}
+
+.table tr:hover{
+    background:#f9fafb;
+}
+
+/* ===== BADGES ===== */
+.badge{
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:.75rem;
+    font-weight:800;
+}
+
+.badge.en-cours{
+    background:#fef6e7;
+    color:#b45309;
+}
+
+.badge.terminee{
+    background:#e6f7f5;
+    color:var(--primary);
+}
+
+/* ===== ACTION BUTTON ===== */
+.btn-view{
+    background:var(--primary);
+    color:#fff;
+    padding:6px 10px;
+    border-radius:10px;
+    font-size:.78rem;
+}
+
+.btn-view:hover{
+    opacity:.9;
+}
+
+/* ===== EMPTY ===== */
+.empty{
+    text-align:center;
+    padding:26px;
+    color:var(--muted);
+}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:900px){
+    .kpi-grid{ grid-template-columns:repeat(2,1fr); }
+    .top-bar{ flex-direction:column; }
+}
+</style>
+
+<div class="page-title">🩺 Consultations vétérinaires</div>
+
+<!-- ================= KPI ================= -->
+<div class="kpi-grid">
+
+    <div class="kpi">
+        <div class="kpi-icon blue">
+            <i class="fa-solid fa-stethoscope"></i>
+        </div>
+        <h4>Total consultations</h4>
+        <div class="value">{{ total }}</div>
+    </div>
+
+    <div class="kpi">
+        <div class="kpi-icon orange">
+            <i class="fa-solid fa-clock"></i>
+        </div>
+        <h4>En cours</h4>
+        <div class="value">{{ en_cours }}</div>
+    </div>
+
+    <div class="kpi">
+        <div class="kpi-icon green">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <h4>Terminées</h4>
+        <div class="value">{{ terminees }}</div>
+    </div>
+
+   <div class="kpi">
+    <div class="kpi-icon purple">
+        <i class="fa-solid fa-calendar-day"></i>
+    </div>
+
+    <h4>Consultations du jour</h4>
+
+    <div class="value">
+        {{ consultations_jour|default:0 }}
+    </div>
+</div>
+
+</div>
+
+<!-- ================= TOP BAR ================= -->
+<div class="top-bar">
+
+    <form method="GET" style="flex:1; display:flex; gap:10px;">
+
+        <input
+            type="text"
+            name="search"
+            value="{{ search }}"
+            class="search"
+            placeholder="🔎 Client, animal, espèce, motif..."
+        >
+
+        <button class="btn btn-primary" type="submit">
+            🔍 Rechercher
+        </button>
+
+        {% if search %}
+        <a href="." class="btn" style="background:#eee; color:#333;">
+            ✕ Reset
+        </a>
+        {% endif %}
+
+    </form>
+
+    <a href="/consultations/nouvelle/" class="btn btn-primary">
+        ➕ Nouvelle consultation
+    </a>
+
+</div>
+
+<!-- ================= TABLE ================= -->
+<div class="card">
+    <div class="card-header">
+        📋 Liste des consultations
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Animal</th>
+                <th>Espèce</th>
+                <th>Motif</th>
+                <th>Statut</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody>
+        {% for c in consultations %}
+            <tr>
+                <td>{{ c.date }}</td>
+                <td>{{ c.animal.client.nom }}</td>
+                <td><strong>{{ c.animal.nom }}</strong></td>
+                <td>{{ c.animal.espece }}</td>
+                <td>{{ c.motif }}</td>
+                <td>
+    {% if c.statut == "terminee" %}
+        <span class="badge terminee">
+            ✅ Terminée
+        </span>
+    {% elif c.statut == "en_cours" %}
+        <span class="badge en-cours">
+            ⏳ En cours
+        </span>
+    {% else %}
+        <span class="badge en-cours">
+            {{ c.statut }}
+        </span>
+    {% endif %}
+</td>
+                <td>
+                    <a href="/consultations/{{ c.id }}/" class="btn-view">Voir</a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="7" class="empty">
+                    Aucune consultation enregistrée
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.querySelector(".search").addEventListener("keyup", function () {
+    const value = this.value.toLowerCase();
+    document.querySelectorAll(".table tbody tr").forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(value)
+            ? ""
+            : "none";
+    });
+});
+</script>
+{% endblock %}

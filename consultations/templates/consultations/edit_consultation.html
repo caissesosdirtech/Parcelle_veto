@@ -1,0 +1,31 @@
+{% extends "base_dashboard.html" %}
+
+{% block content %}
+
+<div class="container">
+
+<h2>✏ Modifier consultation</h2>
+
+<form method="POST">
+    {% csrf_token %}
+
+    <label>Motif</label>
+    <input type="text" name="motif" value="{{ consultation.motif }}" class="form-control">
+
+    <label>Observations</label>
+    <textarea name="observations" class="form-control">{{ consultation.observations }}</textarea>
+
+    <label>Lieu</label>
+    <select name="lieu" class="form-control">
+        <option value="cabinet" {% if consultation.lieu == "cabinet" %}selected{% endif %}>Cabinet</option>
+        <option value="domicile" {% if consultation.lieu == "domicile" %}selected{% endif %}>Domicile</option>
+    </select>
+
+    <br>
+
+    <button class="btn btn-primary">Enregistrer</button>
+</form>
+
+</div>
+
+{% endblock %}

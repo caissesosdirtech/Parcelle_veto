@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial;
+            font-size: 14px;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #1f6feb;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header h2 {
+            margin: 0;
+            color: #1f6feb;
+        }
+
+        .info {
+            margin-bottom: 20px;
+        }
+
+        .info p {
+            margin: 4px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background: #f4f6f9;
+        }
+
+        .total {
+            text-align: right;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            text-align: center;
+            font-size: 12px;
+            width: 100%;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    <h2>🐾 Cabinet Vétérinaire Parcelle Veto</h2>
+    <p>Adresse : Thies, Sénégal | Tel : 77 XXX XX XX</p>
+</div>
+
+<div class="info">
+    <p><strong>Client :</strong> {{ vente.ordonnance.consultation.client.nom }}</p>
+    <p><strong>Animal :</strong> {{ vente.ordonnance.consultation.animal.nom }}</p>
+    <p><strong>Date :</strong> {{ vente.date }}</p>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Médicament</th>
+            <th>Quantité</th>
+            <th>Prix unitaire</th>
+            <th>Total</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for ligne in vente.lignes.all %}
+        <tr>
+            <td>{{ ligne.medicament.nom }}</td>
+            <td>{{ ligne.quantite }}</td>
+            <td>{{ ligne.prix_unitaire }}</td>
+            <td>{{ ligne.montant_total }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="total">
+    TOTAL : {{ vente.total }} FCFA
+</div>
+
+<div class="footer">
+    Merci pour votre confiance 🐶🐱 - Parcelle Veto
+</div>
+
+</body>
+</html>

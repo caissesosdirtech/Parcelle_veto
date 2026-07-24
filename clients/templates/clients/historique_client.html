@@ -1,0 +1,232 @@
+{% extends "base_dashboard.html" %}
+{% block content %}
+<style>
+.page-title { font-size:18px; font-weight:700; margin-bottom:18px; color:#1f6feb; }
+
+/* ===== HEADER CLIENT ===== */
+.client-card {
+    background:linear-gradient(135deg,#1f6feb,#0d47a1);
+    color:#fff;
+    padding:26px 28px;
+    border-radius:20px;
+    margin-bottom:22px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:24px;
+    box-shadow:0 14px 32px rgba(31,111,235,.25);
+}
+.client-identity { display:flex; align-items:center; gap:16px; }
+.client-avatar {
+    width:58px; height:58px; border-radius:16px;
+    background:rgba(255,255,255,.18);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.5rem; font-weight:800; flex-shrink:0;
+}
+.client-info h2 { margin:0 0 6px; font-size:1.3rem; font-weight:800; }
+.client-info p { margin:3px 0; font-size:.84rem; opacity:.9; display:flex; align-items:center; gap:6px; }
+
+.client-stats { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.stat-pill {
+    background:rgba(255,255,255,.14);
+    border-radius:12px;
+    padding:10px 16px;
+    text-align:center;
+    min-width:74px;
+}
+.stat-pill .num { font-size:1.15rem; font-weight:800; line-height:1.1; }
+.stat-pill .lbl { font-size:.66rem; text-transform:uppercase; letter-spacing:.03em; opacity:.85; margin-top:2px; }
+
+/* ===== GRID ===== */
+.wrapper { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+
+/* ===== CARD ===== */
+.card {
+    background:#fff;
+    border-radius:18px;
+    box-shadow:0 6px 20px rgba(15,40,80,.06);
+    padding:0;
+    overflow:hidden;
+}
+.card-head {
+    display:flex; align-items:center; gap:10px;
+    padding:16px 20px;
+    border-bottom:1px solid #f1f4f8;
+}
+.card-head .ic-pill {
+    width:34px; height:34px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1rem; flex-shrink:0;
+}
+.card-head h3 { margin:0; font-size:.92rem; font-weight:700; color:#1e2a3a; }
+.card-body { padding:14px 16px 18px; }
+
+.card.animaux  .ic-pill { background:#e8f0fe; color:#1f6feb; }
+.card.consults .ic-pill { background:#e6f4ea; color:#28a745; }
+.card.rdv      .ic-pill { background:#fff3e0; color:#fd7e14; }
+.card.ordo     .ic-pill { background:#f3e8fd; color:#6f42c1; }
+
+/* ===== ITEM ===== */
+.item {
+    padding:13px 14px;
+    border:1px solid #eef2f7;
+    border-radius:12px;
+    margin-bottom:10px;
+    transition:.15s;
+    display:flex; align-items:flex-start; gap:12px;
+}
+.item:last-child { margin-bottom:0; }
+.item:hover { background:#f8fbff; border-color:#dce8fb; }
+.item .item-ic { font-size:1rem; margin-top:1px; flex-shrink:0; }
+.item .item-body { flex:1; min-width:0; }
+
+/* ===== LINK ===== */
+.link { font-weight:700; color:#1e2a3a; text-decoration:none; font-size:.92rem; }
+.link:hover { color:#1f6feb; }
+
+/* ===== META ===== */
+.meta { font-size:.78rem; color:#7c8a9e; margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+/* ===== BADGE ===== */
+.badge { display:inline-block; padding:3px 10px; font-size:.7rem; font-weight:700; border-radius:20px; background:#e8f0fe; color:#1f6feb; }
+.badge-EN_ATTENTE { background:#fff3e0; color:#e65100; }
+.badge-CONFIRME   { background:#e6f4ea; color:#1e7e34; }
+.badge-ANNULE     { background:#fce8e6; color:#c62828; }
+.badge-TERMINE    { background:#e8f0fe; color:#1f6feb; }
+
+/* ===== EMPTY ===== */
+.empty-mini { text-align:center; padding:24px 10px; color:#b0bcc9; font-size:.85rem; }
+.empty-mini .ic { font-size:1.8rem; margin-bottom:6px; display:block; }
+
+@media (max-width:880px) {
+    .client-card { flex-direction:column; align-items:flex-start; }
+    .client-stats { justify-content:flex-start; }
+    .wrapper { grid-template-columns:1fr; }
+}
+</style>
+
+<div class="page-title">👤 Dossier client</div>
+
+<!-- ===== CLIENT INFO ===== -->
+<div class="client-card">
+    <div class="client-identity">
+        <div class="client-avatar">{{ client.nom|slice:":1"|upper }}</div>
+        <div class="client-info">
+            <h2>{{ client.nom }}</h2>
+            <p>📞 {{ client.telephone|default:"Non renseigné" }}</p>
+            <p>📍 {{ client.adresse|default:"Adresse inconnue" }}</p>
+        </div>
+    </div>
+    <div class="client-stats">
+        <div class="stat-pill"><div class="num">{{ animaux|length }}</div><div class="lbl">Animaux</div></div>
+        <div class="stat-pill"><div class="num">{{ consultations|length }}</div><div class="lbl">Consult.</div></div>
+        <div class="stat-pill"><div class="num">{{ rendezvous|length }}</div><div class="lbl">RDV</div></div>
+        <div class="stat-pill"><div class="num">{{ ordonnances|length }}</div><div class="lbl">Ordo.</div></div>
+    </div>
+</div>
+
+<!-- ===== CONTENT GRID ===== -->
+<div class="wrapper">
+
+    <!-- ANIMAUX -->
+    <div class="card animaux">
+        <div class="card-head">
+            <div class="ic-pill">🐾</div>
+            <h3>Animaux</h3>
+        </div>
+        <div class="card-body">
+            {% for a in animaux %}
+            <div class="item">
+                <span class="item-ic">🐾</span>
+                <div class="item-body">
+                    <a class="link" href="{% url 'historique_animal' a.id %}">{{ a.nom }}</a>
+                    <div class="meta">
+                        <span>{{ a.espece }}</span>
+                        {% if a.race %}<span>· {{ a.race }}</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-mini"><span class="ic">🐾</span>Aucun animal enregistré</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- CONSULTATIONS -->
+    <div class="card consults">
+        <div class="card-head">
+            <div class="ic-pill">🩺</div>
+            <h3>Consultations</h3>
+        </div>
+        <div class="card-body">
+            {% for c in consultations %}
+            <div class="item">
+                <span class="item-ic">🩺</span>
+                <div class="item-body">
+                    <div class="link">{{ c.motif|default:"Consultation" }}</div>
+                    <div class="meta">📅 {{ c.date|default:"-" }}</div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-mini"><span class="ic">🩺</span>Aucune consultation</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- RENDEZ-VOUS -->
+    <div class="card rdv">
+        <div class="card-head">
+            <div class="ic-pill">📅</div>
+            <h3>Rendez-vous</h3>
+        </div>
+        <div class="card-body">
+            {% for r in rendezvous %}
+            <div class="item">
+                <span class="item-ic">📅</span>
+                <div class="item-body">
+                    <div class="link">Rendez-vous</div>
+                    <div class="meta">
+                        <span>{{ r.date_rdv|default:"-" }}</span>
+                        <span class="badge badge-{{ r.statut }}">{{ r.statut }}</span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-mini"><span class="ic">📅</span>Aucun rendez-vous</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card ordo">
+    <div class="card-head">
+        <div class="ic-pill">💊</div>
+        <h3>Ordonnances</h3>
+    </div>
+
+    <div class="card-body">
+        {% for o in ordonnances %}
+        <div class="item">
+            <span class="item-ic">💊</span>
+
+            <div class="item-body">
+                
+                <!-- LIEN CLIQUABLE -->
+                <a class="link" href="{% url 'ordonnance_detail' o.id %}">
+                    Consulter Ordonnance #{{ o.id }}
+                </a>
+
+                <div class="meta">
+                    📅 {{ o.date_creation|date:"d/m/Y H:i" }}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-mini">
+            <span class="ic">💊</span>Aucune ordonnance
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+</div>
+{% endblock %}

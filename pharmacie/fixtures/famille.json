@@ -1,0 +1,72 @@
+[
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 1,
+    "fields": {
+      "nom": "Antibiotiques"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 2,
+    "fields": {
+      "nom": "Anticoccidiens"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 3,
+    "fields": {
+      "nom": "Vermifuges"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 4,
+    "fields": {
+      "nom": "Vaccins"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 5,
+    "fields": {
+      "nom": "Vitamines"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 6,
+    "fields": {
+      "nom": "Désinfectants"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 7,
+    "fields": {
+      "nom": "Anti-stress"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 8,
+    "fields": {
+      "nom": "Hépatoprotecteurs"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 9,
+    "fields": {
+      "nom": "Probiotiques"
+    }
+  },
+  {
+    "model": "pharmacie.famillemedicament",
+    "pk": 10,
+    "fields": {
+      "nom": "Anti-inflammatoires"
+    }
+  }
+]

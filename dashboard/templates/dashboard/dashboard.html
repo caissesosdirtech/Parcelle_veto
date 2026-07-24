@@ -1,0 +1,196 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block title %}Tableau board - PV{% endblock %}
+
+{% block content %}
+
+<div class="dashboard-container">
+
+    <!-- HEADER -->
+    <div class="dashboard-header">
+        <div>
+            <h1>Tableau de bord</h1>
+            <p class="subtitle">Vue d'ensemble de l'activité vétérinaire</p>
+        </div>
+        <div class="date-box">
+            📅 <span id="current-date"></span>
+        </div>
+    </div>
+
+    <!-- IA ASSISTANT -->
+    <!-- <div class="ai-banner">
+        🧠 <strong>Assistant IA Vétérinaire :</strong>
+        {% if stock_critique %}
+            Attention, {{ stock_critique|length }} médicaments en rupture ou stock critique détecté.
+        {% else %}
+            Aucun problème critique détecté. Tout est stable.
+        {% endif %}
+    </div> -->
+
+    <!-- STATS -->
+    <div class="stats-grid">
+
+        <div class="stat-card revenue">
+            <div class="icon">💰</div>
+            <div>
+                <h3>{{ total_ventes|floatformat:0 }} FCFA</h3>
+                <p>Recettes aujourd'hui</p>
+            </div>
+        </div>
+
+        <div class="stat-card blue">
+            <div class="icon">🩺</div>
+            <div>
+                <h3>{{ total_consultations }}</h3>
+                <p>Consultations</p>
+            </div>
+        </div>
+
+        <div class="stat-card green">
+            <div class="icon">📅</div>
+            <div>
+                <h3>{{ total_rdv }}</h3>
+                <p>Rendez-vous</p>
+            </div>
+        </div>
+
+        <div class="stat-card danger">
+            <div class="icon">⚠️</div>
+            <div>
+                <h3>{{ stock_critique|length }}</h3>
+                <p>Alertes stock</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- GRAPHIQUES -->
+<div class="charts-grid">
+    <div class="chart-card">
+        <h3>📊 Ventes (7 derniers jours)</h3>
+        <canvas id="salesChart" style="height:220px; max-height:220px;"></canvas>
+    </div>
+    <div class="chart-card">
+        <h3>📈 Consultations (7 derniers jours)</h3>
+        <canvas id="consultChart" style="height:220px; max-height:220px;"></canvas>
+    </div>
+</div>
+
+<!-- TABLES / PANELS -->
+<div class="grid-2">
+
+    <!-- PROCHAINS RENDEZ-VOUS -->
+<!-- PROCHAINS RENDEZ-VOUS -->
+<div class="panel">
+    <div class="panel-header">
+        <h3 class="panel-title">
+            📅 Prochains rendez-vous
+            <span class="rdv-count">({{ prochains_rdv|length }})</span>
+        </h3>
+    </div>
+   
+    <div class="rdv-list">
+        {% for rdv in prochains_rdv %}
+        <div class="rdv-item {% if rdv.date_rdv|date:'Y-m-d' == today|date:'Y-m-d' %}rdv-today{% endif %}">
+          
+            <!-- DATE + HEURE -->
+            <div class="rdv-time">
+                <span class="day">{{ rdv.date_rdv|date:"d" }}</span>
+                <span class="month">{{ rdv.date_rdv|date:"M" }}</span>
+                <span class="hour">{{ rdv.date_rdv|date:"H:i" }}</span>
+            </div>
+          
+            <div class="rdv-content">
+                <div class="rdv-client">
+                    <strong>{{ rdv.animal.client.nom }}</strong>
+                    {% if rdv.date_rdv|date:'Y-m-d' == today|date:'Y-m-d' %}
+                        <span class="today-badge">
+                            🛎️ AUJOURD'HUI
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="rdv-animal">
+                    🐾 {{ rdv.animal.nom }}
+                    <span class="espece">• {{ rdv.animal.espece }}</span>
+                </div>
+            </div>
+          
+            <div class="rdv-status">
+                {% if rdv.statut == 'confirmé' %}
+                    <span class="status-badge confirmed">✓ Confirmé</span>
+                {% elif rdv.statut == 'en_attente' %}
+                    <span class="status-badge pending">⏳ En attente</span>
+                {% else %}
+                    <span class="status-badge">RDV</span>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <p>Aucun rendez-vous prévu pour les prochains jours.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- CHART JS -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const labels      = {{ jours_mois|safe }};
+const ventesData  = {{ ventes_mois|safe }};
+const consultData = {{ consultations_mois|safe }};
+
+new Chart(document.getElementById('salesChart'), {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Ventes (FCFA)',
+            data: ventesData,
+            borderColor: '#1f6feb',
+            backgroundColor: 'rgba(31,111,235,0.08)',
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: '#1f6feb',
+            pointRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { callback: v => v.toLocaleString('fr-FR') + ' F' }
+            }
+        }
+    }
+});
+
+new Chart(document.getElementById('consultChart'), {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Consultations',
+            data: consultData,
+            backgroundColor: 'rgba(40,167,69,0.7)',
+            borderRadius: 6,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+    }
+});
+</script>
+{% endblock %}

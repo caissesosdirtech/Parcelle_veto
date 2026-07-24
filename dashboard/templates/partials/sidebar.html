@@ -1,0 +1,101 @@
+{% load static %}
+<aside class="sidebar">
+
+<!-- ================= BRAND ================= -->
+<div class="sidebar-brand">
+    <div class="brand-logo">
+        <div class="brand-icon">🐾</div>
+        <div>
+            <div class="brand-name">Parcelles Veto</div>
+            <div class="brand-sub">CABINET<br>VÉTÉRINAIRE</div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= USER ================= -->
+<div class="sidebar-user-card">
+    <div class="user-name">Dr. Ibrahima Pierre GUISSE</div>
+    <span class="user-role-badge">Docteur</span>
+</div>
+
+<nav class="sidebar-nav">
+
+    <div class="nav-section-label">Principal</div>
+
+    <!-- DASHBOARD -->
+    <a class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
+       href="{% url 'dashboard_docteur' %}">
+        <div class="nav-icon">📊</div>
+        Tableau de bord
+    </a>
+
+    <!-- ================= CONSULTATIONS ================= -->
+    <div class="nav-group {% if active_page == 'consultations_list' or active_page == 'nouvelle_consultation' %}open{% endif %}">
+
+        <div class="nav-item nav-group-toggle {% if active_page == 'consultations_list' or active_page == 'nouvelle_consultation' %}active{% endif %}"
+             onclick="this.parentElement.classList.toggle('open')">
+
+            <div class="nav-icon">🩺</div>
+            Consultations
+            <span class="nav-chevron">▾</span>
+        </div>
+
+        <div class="nav-submenu">
+
+            <a class="nav-sub-item {% if active_page == 'consultations_list' %}active{% endif %}"
+               href="{% url 'liste_consultations' %}">
+                📋 Liste des consultations
+            </a>
+
+            <a class="nav-sub-item {% if active_page == 'nouvelle_consultation' %}active{% endif %}"
+               href="{% url 'nouvelle_consultation' %}">
+                ➕ Nouvelle consultation
+            </a>
+
+        </div>
+    </div>
+
+    <!-- ================= RENDEZ-VOUS ================= -->
+    <a class="nav-item {% if active_page == 'rendez_vous' %}active{% endif %}"
+       href="{% url 'rendez_vous_list' %}">
+
+        <div class="nav-icon">📅</div>
+        <span style="flex:1;">Rendez-vous</span>
+
+        {% if nb_notifications_rdv > 0 %}
+            <span class="notif-badge">{{ nb_notifications_rdv }}</span>
+        {% endif %}
+    </a>
+
+    <div class="nav-section-label">Gestion</div>
+
+    <a class="nav-item {% if active_page == 'clients' %}active{% endif %}"
+       href="{% url 'clients_list' %}">
+        🐾 Clients & Animaux
+    </a>
+
+    <a class="nav-item {% if active_page == 'pharmacie' %}active{% endif %}"
+       href="{% url 'pharmacie_dashboard' %}">
+        💊 Médicaments & Stock
+    </a>
+
+    <a class="nav-item {% if active_page == 'fournisseurs' %}active{% endif %}"
+       href="{% url 'fournisseurs_list' %}">
+        🏭 Fournisseurs
+    </a>
+
+    <a class="nav-item {% if active_page == 'ventes' %}active{% endif %}"
+       href="{% url 'ventes_list' %}">
+        🏪 Ventes
+    </a>
+
+    <div class="nav-section-label">Finance</div>
+
+    <a class="nav-item {% if active_page == 'caisse' %}active{% endif %}"
+       href="{% url 'rapport_caisse' %}">
+        💰 Rapport de Caisse
+    </a>
+
+</nav>
+
+</aside>
