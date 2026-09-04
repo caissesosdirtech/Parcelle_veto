@@ -83,6 +83,11 @@ class Consultation(models.Model):
     lieu = models.CharField(max_length=20, choices=LIEU_CHOICES, default="cabinet")
     date = models.DateTimeField(auto_now_add=True)
 
+    client_nouveau = models.BooleanField(
+        default=False,
+        verbose_name="Client nouvellement créé"
+    )
+
     def __str__(self):
         return f"{self.client} - {self.animal} ({self.date})"
 

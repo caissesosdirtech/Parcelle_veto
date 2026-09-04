@@ -29,6 +29,7 @@ urlpatterns = [
     path("ordonnance/<int:ordonnance_id>/", views.ordonnance_detail, name="ordonnance_detail"),
     path("ordonnance/<int:ordonnance_id>/ajouter-ligne/", views.ajouter_ligne_ordonnance),
     path("ordonnance/ligne/<int:ligne_id>/supprimer/", views.supprimer_ligne_ordonnance),
+    path("ordonnance/ligne/<int:ligne_id>/modifier/", views.modifier_ligne_ordonnance),
     path("ordonnance/<int:ordonnance_id>/rendez-vous/", views.enregistrer_rendez_vous, name="enregistrer_rendez_vous"),
     path("rdv/nouveau/", views.nouveau_rendez_vous, name="nouveau_rendez_vous"),
     path("rendez-vous/<str:type_rdv>/<int:rdv_id>/statut/", changer_statut_rdv, name="changer_statut_rdv"),

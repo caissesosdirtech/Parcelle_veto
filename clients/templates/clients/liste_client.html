@@ -178,6 +178,61 @@ tbody tr:hover td { background:#f9fbff; }
 /* ===== EMPTY ===== */
 .empty-state { text-align:center; padding:50px 20px; color:#b0bcc9; }
 .empty-state .icon { font-size:2.8rem; margin-bottom:12px; }
+
+/* ===== MODAL MODIFICATION CLIENT ===== */
+.modal-backdrop {
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(15,23,42,.55); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center; padding:20px;
+}
+.modal-backdrop.show { display:flex; }
+.client-modal {
+    width:min(920px, 100%); max-height:92vh; overflow:auto;
+    background:#fff; border-radius:20px; box-shadow:0 25px 70px rgba(0,0,0,.22);
+}
+.modal-head {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:20px 24px; border-bottom:1px solid #edf1f6; position:sticky; top:0;
+    background:#fff; z-index:2;
+}
+.modal-head h3 { margin:0; color:#1e2a3a; font-size:1.1rem; }
+.modal-close { border:0; background:#f4f7fb; width:36px; height:36px; border-radius:10px; cursor:pointer; font-size:1.1rem; }
+.modal-body { padding:22px 24px; }
+.form-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+.form-group { display:flex; flex-direction:column; gap:6px; }
+.form-group.full { grid-column:1/-1; }
+.form-group label { font-size:.75rem; font-weight:700; color:#66758a; }
+.form-group input, .form-group select {
+    padding:11px 12px; border:1.5px solid #e3e9f0; border-radius:10px;
+    outline:none; font-size:.86rem; background:#fbfcfe;
+}
+.form-group input:focus, .form-group select:focus { border-color:#1f6feb; background:#fff; box-shadow:0 0 0 4px rgba(31,111,235,.08); }
+.animals-editor { margin-top:22px; }
+.animals-editor-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.animals-editor-head strong { color:#1e2a3a; }
+.btn-add-animal { border:0; padding:8px 12px; border-radius:9px; background:#e8f0fe; color:#1f6feb; font-weight:700; cursor:pointer; }
+.animal-edit-row {
+    display:grid; grid-template-columns:1.2fr 1fr 1fr .8fr .8fr .8fr auto; gap:7px;
+    padding:10px; margin-bottom:8px; border:1px solid #e8edf3; border-radius:12px; background:#fafcff;
+}
+.animal-edit-row input, .animal-edit-row select { width:100%; box-sizing:border-box; padding:8px; border:1px solid #dfe6ee; border-radius:8px; font-size:.78rem; }
+.btn-remove-animal { border:0; background:#feecec; color:#c62828; width:34px; border-radius:8px; cursor:pointer; font-weight:800; }
+.modal-foot { display:flex; justify-content:flex-end; gap:10px; padding:16px 24px; border-top:1px solid #edf1f6; position:sticky; bottom:0; background:#fff; }
+.btn-secondary, .btn-primary { border:0; border-radius:10px; padding:10px 18px; font-weight:700; cursor:pointer; }
+.btn-secondary { background:#f1f4f8; color:#536274; }
+.btn-primary { background:#1f6feb; color:#fff; }
+.btn-primary:disabled { opacity:.6; cursor:not-allowed; }
+.edit-client-btn {
+    border:0; background:#eef5ff; color:#1f6feb; width:34px; height:34px;
+    border-radius:9px; cursor:pointer; font-size:.95rem; margin-left:4px;
+}
+.edit-client-btn:hover { background:#1f6feb; color:#fff; }
+.alert-modal { display:none; margin-bottom:14px; padding:10px 12px; border-radius:10px; font-size:.82rem; font-weight:600; }
+.alert-modal.show { display:block; }
+.alert-modal.error { background:#fff0f0; color:#b42318; border:1px solid #ffd5d2; }
+.alert-modal.success { background:#ecfdf3; color:#067647; border:1px solid #abefc6; }
+@media(max-width:850px) { .animal-edit-row { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:650px) { .form-grid { grid-template-columns:1fr; } .form-group.full { grid-column:auto; } .modal-body { padding:16px; } .modal-head, .modal-foot { padding:15px 16px; } }
 </style>
 
 <div class="table-wrapper">
@@ -218,10 +273,188 @@ tbody tr:hover td { background:#f9fbff; }
 
 </div>
 
+<!-- MODIFICATION CLIENT + ANIMAUX -->
+<div id="clientModal" class="modal-backdrop" onclick="fermerEditionClient(event)">
+    <div class="client-modal" onclick="event.stopPropagation()">
+        <div class="modal-head">
+            <h3>✏️ Modifier le client et ses animaux</h3>
+            <button class="modal-close" onclick="fermerEditionClient()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="modalAlert" class="alert-modal"></div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nom du client *</label>
+                    <input id="editNom" type="text" autocomplete="name">
+                </div>
+                <div class="form-group">
+                    <label>Téléphone</label>
+                    <input id="editTelephone" type="tel" autocomplete="tel">
+                </div>
+                <div class="form-group full">
+                    <label>Adresse</label>
+                    <input id="editAdresse" type="text" autocomplete="street-address">
+                </div>
+            </div>
+
+            <div class="animals-editor">
+                <div class="animals-editor-head">
+                    <strong>🐾 Animaux du client</strong>
+                    <button class="btn-add-animal" type="button" onclick="ajouterLigneAnimal()">＋ Ajouter un animal</button>
+                </div>
+                <div id="animalsEditor"></div>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn-secondary" type="button" onclick="fermerEditionClient()">Annuler</button>
+            <button id="btnSaveClient" class="btn-primary" type="button" onclick="enregistrerClient()">💾 Enregistrer</button>
+        </div>
+    </div>
+</div>
+
 <script>
 
 let page = 1;
 let timer = null;
+let clientEnEdition = null;
+let animauxASupprimer = [];
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>'"]/g, function(ch) {
+        return ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"})[ch];
+    });
+}
+
+function afficherAlerteModal(message, type="error") {
+    const el = document.getElementById("modalAlert");
+    el.textContent = message;
+    el.className = "alert-modal show " + type;
+}
+
+function masquerAlerteModal() {
+    const el = document.getElementById("modalAlert");
+    el.className = "alert-modal";
+    el.textContent = "";
+}
+
+function ouvrirEditionClient(clientId) {
+    clientEnEdition = clientId;
+    animauxASupprimer = [];
+    masquerAlerteModal();
+    document.getElementById("clientModal").classList.add("show");
+    document.getElementById("animalsEditor").innerHTML = "<div style='padding:20px;text-align:center;color:#8a98aa;'>Chargement du dossier…</div>";
+
+    fetch(`/clients/api/${clientId}/dossier/`)
+        .then(async r => {
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || "Impossible de charger le client.");
+            return data;
+        })
+        .then(data => {
+            document.getElementById("editNom").value = data.client.nom || "";
+            document.getElementById("editTelephone").value = data.client.telephone || "";
+            document.getElementById("editAdresse").value = data.client.adresse || "";
+            document.getElementById("animalsEditor").innerHTML = "";
+            (data.animaux || []).forEach(a => ajouterLigneAnimal(a));
+        })
+        .catch(err => afficherAlerteModal(err.message));
+}
+
+function fermerEditionClient(event) {
+    if (event && event.target && event.target.id !== "clientModal") return;
+    document.getElementById("clientModal").classList.remove("show");
+    clientEnEdition = null;
+}
+
+function ajouterLigneAnimal(animal = {}) {
+    const row = document.createElement("div");
+    row.className = "animal-edit-row";
+    row.dataset.id = animal.id || "";
+    row.innerHTML = `
+        <input class="animal-nom" type="text" placeholder="Nom *" value="${escapeHtml(animal.nom || "")}">
+        <select class="animal-espece">
+            <option value="">Espèce *</option>
+            ${["Chien","Chat","Bovin","Ovin","Caprin","Volaille","Cheval","Autre"].map(x => `<option value="${x}" ${animal.espece === x ? "selected" : ""}>${x}</option>`).join("")}
+        </select>
+        <input class="animal-race" type="text" placeholder="Race" value="${escapeHtml(animal.race || "")}">
+        <select class="animal-sexe">
+            <option value="">Sexe</option>
+            <option value="Mâle" ${animal.sexe === "Mâle" ? "selected" : ""}>Mâle</option>
+            <option value="Femelle" ${animal.sexe === "Femelle" ? "selected" : ""}>Femelle</option>
+        </select>
+        <input class="animal-poids" type="number" step="0.01" min="0" placeholder="Poids" value="${animal.poids || ""}">
+        <span style="font-size:.68rem;color:#8a98aa;align-self:center;">${animal.id ? "ID " + animal.id : "Nouveau"}</span>
+        <button class="btn-remove-animal" type="button" title="Supprimer" onclick="supprimerLigneAnimal(this)">✕</button>
+    `;
+    document.getElementById("animalsEditor").appendChild(row);
+}
+
+function supprimerLigneAnimal(button) {
+    const row = button.closest(".animal-edit-row");
+    if (row.dataset.id) animauxASupprimer.push(Number(row.dataset.id));
+    row.remove();
+}
+
+function lireAnimauxFormulaire() {
+    const rows = [...document.querySelectorAll("#animalsEditor .animal-edit-row")];
+    const animaux = [];
+    for (const row of rows) {
+        const nom = row.querySelector(".animal-nom").value.trim();
+        const espece = row.querySelector(".animal-espece").value.trim();
+        if (!nom || !espece) {
+            throw new Error("Chaque animal doit avoir au minimum un nom et une espèce.");
+        }
+        const poids = row.querySelector(".animal-poids").value;
+        const item = {
+            nom, espece,
+            race: row.querySelector(".animal-race").value.trim(),
+            sexe: row.querySelector(".animal-sexe").value,
+            poids: poids ? Number(poids) : null
+        };
+        if (row.dataset.id) item.id = Number(row.dataset.id);
+        animaux.push(item);
+    }
+    return animaux;
+}
+
+async function enregistrerClient() {
+    const btn = document.getElementById("btnSaveClient");
+    masquerAlerteModal();
+    try {
+        const nom = document.getElementById("editNom").value.trim();
+        if (!nom) throw new Error("Le nom du client est obligatoire.");
+
+        const payload = {
+            nom,
+            telephone: document.getElementById("editTelephone").value.trim(),
+            adresse: document.getElementById("editAdresse").value.trim(),
+            animaux: lireAnimauxFormulaire(),
+            supprimer_animaux: [...new Set(animauxASupprimer)]
+        };
+
+        btn.disabled = true;
+        btn.textContent = "⏳ Enregistrement…";
+
+        const response = await fetch(`/clients/api/${clientEnEdition}/modifier/`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Erreur lors de l'enregistrement.");
+
+        afficherAlerteModal("Client et animaux modifiés avec succès.", "success");
+        setTimeout(() => {
+            fermerEditionClient();
+            loadData();
+        }, 500);
+    } catch (err) {
+        afficherAlerteModal(err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "💾 Enregistrer";
+    }
+}
 
 function loadData(){
 
@@ -270,17 +503,17 @@ function loadData(){
                 c.animaux.forEach(a => {
                     animaux += `
                         <div class="animal-box">
-                            <div class="animal-name">🐾 ${a.nom}</div>
+                            <div class="animal-name">🐾 ${escapeHtml(a.nom)}</div>
                             <div class="badge-row">
-                                <span class="badge badge-espece">${a.espece}</span>
-                                ${a.race ? `<span class="badge badge-race">${a.race}</span>` : ""}
-                                ${a.sexe ? `<span class="badge badge-sexe">${a.sexe}</span>` : ""}
+                                <span class="badge badge-espece">${escapeHtml(a.espece)}</span>
+                                ${a.race ? `<span class="badge badge-race">${escapeHtml(a.race)}</span>` : ""}
+                                ${a.sexe ? `<span class="badge badge-sexe">${escapeHtml(a.sexe)}</span>` : ""}
                             </div>
                         </div>
                     `;
                     histoAnimaux += `
                         <a class="histo-link" href="/animaux/${a.id}/historique/">
-                            📜 ${a.nom}
+                            📜 ${escapeHtml(a.nom)}
                         </a>
                     `;
                 });
@@ -291,10 +524,13 @@ function loadData(){
             html += `
                 <tr>
                     <td>
-                        <div class="client-name">👤 ${c.nom}</div>
+                        <div class="client-name">
+                            <span>👤 ${escapeHtml(c.nom)}</span>
+                            <button class="edit-client-btn" title="Modifier le client et ses animaux" onclick="ouvrirEditionClient(${c.id})">✏️</button>
+                        </div>
                     </td>
-                    <td>${c.telephone || "-"}</td>
-                    <td>${c.adresse || "-"}</td>
+                    <td>${escapeHtml(c.telephone || "-")}</td>
+                    <td>${escapeHtml(c.adresse || "-")}</td>
                     <td>${animaux}</td>
                     <td class="histo-col">
                         <a class="histo-link client-histo" href="/clients/${c.id}/historique/">

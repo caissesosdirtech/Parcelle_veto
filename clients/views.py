@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.core.paginator import Paginator
 from django.db.models import Q, Count
+from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from .models import Client
 from animaux.models import Animal
@@ -205,36 +206,195 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
 
+def _normaliser_telephone(value):
+    """Normalise un numéro pour détecter les doublons malgré espaces/tirets/prefixes."""
+    if value is None:
+        return ""
+    value = str(value).strip()
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if digits.startswith("00221"):
+        digits = digits[5:]
+    elif digits.startswith("221") and len(digits) == 12:
+        digits = digits[3:]
+    return digits
+
+
+def _verifier_telephone_unique(telephone, client_id=None):
+    """Retourne un message d'erreur si le téléphone appartient déjà à un autre client."""
+    normalized = _normaliser_telephone(telephone)
+    if not normalized:
+        return None
+
+    for autre in Client.objects.exclude(id=client_id).exclude(telephone__isnull=True):
+        if _normaliser_telephone(autre.telephone) == normalized:
+            return (
+                f"Ce numéro de téléphone est déjà utilisé par le client "
+                f'"{autre.nom}" (ID {autre.id}).'
+            )
+    return None
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_creer_client(request):
-    """Créer un client depuis Flutter."""
+    """Créer un client depuis Flutter/web."""
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
+        nom = str(data.get('nom', '')).strip()
+        telephone = str(data.get('telephone', '')).strip()
+        adresse = str(data.get('adresse', '')).strip()
+
+        if not nom:
+            return JsonResponse({'error': 'Le nom du client est obligatoire.'}, status=400)
+
+        erreur_tel = _verifier_telephone_unique(telephone)
+        if erreur_tel:
+            return JsonResponse({'error': erreur_tel}, status=409)
+
         client = Client.objects.create(
-            nom=data.get('nom', ''),
-            telephone=data.get('telephone', ''),
-            adresse=data.get('adresse', ''),
+            nom=nom,
+            telephone=telephone or None,
+            adresse=adresse or None,
         )
         return JsonResponse({'id': client.id, 'nom': client.nom}, status=201)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON invalide.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
 
 @csrf_exempt
-@require_http_methods(["PUT"])
+@require_http_methods(["PUT", "PATCH"])
 def api_modifier_client(request, client_id):
-    """Modifier un client depuis Flutter."""
+    """
+    Modifier un client et, si fourni, ses animaux.
+
+    Payload possible:
+    {
+      "nom": "...", "telephone": "...", "adresse": "...",
+      "animaux": [
+        {"id": 12, "nom": "Rex", "espece": "Chien", "race": "...", "sexe": "...", "poids": 12.5},
+        {"nom": "Mimi", "espece": "Chat"}
+      ],
+      "supprimer_animaux": [15, 18]
+    }
+
+    Un animal avec un id existant est modifié. Sans id, il est créé pour ce client.
+    Les animaux sont toujours rattachés au client en cours.
+    """
     try:
         client = Client.objects.get(id=client_id)
-        data = json.loads(request.body)
-        client.nom = data.get('nom', client.nom)
-        client.telephone = data.get('telephone', client.telephone)
-        client.adresse = data.get('adresse', client.adresse)
-        client.save()
-        return JsonResponse({'id': client.id, 'nom': client.nom})
+        data = json.loads(request.body or "{}")
+
+        nom = str(data.get('nom', client.nom)).strip()
+        telephone = str(data.get('telephone', '')).strip() if 'telephone' in data else (client.telephone or '')
+        adresse = str(data.get('adresse', '')).strip() if 'adresse' in data else (client.adresse or '')
+
+        if not nom:
+            return JsonResponse({'error': 'Le nom du client est obligatoire.'}, status=400)
+
+        erreur_tel = _verifier_telephone_unique(telephone, client.id)
+        if erreur_tel:
+            return JsonResponse({'error': erreur_tel}, status=409)
+
+        # On valide tout avant d'écrire afin d'éviter une modification partielle.
+        animaux_data = data.get('animaux', None)
+        supprimer_ids = data.get('supprimer_animaux', []) or []
+
+        if animaux_data is not None and not isinstance(animaux_data, list):
+            return JsonResponse({'error': 'Le champ animaux doit être une liste.'}, status=400)
+
+        if not isinstance(supprimer_ids, list):
+            return JsonResponse({'error': "Le champ supprimer_animaux doit être une liste d'identifiants."}, status=400)
+
+        # Vérification des animaux existants : aucun animal d'un autre client ne peut être modifié.
+        for animal_data in animaux_data or []:
+            animal_id = animal_data.get('id')
+            if animal_id:
+                if not Animal.objects.filter(id=animal_id, client=client).exists():
+                    return JsonResponse(
+                        {'error': f"Animal {animal_id} introuvable pour ce client."},
+                        status=400
+                    )
+
+        for animal_id in supprimer_ids:
+            if not Animal.objects.filter(id=animal_id, client=client).exists():
+                return JsonResponse(
+                    {'error': f"Animal {animal_id} introuvable pour ce client."},
+                    status=400
+                )
+
+        # Ne jamais supprimer un animal qui possède un historique médical.
+        # Animal -> Consultation/RendezVous utilise CASCADE dans ce projet.
+        if supprimer_ids:
+            from consultations.models import Consultation, RendezVous
+            historique_count = (
+                Consultation.objects.filter(animal_id__in=supprimer_ids).count() +
+                RendezVous.objects.filter(animal_id__in=supprimer_ids).count()
+            )
+            if historique_count:
+                return JsonResponse(
+                    {
+                        'error': (
+                            "Impossible de supprimer cet animal car il possède "
+                            "des consultations ou rendez-vous. Modifiez ses informations "
+                            "à la place afin de conserver son historique."
+                        )
+                    },
+                    status=409
+                )
+
+        with transaction.atomic():
+            client.nom = nom
+            client.telephone = telephone or None
+            client.adresse = adresse or None
+            client.save()
+
+            # Suppression explicite des animaux sélectionnés.
+            Animal.objects.filter(client=client, id__in=supprimer_ids).delete()
+
+            animaux_result = []
+            for animal_data in animaux_data or []:
+                animal_id = animal_data.get('id')
+                if animal_id:
+                    animal = Animal.objects.get(id=animal_id, client=client)
+                    animal.nom = str(animal_data.get('nom', animal.nom)).strip()
+                    animal.espece = str(animal_data.get('espece', animal.espece)).strip()
+                    animal.race = str(animal_data.get('race', animal.race or '')).strip() or None
+                    animal.sexe = str(animal_data.get('sexe', animal.sexe or '')).strip() or None
+                    if 'poids' in animal_data:
+                        animal.poids = animal_data.get('poids') or None
+                    animal.save()
+                else:
+                    animal = Animal.objects.create(
+                        client=client,
+                        nom=str(animal_data.get('nom', '')).strip(),
+                        espece=str(animal_data.get('espece', '')).strip(),
+                        race=str(animal_data.get('race', '')).strip() or None,
+                        sexe=str(animal_data.get('sexe', '')).strip() or None,
+                        poids=animal_data.get('poids') or None,
+                    )
+
+                animaux_result.append({
+                    'id': animal.id,
+                    'nom': animal.nom,
+                    'espece': animal.espece,
+                    'race': animal.race or '',
+                    'sexe': animal.sexe or '',
+                    'poids': animal.poids or 0,
+                })
+        return JsonResponse({
+            'success': True,
+            'id': client.id,
+            'nom': client.nom,
+            'telephone': client.telephone or '',
+            'adresse': client.adresse or '',
+            'animaux': animaux_result,
+        })
     except Client.DoesNotExist:
         return JsonResponse({'error': 'Client introuvable'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON invalide.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 

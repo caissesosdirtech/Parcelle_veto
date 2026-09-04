@@ -2,30 +2,422 @@
 
 {% block content %}
 
-<div class="container">
+<style>
+    .edit-page {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 24px 18px 50px;
+    }
 
-<h2>✏ Modifier consultation</h2>
+    .edit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
 
-<form method="POST">
-    {% csrf_token %}
+    .edit-title h2 {
+        margin: 0;
+        font-weight: 700;
+        color: #1f2937;
+    }
 
-    <label>Motif</label>
-    <input type="text" name="motif" value="{{ consultation.motif }}" class="form-control">
+    .edit-title p {
+        margin: 6px 0 0;
+        color: #6b7280;
+    }
 
-    <label>Observations</label>
-    <textarea name="observations" class="form-control">{{ consultation.observations }}</textarea>
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        padding: 10px 15px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        color: #374151;
+        background: #fff;
+    }
 
-    <label>Lieu</label>
-    <select name="lieu" class="form-control">
-        <option value="cabinet" {% if consultation.lieu == "cabinet" %}selected{% endif %}>Cabinet</option>
-        <option value="domicile" {% if consultation.lieu == "domicile" %}selected{% endif %}>Domicile</option>
-    </select>
+    .section-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 22px;
+        margin-bottom: 20px;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, .05);
+    }
 
-    <br>
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 18px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #1f2937;
+    }
 
-    <button class="btn btn-primary">Enregistrer</button>
-</form>
+    .section-title i {
+        font-size: 20px;
+    }
 
+    .info-banner {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        border-radius: 12px;
+        padding: 13px 15px;
+        margin-bottom: 18px;
+    }
+
+    .info-banner.editable {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+    }
+
+    .info-banner.locked {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        color: #4b5563;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 17px;
+    }
+
+    .form-group.full {
+        grid-column: 1 / -1;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 7px;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .form-group label i {
+        color: #64748b;
+    }
+
+    .form-control {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 11px 13px;
+        background: #fff;
+        color: #111827;
+        outline: none;
+        transition: .2s;
+    }
+
+    .form-control:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .10);
+    }
+
+    textarea.form-control {
+        min-height: 130px;
+        resize: vertical;
+    }
+
+    .readonly-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .readonly-item {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 11px;
+        padding: 12px;
+    }
+
+    .readonly-label {
+        display: block;
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+
+    .readonly-value {
+        font-weight: 600;
+        color: #1f2937;
+        word-break: break-word;
+    }
+
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 22px;
+    }
+
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 17px;
+        cursor: pointer;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .btn-cancel {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    .btn-save {
+        background: #2563eb;
+        color: #fff;
+    }
+
+    .btn-save:hover {
+        background: #1d4ed8;
+    }
+
+    .tooltip-icon {
+        cursor: help;
+    }
+
+    @media (max-width: 800px) {
+        .form-grid,
+        .readonly-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="edit-page">
+
+    <div class="edit-header">
+        <div class="edit-title">
+            <h2><i class="bi bi-pencil-square"></i> Modifier la consultation</h2>
+            <p>Consultation n° {{ consultation.id }} — {{ consultation.date|date:"d/m/Y H:i" }}</p>
+        </div>
+
+        <a href="{% url 'consultation_detail' consultation.id %}" class="back-btn" title="Retour au détail de la consultation">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    {% if consultation.client_nouveau %}
+        <div class="info-banner editable">
+            <i class="bi bi-person-check-fill"></i>
+            <div>
+                <strong>Nouveau client</strong><br>
+                Ce client a été créé avec cette consultation. Vous pouvez corriger ses informations.
+            </div>
+        </div>
+    {% else %}
+        <div class="info-banner locked">
+            <i class="bi bi-lock-fill"></i>
+            <div>
+                <strong>Client existant</strong><br>
+                Les informations de ce client sont verrouillées. Vous pouvez toutefois modifier l'animal et la consultation.
+            </div>
+        </div>
+    {% endif %}
+
+    <form method="POST" novalidate>
+        {% csrf_token %}
+
+        <!-- CLIENT -->
+        <div class="section-card">
+            <h3 class="section-title">
+                <i class="bi bi-person-circle"></i> Informations du client
+            </h3>
+
+            {% if consultation.client_nouveau %}
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="client_nom">
+                            <i class="bi bi-person"></i> Nom du client
+                        </label>
+                        <input id="client_nom" type="text" name="client_nom"
+                               value="{{ client.nom|default:'' }}"
+                               class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="telephone">
+                            <i class="bi bi-telephone"></i> Téléphone
+                        </label>
+                        <input id="telephone" type="text" name="telephone"
+                               value="{{ client.telephone|default:'' }}"
+                               class="form-control"
+                               title="Le numéro doit être unique pour chaque client">
+                    </div>
+
+                    <div class="form-group full">
+                        <label for="adresse">
+                            <i class="bi bi-geo-alt"></i> Adresse
+                        </label>
+                        <input id="adresse" type="text" name="adresse"
+                               value="{{ client.adresse|default:'' }}"
+                               class="form-control">
+                    </div>
+                </div>
+            {% else %}
+                <div class="readonly-grid">
+                    <div class="readonly-item">
+                        <span class="readonly-label"><i class="bi bi-person"></i> Nom</span>
+                        <span class="readonly-value">{{ client.nom|default:'—' }}</span>
+                    </div>
+                    <div class="readonly-item">
+                        <span class="readonly-label"><i class="bi bi-telephone"></i> Téléphone</span>
+                        <span class="readonly-value">{{ client.telephone|default:'—' }}</span>
+                    </div>
+                    <div class="readonly-item">
+                        <span class="readonly-label"><i class="bi bi-geo-alt"></i> Adresse</span>
+                        <span class="readonly-value">{{ client.adresse|default:'—' }}</span>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- ANIMAL -->
+        <div class="section-card">
+            <h3 class="section-title">
+                <i class="bi bi-heart-pulse"></i> Informations de l'animal
+            </h3>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="animal_nom">
+                        <i class="bi bi-tag"></i> Nom de l'animal
+                    </label>
+                    <input id="animal_nom" type="text" name="animal_nom"
+                           value="{{ animal.nom|default:'' }}"
+                           class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="espece">
+                        <i class="bi bi-paw"></i> Espèce
+                    </label>
+                    <input id="espece" type="text" name="espece"
+                           value="{{ animal.espece|default:'' }}"
+                           class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="race">
+                        <i class="bi bi-diagram-3"></i> Race
+                    </label>
+                    <input id="race" type="text" name="race"
+                           value="{{ animal.race|default:'' }}"
+                           class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="sexe">
+                        <i class="bi bi-gender-ambiguous"></i> Sexe
+                    </label>
+                    <select id="sexe" name="sexe" class="form-control">
+                        <option value="">Non précisé</option>
+                        <option value="M" {% if animal.sexe == "M" %}selected{% endif %}>Mâle</option>
+                        <option value="F" {% if animal.sexe == "F" %}selected{% endif %}>Femelle</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="animal_poids" title="Poids enregistré dans la fiche de l'animal">
+                        <i class="bi bi-speedometer2"></i> Poids de l'animal (kg)
+                    </label>
+                    <input id="animal_poids" type="number" name="animal_poids"
+                           value="{{ animal.poids|default:'' }}"
+                           class="form-control" min="0" step="0.01">
+                </div>
+            </div>
+        </div>
+
+        <!-- CONSULTATION -->
+        <div class="section-card">
+            <h3 class="section-title">
+                <i class="bi bi-clipboard2-pulse"></i> Informations de la consultation
+            </h3>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="motif">
+                        <i class="bi bi-chat-left-text"></i> Motif
+                    </label>
+                    <input id="motif" type="text" name="motif"
+                           value="{{ consultation.motif|default:'' }}"
+                           class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="veterinaire">
+                        <i class="bi bi-person-badge"></i> Vétérinaire
+                    </label>
+                    <input id="veterinaire" type="text" name="veterinaire"
+                           value="{{ consultation.veterinaire|default:'' }}"
+                           class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="poids" title="Poids retenu pour cette consultation">
+                        <i class="bi bi-box2-heart"></i> Poids consultation (kg)
+                    </label>
+                    <input id="poids" type="number" name="poids"
+                           value="{{ consultation.poids|default:'' }}"
+                           class="form-control" min="0" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="lieu">
+                        <i class="bi bi-geo-alt"></i> Lieu
+                    </label>
+                    <select id="lieu" name="lieu" class="form-control">
+                        <option value="cabinet" {% if consultation.lieu == "cabinet" %}selected{% endif %}>Cabinet</option>
+                        <option value="domicile" {% if consultation.lieu == "domicile" %}selected{% endif %}>Domicile</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="statut" title="La terminaison définitive se fait via le bouton dédié">
+                        <i class="bi bi-flag"></i> Statut
+                    </label>
+                    <select id="statut" name="statut" class="form-control">
+                        <option value="en_cours" {% if consultation.statut == "en_cours" %}selected{% endif %}>En cours</option>
+                        <option value="annulee" {% if consultation.statut == "annulee" %}selected{% endif %}>Annulée</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label for="observations">
+                        <i class="bi bi-file-text"></i> Observations
+                    </label>
+                    <textarea id="observations" name="observations" class="form-control">{{ consultation.observations|default:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="{% url 'consultation_detail' consultation.id %}" class="btn-action btn-cancel" title="Annuler les modifications">
+                <i class="bi bi-x-circle"></i> Annuler
+            </a>
+            <button type="submit" class="btn-action btn-save" title="Enregistrer toutes les modifications">
+                <i class="bi bi-check2-circle"></i> Enregistrer les modifications
+            </button>
+        </div>
+    </form>
 </div>
 
 {% endblock %}

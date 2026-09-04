@@ -33,7 +33,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-
+from django.views.decorators.http import require_http_methods
 
 # ===== API VIEWSETS =====
 class ConsultationViewSet(viewsets.ModelViewSet):
@@ -353,6 +353,8 @@ def create_consultation(request):
 
         mode = data.get("mode")
 
+        client_nouveau = False
+
         if mode == "existing":
             # Client ET animal déjà existants
             animal = Animal.objects.get(id=int(data["animal_id"]))
@@ -379,13 +381,15 @@ def create_consultation(request):
                 poids=animal_poids,
             )
 
-        else:
-            # mode == "new" : nouveau client ET nouvel animal
+        elif mode == "new":
+            # Nouveau client ET nouvel animal
             client = Client.objects.create(
                 nom=data["client_nom"],
                 telephone=data.get("client_phone", ""),
                 adresse=data.get("client_adresse", "")
             )
+
+            client_nouveau = True
 
             animal_nom = data.get("animal_nom", "").strip() or "Non renseigné"
 
@@ -404,6 +408,12 @@ def create_consultation(request):
                 poids=animal_poids,
             )
 
+        else:
+            return JsonResponse(
+                {"error": "Mode de création de consultation invalide."},
+                status=400
+            )
+
         # Création de la consultation (commun aux trois modes)
         consultation = Consultation.objects.create(
             client=client,
@@ -417,7 +427,8 @@ def create_consultation(request):
                 if data.get("animal_poids")
                 else None
             ),
-            statut="en_cours"
+            statut="en_cours",
+            client_nouveau=client_nouveau,
         )
 
         return JsonResponse({
@@ -454,9 +465,15 @@ def terminer_consultation(request, consultation_id):
     ordonnance = Ordonnance.objects.filter(consultation=consultation).first()
 
     if not ordonnance:
-        # 👉 IMPORTANT : pas d'ordonnance = on force création
         return redirect("ordonnance_create", consultation_id=consultation.id)
 
+    if not ordonnance.lignes.exists():
+        messages.warning(
+            request,
+           "Impossible de terminer la consultation : "
+           "l'ordonnance doit contenir au moins un médicament."
+        )
+        return redirect("ordonnance_detail", ordonnance_id=ordonnance.id)
     with transaction.atomic():
 
         # 3. créer vente
@@ -501,17 +518,167 @@ def terminer_consultation(request, consultation_id):
 
 
 def edit_consultation(request, id):
-    consultation = get_object_or_404(Consultation, id=id)
+    consultation = get_object_or_404(
+        Consultation.objects.select_related("client", "animal"),
+        id=id
+    )
+
+    # Une consultation terminée est définitivement verrouillée.
+    if consultation.statut == "terminee":
+        messages.warning(
+            request,
+            "Cette consultation est terminée et ne peut plus être modifiée."
+        )
+        return redirect("consultation_detail", consultation_id=consultation.id)
+
+    client = consultation.client
+    animal = consultation.animal
 
     if request.method == "POST":
-        consultation.motif = request.POST.get("motif")
-        consultation.observations = request.POST.get("observations")
-        consultation.lieu = request.POST.get("lieu")
-        consultation.save()
+        # ---------------------------------------------------------
+        # CLIENT : modifiable uniquement s'il était nouveau
+        # lors de la création de cette consultation.
+        # ---------------------------------------------------------
+        if consultation.client_nouveau:
+            client_nom = request.POST.get("client_nom", "").strip()
+            telephone = request.POST.get("telephone", "").strip()
+            adresse = request.POST.get("adresse", "").strip()
+
+            if not client_nom:
+                messages.error(request, "Le nom du client est obligatoire.")
+                return redirect("edit_consultation", id=consultation.id)
+
+            # Le téléphone doit rester unique, sauf pour le client actuel.
+            if telephone and Client.objects.filter(
+                telephone=telephone
+            ).exclude(id=client.id).exists():
+                messages.error(
+                    request,
+                    "Ce numéro de téléphone est déjà utilisé par un autre client."
+                )
+                return redirect("edit_consultation", id=consultation.id)
+        else:
+            # Pour un client existant, les valeurs POST du formulaire sont
+            # volontairement ignorées : le client reste verrouillé.
+            client_nom = client.nom
+            telephone = client.telephone or ""
+            adresse = client.adresse or ""
+
+        # ---------------------------------------------------------
+        # ANIMAL
+        # ---------------------------------------------------------
+        animal_nom = request.POST.get("animal_nom", "").strip()
+        espece = request.POST.get("espece", "").strip()
+        race = request.POST.get("race", "").strip()
+        sexe = request.POST.get("sexe", "").strip()
+        animal_poids_raw = request.POST.get("animal_poids", "").strip()
+
+        if not animal_nom:
+            messages.error(request, "Le nom de l'animal est obligatoire.")
+            return redirect("edit_consultation", id=consultation.id)
+
+        if not espece:
+            messages.error(request, "L'espèce de l'animal est obligatoire.")
+            return redirect("edit_consultation", id=consultation.id)
+
+        if sexe and sexe not in ["M", "F"]:
+            messages.error(request, "Le sexe de l'animal est invalide.")
+            return redirect("edit_consultation", id=consultation.id)
+
+        # ---------------------------------------------------------
+        # CONSULTATION
+        # ---------------------------------------------------------
+        motif = request.POST.get("motif", "").strip()
+        observations = request.POST.get("observations", "").strip()
+        lieu = request.POST.get("lieu", "").strip()
+        consultation_poids_raw = request.POST.get("poids", "").strip()
+        veterinaire = request.POST.get("veterinaire", "").strip()
+        statut = request.POST.get("statut", "").strip()
+
+        if not motif:
+            messages.error(request, "Le motif de consultation est obligatoire.")
+            return redirect("edit_consultation", id=consultation.id)
+
+        if lieu not in ["cabinet", "domicile"]:
+            messages.error(request, "Le lieu de consultation est invalide.")
+            return redirect("edit_consultation", id=consultation.id)
+
+        if statut not in ["en_cours", "annulee"]:
+            # La terminaison passe par terminer_consultation(), qui gère
+            # également l'ordonnance et le stock.
+            messages.warning(
+                request,
+                "Pour terminer une consultation, utilisez le bouton « Terminer la consultation »."
+            )
+            return redirect("edit_consultation", id=consultation.id)
+
+        def parse_weight(value, field_name):
+            if value == "":
+                return None
+            try:
+                result = float(value.replace(",", "."))
+            except (ValueError, AttributeError):
+                raise ValueError(f"Le {field_name} est invalide.")
+            if result < 0:
+                raise ValueError(f"Le {field_name} ne peut pas être négatif.")
+            return result
+
+        try:
+            animal_poids = parse_weight(animal_poids_raw, "poids de l'animal")
+            consultation_poids = parse_weight(
+                consultation_poids_raw,
+                "poids de la consultation"
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("edit_consultation", id=consultation.id)
+
+        try:
+            with transaction.atomic():
+                # Client : seulement si nouveau lors de la consultation.
+                if consultation.client_nouveau:
+                    client.nom = client_nom
+                    client.telephone = telephone or None
+                    client.adresse = adresse or None
+                    client.save()
+
+                # Animal : toujours modifiable tant que la consultation est en cours.
+                animal.client = client
+                animal.nom = animal_nom
+                animal.espece = espece
+                animal.race = race or None
+                animal.sexe = sexe or None
+                animal.poids = animal_poids
+                animal.save()
+
+                # Consultation : tous les champs métier modifiables.
+                consultation.client = client
+                consultation.animal = animal
+                consultation.motif = motif
+                consultation.observations = observations
+                consultation.lieu = lieu
+                consultation.poids = consultation_poids
+                consultation.veterinaire = veterinaire
+                consultation.statut = statut
+                consultation.save()
+
+        except Exception as exc:
+            messages.error(
+                request,
+                f"Erreur lors de la modification : {exc}"
+            )
+            return redirect("edit_consultation", id=consultation.id)
+
+        messages.success(
+            request,
+            "La consultation a été modifiée avec succès."
+        )
         return redirect("consultation_detail", consultation_id=consultation.id)
 
     return render(request, "consultations/edit_consultation.html", {
-        "consultation": consultation
+        "consultation": consultation,
+        "client": client,
+        "animal": animal,
     })
 
 def ordonnance_detail (request, ordonnance_id):
@@ -563,6 +730,88 @@ def ajouter_ligne_ordonnance(request, ordonnance_id):
     )
     return JsonResponse({"id": ligne.id})
 
+@csrf_exempt
+@require_http_methods(["POST", "PUT"])
+def modifier_ligne_ordonnance(request, ligne_id):
+    ligne = get_object_or_404(
+        LigneOrdonnance.objects.select_related(
+            "ordonnance__consultation",
+            "medicament"
+        ),
+        id=ligne_id
+    )
+
+    # Consultation terminée = ordonnance verrouillée
+    if ligne.ordonnance.consultation.statut == "terminee":
+        return JsonResponse(
+            {
+                "error": "Consultation terminée — ordonnance verrouillée."
+            },
+            status=403
+        )
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse(
+            {"error": "Données JSON invalides."},
+            status=400
+        )
+
+    quantite = data.get("quantite")
+    posologie = data.get("posologie", "").strip()
+
+    if not quantite:
+        return JsonResponse(
+            {"error": "La quantité est obligatoire."},
+            status=400
+        )
+
+    try:
+        quantite = int(quantite)
+    except (ValueError, TypeError):
+        return JsonResponse(
+            {"error": "La quantité doit être un nombre entier."},
+            status=400
+        )
+
+    if quantite <= 0:
+        return JsonResponse(
+            {"error": "La quantité doit être supérieure à zéro."},
+            status=400
+        )
+
+    if not posologie:
+        return JsonResponse(
+            {"error": "La posologie est obligatoire."},
+            status=400
+        )
+
+    # Si un nouveau médicament est envoyé
+    medicament_id = data.get("medicament_id")
+
+    if medicament_id:
+        from pharmacie.models import Medicament
+
+        medicament = get_object_or_404(
+            Medicament,
+            id=medicament_id
+        )
+
+        ligne.medicament = medicament
+
+    ligne.quantite = quantite
+    ligne.posologie = posologie
+    ligne.save()
+
+    return JsonResponse({
+        "ok": True,
+        "id": ligne.id,
+        "medicament_id": ligne.medicament.id,
+        "medicament": str(ligne.medicament),
+        "quantite": ligne.quantite,
+        "posologie": ligne.posologie,
+    })
 
 @csrf_exempt
 @require_POST
@@ -575,13 +824,6 @@ def supprimer_ligne_ordonnance(request, ligne_id):
             status=403,
         )
 
-    ligne.delete()
-    return JsonResponse({"ok": True})
-
-@csrf_exempt
-@require_POST
-def supprimer_ligne_ordonnance(request, ligne_id):
-    ligne = get_object_or_404(LigneOrdonnance, id=ligne_id)
     ligne.delete()
     return JsonResponse({"ok": True})
 
@@ -889,6 +1131,7 @@ def api_ajouter_consultation(request):
             lieu=data.get("lieu", "cabinet"),
             veterinaire=data.get("veterinaire", ""),
             statut="en_cours",
+            client_nouveau=False,
         )
         return JsonResponse({"id": consultation.id}, status=201)
     except Animal.DoesNotExist:
@@ -901,18 +1144,41 @@ def api_ajouter_consultation(request):
 @require_http_methods(["PUT"])
 def api_modifier_statut_consultation(request, consultation_id):
     """PUT /consultations/api/<id>/statut/"""
+
     try:
         consultation = Consultation.objects.get(pk=consultation_id)
         data = json.loads(request.body)
+
         statut = data.get("statut")
-        if statut in ["en_cours", "terminee", "annulee"]:
-            consultation.statut = statut
-            consultation.save()
-        return JsonResponse({"id": consultation.id, "statut": consultation.statut})
+
+        if statut not in ["en_cours", "annulee"]:
+            return JsonResponse({
+                "error": (
+                    "Le statut 'terminee' doit être effectué "
+                    "via l'endpoint de terminaison de consultation."
+                ),
+                "code": "USE_TERMINER_CONSULTATION"
+            }, status=400)
+
+        consultation.statut = statut
+        consultation.save()
+
+        return JsonResponse({
+            "id": consultation.id,
+            "statut": consultation.statut
+        })
+
     except Consultation.DoesNotExist:
-        return JsonResponse({"error": "Consultation introuvable"}, status=404)
+        return JsonResponse(
+            {"error": "Consultation introuvable"},
+            status=404
+        )
+
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+        return JsonResponse(
+            {"error": str(e)},
+            status=400
+        )
 
 
 @csrf_exempt

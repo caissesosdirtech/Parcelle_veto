@@ -91,6 +91,29 @@
 .status-terminee  { background:#d4edda; color:#155724; }
 .status-annulee   { background:#f8d7da; color:#721c24; }
 
+/* ===== TOOLTIP ===== */
+.tooltip { position:relative; }
+.tooltip::after {
+    content: attr(data-tooltip);
+    position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+    background:#1e2a3a; color:#fff; font-size:.72rem; font-weight:600;
+    padding:6px 10px; border-radius:6px; white-space:nowrap;
+    opacity:0; visibility:hidden; transition:opacity .15s ease, visibility .15s ease;
+    pointer-events:none; z-index:10;
+}
+.tooltip::before {
+    content:''; position:absolute; bottom:calc(100% + 3px); left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:#1e2a3a;
+    opacity:0; visibility:hidden; transition:opacity .15s ease, visibility .15s ease;
+}
+.tooltip:hover::after, .tooltip:hover::before { opacity:1; visibility:visible; }
+
+.btn-edit { background:#fff; color:#1f6feb; border:1px solid #1f6feb; padding:6px 12px; font-size:.8rem; border-radius:8px; margin-right:6px; }
+.btn-edit:hover { background:#1f6feb; color:#fff; }
+.actions-cell { display:flex; gap:0; white-space:nowrap; }
+.edit-input { width:70px; padding:5px 8px; border-radius:6px; border:1px solid #e7ecf2; font-size:.85rem; }
+.edit-input.posologie { width:140px; }
+
 /* ===== PRINT ===== */
 @media print {
     .no-print { display:none !important; }
@@ -203,13 +226,20 @@
                         <tr id="row-{{ ligne.id }}">
                             <td style="color:#b0bcc9; font-weight:700;">{{ forloop.counter }}</td>
                             <td><span class="badge-med">{{ ligne.medicament.catalogue.nom }}</span></td>
-                            <td><span class="qty-badge">× {{ ligne.quantite }}</span></td>
-                            <td style="color:#5a6a7e;">{{ ligne.posologie }}</td>
+                            <td class="cell-qte" data-value="{{ ligne.quantite }}"><span class="qty-badge">× {{ ligne.quantite }}</span></td>
+                            <td class="cell-posologie" data-value="{{ ligne.posologie }}" style="color:#5a6a7e;">{{ ligne.posologie }}</td>
                             <td>{{ ligne.medicament.prix|floatformat:0 }} FCFA</td>
-                            <td style="font-weight:700; color:#1f6feb;">
+                            <td class="cell-total" style="font-weight:700; color:#1f6feb;">
                                 {% widthratio ligne.quantite 1 ligne.medicament.prix %} FCFA
                             </td>
-                            
+                            <td class="no-print">
+                                {% if ordonnance.consultation.statut == "en_cours" %}
+                                <div class="actions-cell">
+                                    <button class="btn btn-edit tooltip" data-tooltip="Modifier cette ligne" data-prix="{{ ligne.medicament.prix }}" data-stock="{{ ligne.medicament.stock }}" onclick="editerLigne({{ ligne.id }}, this)">✏️</button>
+                                    <button class="btn btn-danger btn-sm tooltip" data-tooltip="Supprimer cette ligne" onclick="supprimerLigne({{ ligne.id }})">🗑</button>
+                                </div>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -498,12 +528,15 @@ async function ajouterLigne() {
         tr.innerHTML = `
             <td style="color:#b0bcc9;font-weight:700;">${num}</td>
             <td><span class="badge-med">${opt.text.split('(')[0].trim()}</span></td>
-            <td><span class="qty-badge">× ${qteInput.value}</span></td>
-            <td style="color:#5a6a7e;">${posInput.value}</td>
+            <td class="cell-qte" data-value="${qteInput.value}"><span class="qty-badge">× ${qteInput.value}</span></td>
+            <td class="cell-posologie" data-value="${posInput.value}" style="color:#5a6a7e;">${posInput.value}</td>
             <td>${prix.toLocaleString('fr-FR')} FCFA</td>
-            <td style="font-weight:700;color:#1f6feb;">${total.toLocaleString('fr-FR')} FCFA</td>
+            <td class="cell-total" style="font-weight:700;color:#1f6feb;">${total.toLocaleString('fr-FR')} FCFA</td>
             <td class="no-print">
-                <button class="btn btn-danger btn-sm" onclick="supprimerLigne(${data.id})">🗑</button>
+                <div class="actions-cell">
+                    <button class="btn btn-edit tooltip" data-tooltip="Modifier cette ligne" data-prix="${prix}" data-stock="${opt.dataset.stock}" onclick="editerLigne(${data.id}, this)">✏️</button>
+                    <button class="btn btn-danger btn-sm tooltip" data-tooltip="Supprimer cette ligne" onclick="supprimerLigne(${data.id})">🗑</button>
+                </div>
             </td>`;
         tbody.appendChild(tr);
 
@@ -538,6 +571,90 @@ async function supprimerLigne(ligneId) {
             const data = await res.json();
             alert(data.error || 'Erreur serveur');
         }
+    } catch(e) {
+        alert('Erreur réseau : ' + e.message);
+    }
+}
+
+// ===========================
+// MODIFIER UNE LIGNE (édition en ligne)
+// ===========================
+function editerLigne(ligneId, btn) {
+    const row = document.getElementById(`row-${ligneId}`);
+    if (!row || row.dataset.editing === '1') return;
+    row.dataset.editing = '1';
+
+    const prix  = parseFloat(btn.dataset.prix) || 0;
+    const stock = parseInt(btn.dataset.stock) || 0;
+
+    const cellQte  = row.querySelector('.cell-qte');
+    const cellPos  = row.querySelector('.cell-posologie');
+    const cellTot  = row.querySelector('.cell-total');
+    const cellActions = row.querySelector('.actions-cell');
+
+    const qteActuelle = cellQte.dataset.value;
+    const posActuelle  = cellPos.dataset.value;
+
+    cellQte.innerHTML = `<input type="number" class="edit-input" id="editQte-${ligneId}" min="1" value="${qteActuelle}">`;
+    cellPos.innerHTML = `<input type="text" class="edit-input posologie" id="editPos-${ligneId}" value="${posActuelle}">`;
+
+    cellActions.innerHTML = `
+        <button class="btn btn-success btn-sm tooltip" data-tooltip="Enregistrer" onclick="sauvegarderLigne(${ligneId}, ${prix}, ${stock})">✔</button>
+        <button class="btn btn-outline btn-sm tooltip" data-tooltip="Annuler" onclick="annulerEditionLigne(${ligneId})">✖</button>
+    `;
+}
+
+function annulerEditionLigne(ligneId) {
+    // Simplement recharger l'ordonnance pour restaurer l'affichage d'origine.
+    location.reload();
+}
+
+async function sauvegarderLigne(ligneId, prix, stock) {
+    const qteInput = document.getElementById(`editQte-${ligneId}`);
+    const posInput = document.getElementById(`editPos-${ligneId}`);
+
+    const quantite  = parseInt(qteInput.value);
+    const posologie = posInput.value.trim();
+
+    if (!quantite || quantite < 1) { alert('Quantité invalide'); return; }
+    if (!posologie) { alert('Renseignez la posologie'); return; }
+    if (quantite > stock) { alert(`Stock insuffisant (disponible : ${stock})`); return; }
+
+    try {
+        const res = await fetch(`/consultations/ordonnance/ligne/${ligneId}/modifier/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ quantite, posologie })
+        });
+
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Erreur serveur'); return; }
+
+        const row = document.getElementById(`row-${ligneId}`);
+        const cellQte = row.querySelector('.cell-qte');
+        const cellPos = row.querySelector('.cell-posologie');
+        const cellTot = row.querySelector('.cell-total');
+        const cellActions = row.querySelector('.actions-cell');
+
+        cellQte.dataset.value = data.quantite;
+        cellQte.innerHTML = `<span class="qty-badge">× ${data.quantite}</span>`;
+
+        cellPos.dataset.value = data.posologie;
+        cellPos.textContent = data.posologie;
+
+        cellTot.textContent = data.total.toLocaleString('fr-FR') + ' FCFA';
+
+        cellActions.innerHTML = `
+            <button class="btn btn-edit tooltip" data-tooltip="Modifier cette ligne" data-prix="${prix}" data-stock="${stock}" onclick="editerLigne(${ligneId}, this)">✏️</button>
+            <button class="btn btn-danger btn-sm tooltip" data-tooltip="Supprimer cette ligne" onclick="supprimerLigne(${ligneId})">🗑</button>
+        `;
+
+        row.dataset.editing = '0';
+        recalcTotal();
+
     } catch(e) {
         alert('Erreur réseau : ' + e.message);
     }

@@ -35,7 +35,35 @@
     padding:16px;
     margin-bottom:14px;
 }
+
+/* ===== MODAL ERREUR ===== */
+.modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+    z-index:1000; align-items:center; justify-content:center;
+}
+.modal-overlay.show{ display:flex; }
+.modal-box{
+    background:#fff; border-radius:16px; padding:30px; max-width:420px; width:90%;
+    text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.2);
+}
+.modal-icon{ font-size:2.5rem; margin-bottom:12px; }
+.modal-title{ margin:0 0 10px; color:#1e2a3a; font-size:1.1rem; font-weight:700; }
+.modal-message{ color:#5a6a7e; font-size:.9rem; margin-bottom:24px; line-height:1.5; }
+.modal-box .btn{
+    padding:10px 24px; border-radius:10px; border:none; cursor:pointer;
+    font-weight:600; font-size:.9rem; background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff;
+}
 </style>
+
+<!-- MODAL ERREUR -->
+<div class="modal-overlay" id="errorModalOverlay">
+    <div class="modal-box">
+        <div class="modal-icon">⚠️</div>
+        <h3 class="modal-title" id="errorModalTitle">Impossible d'enregistrer</h3>
+        <p class="modal-message" id="errorModalMessage"></p>
+        <button class="btn" onclick="fermerErrorModal()">Compris</button>
+    </div>
+</div>
 
 <div class="page-title">🩺 Nouvelle consultation vétérinaire</div>
 
@@ -544,15 +572,30 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
         if(res.ok){
             window.location.href = `/consultations/${data.id}/`;
         } else {
-            alert(data.error || "Erreur serveur");
+            ouvrirErrorModal(data.error || "Erreur serveur");
         }
 
     } catch(e){
-        alert("Erreur réseau: " + e.message);
+        ouvrirErrorModal("Erreur réseau : " + e.message);
     }
 
     this.disabled = false;
     this.textContent = "✔ Créer";
+});
+
+// ===========================
+// MODAL ERREUR
+// ===========================
+function ouvrirErrorModal(message, title){
+    document.getElementById("errorModalTitle").textContent = title || "Impossible d'enregistrer";
+    document.getElementById("errorModalMessage").textContent = message;
+    document.getElementById("errorModalOverlay").classList.add("show");
+}
+function fermerErrorModal(){
+    document.getElementById("errorModalOverlay").classList.remove("show");
+}
+document.getElementById("errorModalOverlay").addEventListener("click", function(e){
+    if(e.target === this) fermerErrorModal();
 });
 </script>
 
