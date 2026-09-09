@@ -25,4 +25,7 @@ DB_PORT=5432
 # CORS - origines autorisées à appeler l'API depuis un navigateur
 # (uniquement nécessaire si tu as une version Flutter Web)
 # ============================
-CORS_ALLOWED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+]
