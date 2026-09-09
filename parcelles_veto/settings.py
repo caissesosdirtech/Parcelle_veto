@@ -1,13 +1,21 @@
 # ============================
 # Django - Configuration générale
 # ============================
-SECRET_KEY=mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf
+SECRET_KEY=mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf')
 DEBUG=False
 
 import os
 
-# Accepte la variable d'environnement ou autorise Railway par défaut
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+# Configuration pour Railway
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+SECRET_KEY = os.getenv('SECRET_KEY', 'mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf')
+
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "parcelleveto-thies.up.railway.app,localhost,127.0.0.1").split(",")
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://parcelleveto-thies.up.railway.app',
+]
 
 # ============================
 # Base de données PostgreSQL
