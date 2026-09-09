@@ -1,14 +1,9 @@
-# ============================
-# Django - Configuration générale
-# ============================
-SECRET_KEY=mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf')
-DEBUG=False
 
 import os
 
-# Configuration pour Railway
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
+# ✅ Guillemets ouvrante ET fermante ajoutées
 SECRET_KEY = os.getenv('SECRET_KEY', 'mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf')
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "parcelleveto-thies.up.railway.app,localhost,127.0.0.1").split(",")
