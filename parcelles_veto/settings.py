@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+import dj_database_url
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -47,15 +49,15 @@ ASGI_APPLICATION = 'parcelles_veto.asgi.application'
 # ============================
 # Base de données PostgreSQL
 # ============================
+
+# Configuration dynamique de la base de données
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'parcelles_veto'),
-        'USER': os.getenv('DB_USER', 'parcelles_veto_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'FV3OqvCeevjU5A1GDZatNoaU6MGdLkNr'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-    }
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 # Static files
