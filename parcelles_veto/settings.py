@@ -1,7 +1,10 @@
 import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ============================
-# Django - Configuration générale
+# General Settings
 # ============================
 SECRET_KEY = os.getenv('SECRET_KEY', 'mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
@@ -13,18 +16,48 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # ============================
-# Base de données PostgreSQL
+# Application definition
 # ============================
-DB_NAME = os.getenv('DB_NAME', 'parcelles_veto')
-DB_USER = os.getenv('DB_USER', 'parcelles_veto_user')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'FV3OqvCeevjU5A1GDZatNoaU6MGdLkNr')
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_PORT = os.getenv('DB_PORT', '5432')
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    # Vos applications personnalisées ici
+]
+
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+# Ligne essentielle manquante :
+ROOT_URLCONF = 'parcelles_veto.urls'
+
+WSGI_APPLICATION = 'parcelles_veto.wsgi.application'
+ASGI_APPLICATION = 'parcelles_veto.asgi.application'
 
 # ============================
-# CORS
+# Base de données PostgreSQL
 # ============================
-CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:8000",
-    "http://localhost:8000",
-]
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'parcelles_veto'),
+        'USER': os.getenv('DB_USER', 'parcelles_veto_user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'FV3OqvCeevjU5A1GDZatNoaU6MGdLkNr'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+    }
+}
+
+# Static files
+STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
