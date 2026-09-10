@@ -42,10 +42,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Servir les fichiers statiques
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -55,7 +55,6 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if os.getenv("CORS_ALLOWED_ORIGINS") else []
 
-# Ligne essentielle manquante :
 ROOT_URLCONF = 'parcelles_veto.urls'
 
 WSGI_APPLICATION = 'parcelles_veto.wsgi.application'
@@ -64,9 +63,6 @@ ASGI_APPLICATION = 'parcelles_veto.asgi.application'
 # ============================
 # Base de données PostgreSQL
 # ============================
-
-# Configuration dynamique de la base de données
-
 DATABASES = {
     'default': dj_database_url.config(
         default=os.getenv('DATABASE_URL'),
@@ -75,13 +71,26 @@ DATABASES = {
     )
 }
 
-# Static files
-STATIC_URL = 'static/'
+# ============================
+# Static files (CSS, JS, Images)
+# ============================
+STATIC_URL = '/static/'
+
+# Dossiers statiques globaux (s'il existe un dossier 'static' à la racine)
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+] if os.path.exists(os.path.join(BASE_DIR, 'static')) else []
+
+# Dossier cible du collectstatic
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Configuration WhiteNoise assouplie (évite les erreurs 500)
 STORAGES = {
-    'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
@@ -90,7 +99,7 @@ AUTH_USER_MODEL = 'accounts.Utilisateur'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
