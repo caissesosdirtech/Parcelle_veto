@@ -20,7 +20,16 @@ from reportlab.platypus import (
 
 # ── VUE WEB ───────────────────────────────────────────────────────────────────
 
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+
+
+@login_required
 def rapport_caisse(request):
+    # Restriction : Seuls les Docteurs ou Superutilisateurs ont accès au rapport
+    if request.user.role == 'EMPLOYE' and not request.user.is_superuser:
+        raise PermissionDenied("Accès refusé : Le rapport de caisse est strictement réservé aux docteurs.")
+
     date_debut = request.GET.get("date_debut")
     date_fin = request.GET.get("date_fin")
 
@@ -65,7 +74,6 @@ def rapport_caisse(request):
         "date_fin": date_fin,
         "active_page": "caisse",
     })
-
 
 # ── API FLUTTER ───────────────────────────────────────────────────────────────
 
