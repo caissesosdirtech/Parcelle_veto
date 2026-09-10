@@ -92,7 +92,7 @@
     <div class="nav-section-label">Finance</div>
 
     {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
-        <a href="{% url 'rapport' %}">Rapport Caisse</a>
+        <a href="{% url 'rapport_caisse' %}">Rapport Caisse</a>
     {% endif %}
 
 </nav>
