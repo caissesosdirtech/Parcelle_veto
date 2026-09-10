@@ -92,9 +92,28 @@
     <div class="nav-section-label">Finance</div>
 
     {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
-        <a href="{% url 'rapport_caisse' %}">Rapport Caisse</a>
+        <a class="nav-item {% if active_page == 'rapport_caisse' %}active{% endif %}"
+           href="{% url 'rapport_caisse' %}">
+            📊 Rapport Caisse
+        </a>
+    {% endif %}
+
+    <!-- Section Compte & Connexion / Déconnexion -->
+    <div class="nav-section-label">Compte</div>
+
+    {% if request.user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="nav-item" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; padding: 0.5rem 1rem;">
+                🚪 Déconnexion ({{ request.user.username }})
+            </button>
+        </form>
+    {% else %}
+        <a class="nav-item {% if active_page == 'login' %}active{% endif %}"
+           href="{% url 'login' %}">
+            🔑 Connexion
+        </a>
     {% endif %}
 
 </nav>
-
 </aside>
