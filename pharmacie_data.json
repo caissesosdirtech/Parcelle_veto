@@ -1,5 +1,75 @@
 [
 {
+  "model": "fournisseurs.fournisseur",
+  "pk": 1,
+  "fields": {
+    "nom": "Vetagropharma International (Thiès)",
+    "telephone": "(+221) 33 951 10 94 ",
+    "email": "",
+    "adresse": "Avenue El Hadj Oumar Thiès - Sénégal. "
+  }
+},
+{
+  "model": "fournisseurs.fournisseur",
+  "pk": 2,
+  "fields": {
+    "nom": "ALLO VETO",
+    "telephone": "+221 776454541",
+    "email": "",
+    "adresse": "Yoff Dakar"
+  }
+},
+{
+  "model": "fournisseurs.fournisseur",
+  "pk": 3,
+  "fields": {
+    "nom": "BAMBO VETERINAIRES",
+    "telephone": "338219497",
+    "email": "",
+    "adresse": "6 Bis Rue Carnot Dakar Senegal"
+  }
+},
+{
+  "model": "fournisseurs.fournisseur",
+  "pk": 4,
+  "fields": {
+    "nom": "Cabinet et Pharmacie veterinaire du Stade Lat Dior Dr Cheikh NDIAYE",
+    "telephone": "776152620",
+    "email": "",
+    "adresse": "Route de Thies Sindia en face Stade Lat Diop"
+  }
+},
+{
+  "model": "fournisseurs.fournisseur",
+  "pk": 5,
+  "fields": {
+    "nom": "PharmaVet Senegal",
+    "telephone": "338250000",
+    "email": "",
+    "adresse": "Dakar Plateau"
+  }
+},
+{
+  "model": "fournisseurs.fournisseur",
+  "pk": 6,
+  "fields": {
+    "nom": "ENEVET",
+    "telephone": "775002025",
+    "email": "",
+    "adresse": "Dakar Yoff"
+  }
+},
+{
+  "model": "fournisseurs.fournisseur",
+  "pk": 7,
+  "fields": {
+    "nom": "VetoPharma Senegal",
+    "telephone": "339511111",
+    "email": "",
+    "adresse": "Thies"
+  }
+},
+{
   "model": "pharmacie.famillemedicament",
   "pk": 1,
   "fields": {
@@ -38,14 +108,14 @@
   "model": "pharmacie.famillemedicament",
   "pk": 6,
   "fields": {
-    "nom": "Vitamines et Complï¿½ments"
+    "nom": "Vitamines et Compléments"
   }
 },
 {
   "model": "pharmacie.famillemedicament",
   "pk": 7,
   "fields": {
-    "nom": "Dï¿½sinfectants"
+    "nom": "Désinfectants"
   }
 },
 {
@@ -59,7 +129,7 @@
   "model": "pharmacie.famillemedicament",
   "pk": 9,
   "fields": {
-    "nom": "Hï¿½patoprotecteurs"
+    "nom": "Hépatoprotecteurs"
   }
 },
 {
@@ -87,14 +157,14 @@
   "model": "pharmacie.famillemedicament",
   "pk": 13,
   "fields": {
-    "nom": "Rï¿½gulateurs digestifs"
+    "nom": "Régulateurs digestifs"
   }
 },
 {
   "model": "pharmacie.cataloguemedicament",
   "pk": 1,
   "fields": {
-    "nom": "Oxytï¿½tracycline",
+    "nom": "Oxytétracycline",
     "famille": 1
   }
 },
@@ -142,7 +212,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 7,
   "fields": {
-    "nom": "ï¿½rythromycine",
+    "nom": "Érythromycine",
     "famille": 1
   }
 },
@@ -366,7 +436,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 35,
   "fields": {
-    "nom": "Cypermï¿½thrine",
+    "nom": "Cyperméthrine",
     "famille": 4
   }
 },
@@ -382,7 +452,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 37,
   "fields": {
-    "nom": "Permï¿½thrine",
+    "nom": "Perméthrine",
     "famille": 4
   }
 },
@@ -646,7 +716,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 70,
   "fields": {
-    "nom": "Crï¿½syl",
+    "nom": "Crésyl",
     "famille": 7
   }
 },
@@ -654,7 +724,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 71,
   "fields": {
-    "nom": "Eau de Javel vï¿½tï¿½rinaire",
+    "nom": "Eau de Javel vétérinaire",
     "famille": 7
   }
 },
@@ -662,7 +732,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 72,
   "fields": {
-    "nom": "Glutaraldï¿½hyde",
+    "nom": "Glutaraldéhyde",
     "famille": 7
   }
 },
@@ -670,7 +740,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 73,
   "fields": {
-    "nom": "Vitamine C concentrï¿½e",
+    "nom": "Vitamine C concentrée",
     "famille": 8
   }
 },
@@ -678,7 +748,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 74,
   "fields": {
-    "nom": "ï¿½lectrolytes",
+    "nom": "Électrolytes",
     "famille": 8
   }
 },
@@ -686,7 +756,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 75,
   "fields": {
-    "nom": "Anti-stress multivitaminï¿½",
+    "nom": "Anti-stress multivitaminé",
     "famille": 8
   }
 },
@@ -718,7 +788,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 79,
   "fields": {
-    "nom": "Mï¿½thionine",
+    "nom": "Méthionine",
     "famille": 9
   }
 },
@@ -758,7 +828,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 84,
   "fields": {
-    "nom": "Prï¿½biotiques",
+    "nom": "Prébiotiques",
     "famille": 10
   }
 },
@@ -766,7 +836,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 85,
   "fields": {
-    "nom": "Acides aminï¿½s",
+    "nom": "Acides aminés",
     "famille": 10
   }
 },
@@ -814,7 +884,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 91,
   "fields": {
-    "nom": "Aspirine vï¿½tï¿½rinaire",
+    "nom": "Aspirine vétérinaire",
     "famille": 12
   }
 },
@@ -830,7 +900,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 93,
   "fields": {
-    "nom": "Mï¿½loxicam",
+    "nom": "Méloxicam",
     "famille": 12
   }
 },
@@ -1061,6 +1131,17 @@
     "prix": "600.00",
     "seuil_alerte": 5,
     "fournisseur": 7
+  }
+},
+{
+  "model": "pharmacie.medicament",
+  "pk": 8,
+  "fields": {
+    "catalogue": 13,
+    "stock": 200,
+    "prix": "450.00",
+    "seuil_alerte": 5,
+    "fournisseur": null
   }
 }
 ]
