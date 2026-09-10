@@ -91,10 +91,9 @@
 
     <div class="nav-section-label">Finance</div>
 
-    <a class="nav-item {% if active_page == 'caisse' %}active{% endif %}"
-       href="{% url 'rapport_caisse' %}">
-        💰 Rapport de Caisse
-    </a>
+    {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
+        <a href="{% url 'caisse:rapport' %}">Rapport Caisse</a>
+    {% endif %}
 
 </nav>
 

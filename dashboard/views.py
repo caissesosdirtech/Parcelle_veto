@@ -12,7 +12,10 @@ from animaux.models import Animal
 
 
 # ── VUE WEB (inchangée) ───────────────────────────────────────────────────────
+from django.contrib.auth.decorators import login_required
 
+
+@login_required
 def dashboard_docteur(request):
     today = timezone.now().date()
     maintenant = timezone.now()
@@ -65,7 +68,6 @@ def dashboard_docteur(request):
     }
 
     return render(request, "dashboard/dashboard.html", context)
-
 
 # ── API FLUTTER — STATS COMPLÈTES ─────────────────────────────────────────────
 
