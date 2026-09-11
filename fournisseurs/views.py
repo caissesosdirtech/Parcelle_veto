@@ -1,23 +1,36 @@
-from django.shortcuts import render, redirect
+import json
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
+from django.db.models import Count
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from rest_framework import viewsets
+
 from .models import Fournisseur
 from .serializers import FournisseurSerializer
-from rest_framework import viewsets
 from pharmacie.models import Medicament
-from django.shortcuts import render, redirect, get_object_or_404
 
+
+# ==========================================
+# Django Rest Framework ViewSet
+# ==========================================
 
 class FournisseurViewSet(viewsets.ModelViewSet):
     queryset = Fournisseur.objects.all()
     serializer_class = FournisseurSerializer
 
 
+# ==========================================
+# Vues Classiques (Templates HTML)
+# ==========================================
+
 def fournisseurs_list(request):
     fournisseurs = Fournisseur.objects.all().order_by("nom")
-
     return render(request, "fournisseurs/liste_fournisseur.html", {
         "fournisseurs": fournisseurs,
         "active_page": "fournisseurs",
     })
+
 
 def fournisseur_update(request, pk):
     fournisseur = get_object_or_404(Fournisseur, pk=pk)
@@ -35,44 +48,27 @@ def fournisseur_update(request, pk):
         "fournisseur": fournisseur
     })
 
-# ── À ajouter à la fin de fournisseurs/views.py ──────────────────────────────
-from django.http import JsonResponse
-from .models import Fournisseur
 
-def api_liste_fournisseurs(request):
-    """Liste des fournisseurs pour le dashboard Flutter."""
-    fournisseurs = Fournisseur.objects.all().order_by("nom")
-    data = []
-    for f in fournisseurs:
-        data.append({
-            "id": f.id,
-            "nom": f.nom,
-            "contact": getattr(f, 'telephone', '') or getattr(f, 'contact', ''),
-            "email": getattr(f, 'email', ''),
-            "adresse": getattr(f, 'adresse', ''),
-        })
-    return JsonResponse(data, safe=False)
-
-# ── À ajouter à la fin de fournisseurs/views.py ──────────────────────────────
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-
+# ==========================================
+# Endpoints API JSON (Flutter / Dashboard)
+# ==========================================
 
 def api_liste_fournisseurs(request):
     """GET /fournisseurs/api/liste/"""
-    fournisseurs = Fournisseur.objects.all().order_by("nom")
+    # Annotation pour compter les médicaments en 1 seule requête SQL
+    fournisseurs = Fournisseur.objects.annotate(
+        nb_medicaments=Count('medicament')
+    ).order_by("nom")
+
     data = []
     for f in fournisseurs:
-        nb_medicaments = Medicament.objects.filter(fournisseur=f).count()
         data.append({
             "id": f.id,
             "nom": f.nom,
             "telephone": f.telephone or "",
             "email": f.email or "",
             "adresse": f.adresse or "",
-            "nb_medicaments": nb_medicaments,
+            "nb_medicaments": f.nb_medicaments,
         })
     return JsonResponse(data, safe=False)
 

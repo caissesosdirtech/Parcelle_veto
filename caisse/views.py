@@ -1,34 +1,35 @@
+import json
 from django.shortcuts import render
-from django.db.models import Sum, F
+from django.db.models import Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 
-# ✅ UN SEUL import de Vente — depuis ventes.models
-from ventes.models import Vente
-
+# Dépendances ReportLab (PDF)
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
-)
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+# Dépendances OpenPyXL (Excel)
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+
+# Modèles
+from ventes.models import Vente
 
 
 # ── VUE WEB ───────────────────────────────────────────────────────────────────
 
-from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
-
-
 @login_required
 def rapport_caisse(request):
-    # Restriction : Seuls les Docteurs ou Superutilisateurs ont accès au rapport
-    if request.user.role == 'EMPLOYE' and not request.user.is_superuser:
-        raise PermissionDenied("Accès refusé : Le rapport de caisse est strictement réservé aux docteurs.")
+    """Affiche le rapport de caisse avec statistiques et historique filtrable."""
+    if hasattr(request.user, 'role') and request.user.role == 'EMPLOYE' and not request.user.is_superuser:
+        raise PermissionDenied("Accès refusé : Le rapport de caisse est strictly réservé aux docteurs.")
 
     date_debut = request.GET.get("date_debut")
     date_fin = request.GET.get("date_fin")
@@ -75,12 +76,13 @@ def rapport_caisse(request):
         "active_page": "caisse",
     })
 
+
 # ── API FLUTTER ───────────────────────────────────────────────────────────────
 
 def api_rapport_caisse(request):
     """
     GET /caisse/api/rapport/?date_debut=YYYY-MM-DD&date_fin=YYYY-MM-DD
-    Retourne stats + liste des ventes pour la CaisseScreen Flutter.
+    Retourne les statistiques et la liste des ventes pour CaisseScreen Flutter.
     """
     date_debut = request.GET.get("date_debut")
     date_fin = request.GET.get("date_fin")
@@ -139,12 +141,13 @@ def api_rapport_caisse(request):
             "ticket_moyen": round(ticket_moyen, 0),
         },
         "ventes": ventes_data,
-    })
+    }, status=200)
 
 
 # ── PDF ───────────────────────────────────────────────────────────────────────
 
 def rapport_caisse_pdf(request):
+    """Génère un rapport de caisse imprimable au format PDF."""
     date_debut = request.GET.get("date_debut")
     date_fin = request.GET.get("date_fin")
 
@@ -154,7 +157,6 @@ def rapport_caisse_pdf(request):
             "ordonnance__consultation__client",
             "ordonnance__consultation__animal",
         )
-        .prefetch_related("lignes__medicament")
         .order_by("-date", "-id")
     )
 
@@ -164,9 +166,7 @@ def rapport_caisse_pdf(request):
         ventes = ventes.filter(date__date__lte=date_fin)
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = (
-        'attachment; filename="rapport_caisse_parcelles_veto.pdf"'
-    )
+    response["Content-Disposition"] = 'attachment; filename="rapport_caisse_parcelles_veto.pdf"'
 
     doc = SimpleDocTemplate(
         response, pagesize=A4,
@@ -202,12 +202,10 @@ def rapport_caisse_pdf(request):
     # Titre
     titre_style = styles["Heading2"]
     titre_style.alignment = TA_CENTER
-    elements.append(Paragraph(
-        "<b>RAPPORT DE CAISSE - PARCELLES VETO</b>", titre_style
-    ))
+    elements.append(Paragraph("<b>RAPPORT DE CAISSE - PARCELLES VETO</b>", titre_style))
     elements.append(Spacer(1, 0.5 * cm))
 
-    # Tableau
+    # Tableau des ventes
     data = [["N°", "Date", "Client", "Animal", "Type", "Montant (FCFA)"]]
     total_general = 0
 
@@ -226,17 +224,18 @@ def rapport_caisse_pdf(request):
             animal = "-"
             type_vente = "Directe"
 
-        total_general += vente.total or 0
+        montant = vente.total or 0
+        total_general += montant
         data.append([
             str(vente.id),
             vente.date.strftime("%d/%m/%Y"),
             client, animal, type_vente,
-            f"{vente.total:,.0f}",
+            f"{montant:,.0f}",
         ])
 
     data.append(["", "", "", "", "TOTAL", f"{total_general:,.0f} FCFA"])
 
-    table = Table(data, colWidths=[1.2*cm, 3*cm, 5*cm, 4*cm, 3*cm, 3*cm])
+    table = Table(data, colWidths=[1.2 * cm, 3 * cm, 5 * cm, 4 * cm, 3 * cm, 3 * cm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1565C0")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -258,28 +257,21 @@ def rapport_caisse_pdf(request):
 
     resume_style = styles["Normal"]
     resume_style.alignment = TA_RIGHT
-    elements.append(Paragraph(
-        f"<b>Total général : {total_general:,.0f} FCFA</b>", resume_style
-    ))
+    elements.append(Paragraph(f"<b>Total général : {total_general:,.0f} FCFA</b>", resume_style))
     elements.append(Spacer(1, 1 * cm))
     elements.append(Paragraph(
-        "<para alignment='center'><font size='9'>"
-        "Parcelles Veto - La santé animale, notre priorité."
-        "</font></para>",
+        "<para alignment='center'><font size='9'>Parcelles Veto - La santé animale, notre priorité.</font></para>",
         styles["Normal"],
     ))
 
     doc.build(elements)
     return response
 
-# ── À ajouter à la fin de caisse/views.py ────────────────────────────────────
-# Imports à ajouter en haut si absents :
-# from openpyxl import Workbook
-# from openpyxl.styles import Font, PatternFill, Alignment
 
+# ── EXPORT EXCEL ─────────────────────────────────────────────────────────────
 
 def export_caisse_excel(request):
-    """GET /caisse/export/excel/?date_debut=...&date_fin=..."""
+    """Exporte les ventes de la caisse sous format tableur Excel (.xlsx)."""
     date_debut = request.GET.get("date_debut")
     date_fin = request.GET.get("date_fin")
 
@@ -306,6 +298,7 @@ def export_caisse_excel(request):
 
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="2E7D4F", end_color="2E7D4F", fill_type="solid")
+    
     for col in range(1, len(headers) + 1):
         cell = ws.cell(row=1, column=col)
         cell.font = header_font
@@ -328,15 +321,16 @@ def export_caisse_excel(request):
             animal = "-"
             type_vente = "Directe"
 
-        total_general += vente.total or 0
+        montant = float(vente.total or 0)
+        total_general += montant
         ws.append([
             vente.id,
             vente.date.strftime("%d/%m/%Y"),
             client, animal, type_vente,
-            float(vente.total or 0),
+            montant,
         ])
 
-    # Ligne total
+    # Ligne de total
     ws.append(["", "", "", "", "TOTAL", float(total_general)])
     last_row = ws.max_row
     for col in range(1, 7):

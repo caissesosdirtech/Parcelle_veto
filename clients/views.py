@@ -1,104 +1,65 @@
-from django.shortcuts import render
+import json
+from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
-from django.db.models import Q, Count
 from django.db import transaction
+from django.db.models import Q, Count
 from django.http import JsonResponse, HttpResponse
-from .models import Client
-from animaux.models import Animal
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+from rest_framework import viewsets
 from reportlab.pdfgen import canvas
 from openpyxl import Workbook
+
+# Modèles des différentes applications
+from .models import Client
 from .serializers import ClientSerializer
-from rest_framework import viewsets
-from consultations.models import Consultation, RendezVous
-from django.shortcuts import render, get_object_or_404
-from django.utils import timezone
+from animaux.models import Animal
+from consultations.models import Consultation, RendezVous, Ordonnance
 
-from clients.models import Client
-from consultations.models import Ordonnance
 
+# ── REST FRAMEWORK VIEWSET ───────────────────────────────────────────────────
 
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
 
-def api_clients_list(request):
 
-    search = request.GET.get("search", "")
-    espece = request.GET.get("espece", "")
-    page = int(request.GET.get("page", 1))
+# ── FONCTIONS UTILITAIRES POUR TELEPHONE ──────────────────────────────────────
 
-    qs = Client.objects.prefetch_related("animaux").annotate(
-        nb_animaux=Count("animaux")
-    )
+def _normaliser_telephone(value):
+    """Normalise un numéro pour détecter les doublons malgré espaces/tirets/préfixes."""
+    if value is None:
+        return ""
+    value = str(value).strip()
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if digits.startswith("00221"):
+        digits = digits[5:]
+    elif digits.startswith("221") and len(digits) == 12:
+        digits = digits[3:]
+    return digits
 
-    # 🔎 RECHERCHE (nom, téléphone, adresse + animaux)
-    if search:
-        qs = qs.filter(
-            Q(nom__icontains=search) |
-            Q(telephone__icontains=search) |
-            Q(adresse__icontains=search) |
-            Q(animaux__nom__icontains=search) |
-            Q(animaux__espece__icontains=search)
-        ).distinct()
 
-    # 🧠 FILTRE PAR ESPÈCE
-    if espece:
-        qs = qs.filter(
-            animaux__espece=espece
-        ).distinct()
+def _verifier_telephone_unique(telephone, client_id=None):
+    """Retourne un message d'erreur si le téléphone appartient déjà à un autre client."""
+    normalized = _normaliser_telephone(telephone)
+    if not normalized:
+        return None
 
-    paginator = Paginator(qs, 5)
-    page_obj = paginator.get_page(page)
+    for autre in Client.objects.exclude(id=client_id).exclude(telephone__isnull=True):
+        if _normaliser_telephone(autre.telephone) == normalized:
+            return (
+                f"Ce numéro de téléphone est déjà utilisé par le client "
+                f'"{autre.nom}" (ID {autre.id}).'
+            )
+    return None
 
-    data = []
-    total_animaux_page = 0
 
-    for c in page_obj:
-        animaux = list(c.animaux.all())
-        total_animaux_page += len(animaux)
-
-        data.append({
-            "id": c.id,
-            "nom": c.nom,
-            "telephone": c.telephone,
-            "adresse": c.adresse,
-            "nb_animaux": len(animaux),
-            "animaux": [
-                {
-                    "id": a.id,          # ✅ Ajout de l'identifiant de l'animal
-                    "nom": a.nom,
-                    "espece": a.espece,
-                    "race": a.race,
-                    "sexe": a.sexe,
-                    "poids": a.poids,
-                }
-                for a in animaux
-            ]
-        })
-
-    return JsonResponse({
-        "results": data,
-        "page": page_obj.number,
-        "has_next": page_obj.has_next(),
-        "has_previous": page_obj.has_previous(),
-
-        # 📊 Statistiques globales
-        "total_clients": Client.objects.count(),
-        "total_animaux": Animal.objects.count(),
-
-        # 📄 Nombre d'animaux affichés sur la page courante
-        "total_animaux_page": total_animaux_page,
-    })
-
-from django.shortcuts import render
-from django.core.paginator import Paginator
-from django.db.models import Q, Count
-
-from .models import Client
-from animaux.models import Animal   # ✅ IMPORTANT (corrige ton erreur)
+# ── VUES WEB (TEMPLATES HTML) ─────────────────────────────────────────────────
 
 def clients_list(request):
-
+    """Affiche la liste paginée des clients sur l'interface Web."""
     search = request.GET.get("search", "")
 
     clients_qs = Client.objects.prefetch_related("animaux").annotate(
@@ -126,15 +87,12 @@ def clients_list(request):
 
 
 def historique_client(request, client_id):
-
+    """Affiche l'historique complet d'un client (consultations, RDV, ordonnances)."""
     client = get_object_or_404(Client, id=client_id)
 
     animaux = Animal.objects.filter(client=client)
-
     consultations = Consultation.objects.filter(client=client).order_by("-date")
-
     rendezvous = RendezVous.objects.filter(animal__client=client).order_by("-date_rdv")
-
     ordonnances = Ordonnance.objects.filter(
         consultation__client=client
     ).order_by("-date_creation")
@@ -147,24 +105,24 @@ def historique_client(request, client_id):
         "ordonnances": ordonnances,
     })
 
-def export_excel(request):
 
+def export_excel(request):
+    """Exporte la liste des clients et leurs animaux sous format Excel."""
     wb = Workbook()
     ws = wb.active
     ws.title = "Clients"
 
-    # headers
     ws.append(["Client", "Téléphone", "Adresse", "Animal", "Espèce", "Race"])
 
-    for c in Client.objects.all():
+    for c in Client.objects.prefetch_related("animaux").all():
         for a in c.animaux.all():
             ws.append([
                 c.nom,
-                c.telephone,
-                c.adresse,
+                c.telephone or "",
+                c.adresse or "",
                 a.nom,
-                a.espece,
-                a.race
+                a.espece or "",
+                a.race or ""
             ])
 
     response = HttpResponse(
@@ -177,20 +135,26 @@ def export_excel(request):
 
 
 def export_pdf(request):
-
+    """Génère un export PDF simple de la liste des clients."""
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="clients.pdf"'
 
     p = canvas.Canvas(response)
-
     y = 800
 
-    for c in Client.objects.all():
-        p.drawString(50, y, f"{c.nom} - {c.telephone} - {c.adresse}")
+    for c in Client.objects.prefetch_related("animaux").all():
+        if y < 50:
+            p.showPage()
+            y = 800
+
+        p.drawString(50, y, f"{c.nom} - {c.telephone or 'N/A'} - {c.adresse or 'N/A'}")
         y -= 20
 
         for a in c.animaux.all():
-            p.drawString(70, y, f"🐾 {a.nom} ({a.espece})")
+            if y < 50:
+                p.showPage()
+                y = 800
+            p.drawString(70, y, f"🐾 {a.nom} ({a.espece or 'Inconnu'})")
             y -= 15
 
         y -= 10
@@ -198,46 +162,75 @@ def export_pdf(request):
     p.save()
     return response
 
-# ── À ajouter dans clients/views.py ─────────────────────────────────────────
-# Ces 3 endpoints sont appelés par la ClientsScreen Flutter.
-# Ajoutez-les à la fin du fichier existant.
 
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-import json
+# ── ENDPOINTS API (FLUTTER / MOBILE) ──────────────────────────────────────────
 
-def _normaliser_telephone(value):
-    """Normalise un numéro pour détecter les doublons malgré espaces/tirets/prefixes."""
-    if value is None:
-        return ""
-    value = str(value).strip()
-    digits = "".join(ch for ch in value if ch.isdigit())
-    if digits.startswith("00221"):
-        digits = digits[5:]
-    elif digits.startswith("221") and len(digits) == 12:
-        digits = digits[3:]
-    return digits
+def api_clients_list(request):
+    """Retourne la liste paginée et filtrée des clients pour l'application Flutter."""
+    search = request.GET.get("search", "")
+    espece = request.GET.get("espece", "")
+    page = int(request.GET.get("page", 1))
 
+    qs = Client.objects.prefetch_related("animaux").annotate(
+        nb_animaux=Count("animaux")
+    )
 
-def _verifier_telephone_unique(telephone, client_id=None):
-    """Retourne un message d'erreur si le téléphone appartient déjà à un autre client."""
-    normalized = _normaliser_telephone(telephone)
-    if not normalized:
-        return None
+    if search:
+        qs = qs.filter(
+            Q(nom__icontains=search) |
+            Q(telephone__icontains=search) |
+            Q(adresse__icontains=search) |
+            Q(animaux__nom__icontains=search) |
+            Q(animaux__espece__icontains=search)
+        ).distinct()
 
-    for autre in Client.objects.exclude(id=client_id).exclude(telephone__isnull=True):
-        if _normaliser_telephone(autre.telephone) == normalized:
-            return (
-                f"Ce numéro de téléphone est déjà utilisé par le client "
-                f'"{autre.nom}" (ID {autre.id}).'
-            )
-    return None
+    if espece:
+        qs = qs.filter(animaux__espece=espece).distinct()
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(page)
+
+    data = []
+    total_animaux_page = 0
+
+    for c in page_obj:
+        animaux = list(c.animaux.all())
+        total_animaux_page += len(animaux)
+
+        data.append({
+            "id": c.id,
+            "nom": c.nom,
+            "telephone": c.telephone or "",
+            "adresse": c.adresse or "",
+            "nb_animaux": len(animaux),
+            "animaux": [
+                {
+                    "id": a.id,
+                    "nom": a.nom,
+                    "espece": a.espece or "",
+                    "race": a.race or "",
+                    "sexe": a.sexe or "",
+                    "poids": a.poids or 0,
+                }
+                for a in animaux
+            ]
+        })
+
+    return JsonResponse({
+        "results": data,
+        "page": page_obj.number,
+        "has_next": page_obj.has_next(),
+        "has_previous": page_obj.has_previous(),
+        "total_clients": Client.objects.count(),
+        "total_animaux": Animal.objects.count(),
+        "total_animaux_page": total_animaux_page,
+    })
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_creer_client(request):
-    """Créer un client depuis Flutter/web."""
+    """Créer un nouveau client."""
     try:
         data = json.loads(request.body or "{}")
         nom = str(data.get('nom', '')).strip()
@@ -266,22 +259,7 @@ def api_creer_client(request):
 @csrf_exempt
 @require_http_methods(["PUT", "PATCH"])
 def api_modifier_client(request, client_id):
-    """
-    Modifier un client et, si fourni, ses animaux.
-
-    Payload possible:
-    {
-      "nom": "...", "telephone": "...", "adresse": "...",
-      "animaux": [
-        {"id": 12, "nom": "Rex", "espece": "Chien", "race": "...", "sexe": "...", "poids": 12.5},
-        {"nom": "Mimi", "espece": "Chat"}
-      ],
-      "supprimer_animaux": [15, 18]
-    }
-
-    Un animal avec un id existant est modifié. Sans id, il est créé pour ce client.
-    Les animaux sont toujours rattachés au client en cours.
-    """
+    """Modifier un client et synchroniser ses animaux."""
     try:
         client = Client.objects.get(id=client_id)
         data = json.loads(request.body or "{}")
@@ -297,7 +275,6 @@ def api_modifier_client(request, client_id):
         if erreur_tel:
             return JsonResponse({'error': erreur_tel}, status=409)
 
-        # On valide tout avant d'écrire afin d'éviter une modification partielle.
         animaux_data = data.get('animaux', None)
         supprimer_ids = data.get('supprimer_animaux', []) or []
 
@@ -307,42 +284,28 @@ def api_modifier_client(request, client_id):
         if not isinstance(supprimer_ids, list):
             return JsonResponse({'error': "Le champ supprimer_animaux doit être une liste d'identifiants."}, status=400)
 
-        # Vérification des animaux existants : aucun animal d'un autre client ne peut être modifié.
         for animal_data in animaux_data or []:
             animal_id = animal_data.get('id')
-            if animal_id:
-                if not Animal.objects.filter(id=animal_id, client=client).exists():
-                    return JsonResponse(
-                        {'error': f"Animal {animal_id} introuvable pour ce client."},
-                        status=400
-                    )
+            if animal_id and not Animal.objects.filter(id=animal_id, client=client).exists():
+                return JsonResponse({'error': f"Animal {animal_id} introuvable pour ce client."}, status=400)
 
         for animal_id in supprimer_ids:
             if not Animal.objects.filter(id=animal_id, client=client).exists():
-                return JsonResponse(
-                    {'error': f"Animal {animal_id} introuvable pour ce client."},
-                    status=400
-                )
+                return JsonResponse({'error': f"Animal {animal_id} introuvable pour ce client."}, status=400)
 
-        # Ne jamais supprimer un animal qui possède un historique médical.
-        # Animal -> Consultation/RendezVous utilise CASCADE dans ce projet.
         if supprimer_ids:
-            from consultations.models import Consultation, RendezVous
             historique_count = (
                 Consultation.objects.filter(animal_id__in=supprimer_ids).count() +
                 RendezVous.objects.filter(animal_id__in=supprimer_ids).count()
             )
             if historique_count:
-                return JsonResponse(
-                    {
-                        'error': (
-                            "Impossible de supprimer cet animal car il possède "
-                            "des consultations ou rendez-vous. Modifiez ses informations "
-                            "à la place afin de conserver son historique."
-                        )
-                    },
-                    status=409
-                )
+                return JsonResponse({
+                    'error': (
+                        "Impossible de supprimer cet animal car il possède "
+                        "des consultations ou rendez-vous. Modifiez ses informations "
+                        "à la place afin de conserver son historique."
+                    )
+                }, status=409)
 
         with transaction.atomic():
             client.nom = nom
@@ -350,7 +313,6 @@ def api_modifier_client(request, client_id):
             client.adresse = adresse or None
             client.save()
 
-            # Suppression explicite des animaux sélectionnés.
             Animal.objects.filter(client=client, id__in=supprimer_ids).delete()
 
             animaux_result = []
@@ -383,6 +345,7 @@ def api_modifier_client(request, client_id):
                     'sexe': animal.sexe or '',
                     'poids': animal.poids or 0,
                 })
+
         return JsonResponse({
             'success': True,
             'id': client.id,
@@ -411,65 +374,51 @@ def api_supprimer_client(request, client_id):
         return JsonResponse({'error': 'Client introuvable'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
-    
+
+
 def api_clients_stats(request):
-    from django.db.models import Count
+    """Statistiques globales des clients et animaux."""
     return JsonResponse({
         "total_clients": Client.objects.count(),
         "total_animaux": Animal.objects.count(),
-    })    
-
-
-# Ajoutez aussi en haut du fichier si absent : from django.utils import timezone
-
-# ── À ajouter à la fin de clients/views.py ───────────────────────────────────
-# Imports à ajouter en haut si absents :
-# from animaux.models import Animal
-# from consultations.models import Consultation, RendezVous, Ordonnance
+    })
 
 
 def api_dossier_client(request, client_id):
-    """
-    GET /clients/api/<id>/dossier/
-    Dossier complet : client + ses animaux, chaque animal avec ses
-    consultations, chaque consultation avec son ordonnance (si existante).
-    """
+    """Dossier médical complet d'un client et de ses animaux pour l'application Flutter."""
     client = get_object_or_404(Client, id=client_id)
-
     animaux = Animal.objects.filter(client=client).order_by("nom")
 
     animaux_data = []
     for animal in animaux:
-        consultations = (
-            Consultation.objects
-            .filter(animal=animal)
-            .order_by("-date")
-        )
+        consultations = Consultation.objects.filter(animal=animal).order_by("-date")
 
         consultations_data = []
         for c in consultations:
             ordonnance = Ordonnance.objects.filter(consultation=c).first()
             lignes_data = []
             if ordonnance:
-                for ligne in ordonnance.lignes.select_related(
-                    "medicament__catalogue"
-                ).all():
+                for ligne in ordonnance.lignes.select_related("medicament__catalogue").all():
+                    nom_med = (
+                        ligne.medicament.catalogue.nom
+                        if hasattr(ligne.medicament, 'catalogue') and ligne.medicament.catalogue
+                        else str(ligne.medicament)
+                    )
                     lignes_data.append({
-                        "medicament": ligne.medicament.catalogue.nom
-                            if ligne.medicament.catalogue else str(ligne.medicament),
+                        "medicament": nom_med,
                         "quantite": ligne.quantite,
                         "posologie": ligne.posologie,
                     })
 
             consultations_data.append({
                 "id": c.id,
-                "date": c.date.strftime("%d/%m/%Y %H:%M"),
+                "date": c.date.strftime("%d/%m/%Y %H:%M") if c.date else "",
                 "motif": c.motif or "",
                 "observations": c.observations or "",
-                "statut": c.statut,
-                "lieu": c.lieu,
-                "veterinaire": c.veterinaire or "",
-                "poids": c.poids or 0,
+                "statut": getattr(c, 'statut', ''),
+                "lieu": getattr(c, 'lieu', ''),
+                "veterinaire": getattr(c, 'veterinaire', '') or "",
+                "poids": getattr(c, 'poids', 0) or 0,
                 "ordonnance_id": ordonnance.id if ordonnance else None,
                 "lignes_ordonnance": lignes_data,
             })
@@ -485,7 +434,6 @@ def api_dossier_client(request, client_id):
             "consultations": consultations_data,
         })
 
-    # Prochains RDV du client (tous animaux confondus)
     rdvs = (
         RendezVous.objects
         .filter(animal__client=client, date_rdv__gte=timezone.now())
@@ -494,9 +442,9 @@ def api_dossier_client(request, client_id):
     rdvs_data = [{
         "id": r.id,
         "animal": r.animal.nom,
-        "date_rdv": r.date_rdv.strftime("%d/%m/%Y %H:%M"),
+        "date_rdv": r.date_rdv.strftime("%d/%m/%Y %H:%M") if r.date_rdv else "",
         "motif": r.motif or "",
-        "statut": r.statut,
+        "statut": getattr(r, 'statut', ''),
     } for r in rdvs]
 
     return JsonResponse({

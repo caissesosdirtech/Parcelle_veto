@@ -122,8 +122,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Redirection vers la page de login si l'utilisateur n'est pas connecté
 LOGIN_URL = '/accounts/login/'
 
-# Redirection vers le tableau de bord après une connexion réussie
-LOGIN_REDIRECT_URL = '/'
-
-# Redirection après la déconnexion
-LOGOUT_REDIRECT_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = "/"  # Va déclencher la vue rediriger_selon_role
+LOGOUT_REDIRECT_URL = "/accounts/login/"
