@@ -1,0 +1,19 @@
+<!-- templates/auth_base.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Connexion{% endblock %} - Parcelles Veto Pro</title>
+    <!-- Tailwind CSS (CDN pour la simplicité, adaptable avec Bootstrap 5) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 min-h-screen flex items-center justify-center p-4">
+    
+    {% block content %}
+    <!-- Le formulaire de connexion s'insérera ici -->
+    {% endblock %}
+
+</body>
+</html>

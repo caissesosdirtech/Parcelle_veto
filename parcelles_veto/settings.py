@@ -119,8 +119,13 @@ TEMPLATES = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Redirection vers la page de login si l'utilisateur n'est pas connecté
+# settings.py
+
+# URL où l'utilisateur est redirigé après connexion réussie
+LOGIN_REDIRECT_URL = '/'  # Ou le nom de la route du dashboard, ex: 'consultations_list'
+
+# URL de la page de connexion
 LOGIN_URL = '/accounts/login/'
 
-LOGIN_REDIRECT_URL = "/"  # Va déclencher la vue rediriger_selon_role
-LOGOUT_REDIRECT_URL = "/accounts/login/"
+# URL après déconnexion
+LOGOUT_REDIRECT_URL = '/accounts/login/'
