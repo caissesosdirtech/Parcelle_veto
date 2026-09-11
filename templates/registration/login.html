@@ -1,76 +1,265 @@
 <!-- templates/registration/login.html -->
 {% extends "auth_base.html" %}
 
-{% block title %}Connexion - Parcelles Veto Pro{% endblock %}
+{% block title %}Connexion - Parcelle Veto{% endblock %}
 
 {% block content %}
-<div class="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 p-8 text-white">
-    
-    <!-- Branding / Logo -->
-    <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-indigo-600/30 rounded-2xl border border-indigo-400/30 mb-3 shadow-inner">
-            <i class="fa-solid fa-user-doctor text-3xl text-indigo-400"></i>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  .pv-auth-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    background: #0B2545;
+  }
+  @media (max-width: 900px) {
+    .pv-auth-shell { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Left brand panel ---------- */
+  .pv-brand {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(160deg, #0B2545 0%, #0E3B33 55%, #15794F 130%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem 3.5rem;
+    color: #EAF6EF;
+  }
+  @media (max-width: 900px) {
+    .pv-brand { padding: 2.5rem 1.75rem; min-height: 260px; }
+  }
+
+  /* signature ambient motion: drifting paw pattern, subject-grounded, subtle */
+  .pv-paw-field {
+    position: absolute;
+    inset: -20%;
+    background-image: radial-gradient(circle, rgba(234,246,239,0.10) 0 3px, transparent 4px);
+    background-size: 64px 64px;
+    animation: pv-drift 40s linear infinite;
+  }
+  @keyframes pv-drift {
+    from { transform: translate3d(0,0,0); }
+    to   { transform: translate3d(-64px,-64px,0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pv-paw-field { animation: none; }
+  }
+
+  .pv-brand-inner { position: relative; z-index: 1; max-width: 30rem; }
+
+  .pv-mark {
+    width: 3.5rem; height: 3.5rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 1rem;
+    background: rgba(34,181,115,0.18);
+    border: 1px solid rgba(34,181,115,0.35);
+    margin-bottom: 1.5rem;
+  }
+
+  .pv-brand h1 {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    color: #FFFFFF;
+  }
+  .pv-brand h1 span { color: #4FD897; }
+
+  .pv-brand p.tagline {
+    margin-top: 0.6rem;
+    font-size: 0.95rem;
+    color: #A9C9BB;
+  }
+
+  .pv-brand-stats {
+    margin-top: 3rem;
+    display: flex;
+    gap: 2.25rem;
+  }
+  .pv-brand-stats div { display: flex; flex-direction: column; }
+  .pv-brand-stats .num {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.5rem; font-weight: 700; color: #FFFFFF;
+  }
+  .pv-brand-stats .lbl { font-size: 0.78rem; color: #A9C9BB; margin-top: 2px; }
+
+  @media (max-width: 900px) {
+    .pv-brand-stats { display: none; }
+  }
+
+  /* ---------- Right form panel ---------- */
+  .pv-form-panel {
+    display: flex; align-items: center; justify-content: center;
+    background: #0F1B2D;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .pv-card {
+    width: 100%;
+    max-width: 26rem;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 1.25rem;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.55);
+    padding: 2.25rem;
+    color: #EDF2F7;
+    animation: pv-card-in 0.55s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes pv-card-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pv-card { animation: none; }
+  }
+
+  .pv-card h2 {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.35rem; font-weight: 700; color: #fff;
+  }
+  .pv-card p.sub { font-size: 0.85rem; color: #9FB1C4; margin-top: 0.3rem; }
+
+  .pv-field { margin-top: 1.35rem; }
+  .pv-field label {
+    display: block; font-size: 0.72rem; font-weight: 700;
+    color: #9FB1C4; margin-bottom: 0.4rem;
+  }
+  .pv-input-wrap { position: relative; }
+  .pv-input-wrap i {
+    position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%);
+    color: #6E8397; font-size: 0.92rem;
+  }
+  .pv-input-wrap input {
+    width: 100%;
+    padding: 0.78rem 1rem 0.78rem 2.6rem;
+    background: rgba(15,27,45,0.65);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 0.75rem;
+    color: #fff;
+    font-size: 0.92rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .pv-input-wrap input::placeholder { color: #5E7284; }
+  .pv-input-wrap input:focus {
+    outline: none;
+    border-color: #22B573;
+    box-shadow: 0 0 0 3px rgba(34,181,115,0.22);
+  }
+
+  .pv-submit {
+    width: 100%;
+    margin-top: 1.75rem;
+    padding: 0.85rem 1rem;
+    border: none; border-radius: 0.75rem;
+    background: linear-gradient(135deg, #22B573, #15794F);
+    color: #fff; font-weight: 700; font-size: 0.94rem;
+    box-shadow: 0 12px 24px -10px rgba(21,121,79,0.55);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .pv-submit:hover { transform: translateY(-1px); box-shadow: 0 16px 28px -10px rgba(21,121,79,0.65); }
+  .pv-submit:focus-visible { outline: 2px solid #4FD897; outline-offset: 2px; }
+
+  .pv-error {
+    margin-top: 1.25rem;
+    display: flex; align-items: flex-start; gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    background: rgba(220,53,69,0.14);
+    border: 1px solid rgba(220,53,69,0.35);
+    border-radius: 0.75rem;
+    color: #FFC7CC;
+    font-size: 0.85rem;
+  }
+
+  .pv-footer-note {
+    margin-top: 1.75rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #5E7284;
+  }
+</style>
+
+<div class="pv-auth-shell">
+
+  <!-- LEFT: brand panel -->
+  <div class="pv-brand">
+    <div class="pv-paw-field"></div>
+    <div class="pv-brand-inner">
+      <div class="pv-mark">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4.5 10.5c1.1 0 2-1.12 2-2.5s-.9-2.5-2-2.5-2 1.12-2 2.5.9 2.5 2 2.5Z" fill="#4FD897"/>
+          <path d="M9.5 8c1.1 0 2-1.12 2-2.5S10.6 3 9.5 3s-2 1.12-2 2.5S8.4 8 9.5 8Z" fill="#4FD897"/>
+          <path d="M14.5 8c1.1 0 2-1.12 2-2.5S15.6 3 14.5 3s-2 1.12-2 2.5S13.4 8 14.5 8Z" fill="#4FD897"/>
+          <path d="M19.5 10.5c1.1 0 2-1.12 2-2.5s-.9-2.5-2-2.5-2 1.12-2 2.5.9 2.5 2 2.5Z" fill="#4FD897"/>
+          <path d="M12 11c-2.9 0-6 2.1-6 5.1 0 1.7 1.2 2.9 2.8 2.9.9 0 1.5-.3 2.2-.6.5-.2 1-.4 1-.4s.5.2 1 .4c.7.3 1.3.6 2.2.6 1.6 0 2.8-1.2 2.8-2.9 0-3-3.1-5.1-6-5.1Z" fill="#4FD897"/>
+        </svg>
+      </div>
+      <h1>Parcelle <span>Veto</span></h1>
+      <p class="tagline">La santé animale, notre priorité — espace de gestion clinique &amp; pharmacie.</p>
+
+      <div class="pv-brand-stats">
+        <div>
+          <span class="num">08h30–19h</span>
+          <span class="lbl">Ouvert tous les jours</span>
         </div>
-        <h1 class="text-2xl font-bold tracking-wide">Parcelles Veto Pro</h1>
-        <p class="text-slate-400 text-sm mt-1">Espace de gestion clinique & pharmacie</p>
+        <div>
+          <span class="num">Thiès</span>
+          <span class="lbl">Parcelles assainies</span>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <!-- Affichage des erreurs -->
-    {% if form.errors %}
-        <div class="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm flex items-center gap-3">
-            <i class="fa-solid fa-circle-exclamation text-lg"></i>
-            <span>Identifiant ou mot de passe incorrect.</span>
+  <!-- RIGHT: form panel -->
+  <div class="pv-form-panel">
+    <div class="pv-card">
+      <h2>Connexion</h2>
+      <p class="sub">Accédez à votre espace de travail.</p>
+
+      {% if form.errors %}
+        <div class="pv-error">
+          <i class="fa-solid fa-circle-exclamation" style="margin-top:2px;"></i>
+          <span>Identifiant ou mot de passe incorrect.</span>
         </div>
-    {% endif %}
+      {% endif %}
 
-    <!-- Formulaire de Connexion -->
-    <form method="post" action="{% url 'login' %}" class="space-y-5">
+      <form method="post" action="{% url 'login' %}">
         {% csrf_token %}
 
-        <!-- Champ Identifiant -->
-        <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                Nom d'utilisateur
-            </label>
-            <div class="relative">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-                    <i class="fa-solid fa-user"></i>
-                </span>
-                <input type="text" name="username" required 
-                    class="w-full pl-11 pr-4 py-3 bg-slate-800/60 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    placeholder="Entrez votre identifiant">
-            </div>
+        <div class="pv-field">
+          <label for="id_username">Nom d'utilisateur</label>
+          <div class="pv-input-wrap">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" id="id_username" name="username" required
+                   placeholder="Entrez votre identifiant" autocomplete="username">
+          </div>
         </div>
 
-        <!-- Champ Mot de passe -->
-        <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                Mot de passe
-            </label>
-            <div class="relative">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-                    <i class="fa-solid fa-lock"></i>
-                </span>
-                <input type="password" name="password" required 
-                    class="w-full pl-11 pr-4 py-3 bg-slate-800/60 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    placeholder="••••••••">
-            </div>
+        <div class="pv-field">
+          <label for="id_password">Mot de passe</label>
+          <div class="pv-input-wrap">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" id="id_password" name="password" required
+                   placeholder="••••••••" autocomplete="current-password">
+          </div>
         </div>
 
-        <!-- Bouton de Soumission -->
-        <button type="submit" 
-            class="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition-all duration-200 transform hover:-translate-y-0.5">
-            Se connecter <i class="fa-solid fa-arrow-right-to-bracket ml-2"></i>
+        <button type="submit" class="pv-submit">
+          Se connecter <i class="fa-solid fa-arrow-right-to-bracket" style="margin-left:6px;"></i>
         </button>
 
-        <!-- Redirection en cas d'accès direct -->
         <input type="hidden" name="next" value="{{ next }}" />
-    </form>
+      </form>
 
-    <!-- Footer de la carte -->
-    <div class="mt-8 text-center text-xs text-slate-400">
-        &copy; {% now "Y" %} Parcelles Veto Pro — Tous droits réservés.
+      <p class="pv-footer-note">&copy; {% now "Y" %} Parcelle Veto — Tous droits réservés.</p>
     </div>
+  </div>
 
 </div>
 {% endblock %}
