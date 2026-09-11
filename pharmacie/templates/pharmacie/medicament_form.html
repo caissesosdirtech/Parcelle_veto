@@ -345,6 +345,31 @@
 </div>
 
 <script>
+// Dictionnaire qui associe l'ID d'un médicament du catalogue à l'ID de sa famille
+const catalogueFamilleMap = {
+    {% for group in grouped %}
+        {% for c in group.list %}
+            "{{ c.id }}": "{{ c.famille.id }}",
+        {% endfor %}
+    {% endfor %}
+};
+
+// Fonction pour présélectionner automatiquement la famille associée au médicament
+function syncFamilleWithMedicament() {
+    const medSelect = document.getElementById('medSelect');
+    const familleSelect = document.getElementById('familleSelect');
+    const selectedMedId = medSelect.value;
+
+    if (selectedMedId && catalogueFamilleMap[selectedMedId]) {
+        familleSelect.value = catalogueFamilleMap[selectedMedId];
+        
+        // Si vous utilisez Select2, déclenchez l'événement 'change' pour mettre à jour l'affichage Select2
+        if (typeof $ !== 'undefined' && $('#familleSelect').data('select2')) {
+            $('#familleSelect').trigger('change.select2');
+        }
+    }
+}
+
 // Mettre à jour le résumé dynamiquement
 function updateSummary() {
     const medOpt    = document.getElementById('medSelect');
@@ -362,14 +387,22 @@ function updateSummary() {
     document.getElementById('sumValeur').textContent  = prix && stock ? (prix * stock).toLocaleString('fr-FR') + ' FCFA' : '— FCFA';
     document.getElementById('sumFo').textContent      = foNom || '—';
 
-    // Barre stock (max visuel = 100 unités)
+    // Barre stock
     const pct = Math.min(stock / 100 * 100, 100);
     const bar = document.getElementById('stockBar');
-    bar.style.width = pct + '%';
-    bar.style.background = stock <= seuil ? '#dc3545' : stock <= seuil * 2 ? '#fd7e14' : '#28a745';
+    if (bar) {
+        bar.style.width = pct + '%';
+        bar.style.background = stock <= seuil ? '#dc3545' : stock <= seuil * 2 ? '#fd7e14' : '#28a745';
+    }
 }
 
-['medSelect','familleSelect','stockInput','prixInput','seuilInput','foNom']
+// Écouteurs d'événements
+document.getElementById('medSelect').addEventListener('change', function() {
+    syncFamilleWithMedicament();
+    updateSummary();
+});
+
+['familleSelect','stockInput','prixInput','seuilInput','foNom']
     .forEach(id => {
         const el = document.getElementById(id);
         el?.addEventListener('change', updateSummary);
@@ -408,7 +441,6 @@ function addFamilleAjax() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            // Ajouter aux deux listes déroulantes de famille
             const select1 = document.getElementById('familleSelect');
             const select2 = document.getElementById('inputFamilleMed');
             
@@ -417,6 +449,10 @@ function addFamilleAjax() {
 
             select1.add(opt1);
             select2.add(opt2);
+
+            if (typeof $ !== 'undefined' && $('#familleSelect').data('select2')) {
+                $('#familleSelect').trigger('change');
+            }
 
             input.value = '';
             err.style.display = "none";
@@ -460,6 +496,12 @@ function addMedicamentAjax() {
             const selectMed = document.getElementById('medSelect');
             const opt = new Option(data.nom, data.id, true, true);
             selectMed.add(opt);
+
+            // Enregistrer l'association dans le dictionnaire
+            catalogueFamilleMap[data.id] = familleId;
+
+            // Synchroniser la famille
+            syncFamilleWithMedicament();
 
             document.getElementById('inputNomMed').value = '';
             document.getElementById('inputFamilleMed').value = '';
