@@ -36,6 +36,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 
+
+
 # ===================== DRF VIEWSETS =====================
 class FamilleMedicamentViewSet(viewsets.ModelViewSet):
     queryset = FamilleMedicament.objects.all()
@@ -604,3 +606,62 @@ def ajouter_catalogue_ajax(request):
         return JsonResponse({"success": False, "error": "Famille introuvable."}, status=404)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    # pharmacie/views.py
+
+
+@csrf_exempt
+@login_required
+@require_POST
+def api_creer_medicament_express(request):
+    """
+    Création rapide d'un médicament directement depuis l'interface de vente.
+    """
+    try:
+        data = json.loads(request.body)
+        nom = data.get("nom", "").strip()
+        famille_nom = data.get("famille", "Général").strip()
+        stock = int(data.get("stock", 0))
+        prix = float(data.get("prix", 0))
+        seuil = int(data.get("seuil_alerte", 5))
+
+        if not nom:
+            return JsonResponse({"success": False, "error": "Le nom du médicament est requis."}, status=400)
+
+        # 1. Création ou récupération de la famille
+        famille, _ = FamilleMedicament.objects.get_or_create(nom=famille_nom)
+
+        # 2. Création ou récupération dans le catalogue
+        catalogue, _ = CatalogueMedicament.objects.get_or_create(
+            nom=nom,
+            defaults={"famille": famille}
+        )
+
+        # 3. Création de l'entrée dans le stock Pharmacie
+        medicament, created = Medicament.objects.get_or_create(
+            catalogue=catalogue,
+            defaults={
+                "stock": stock,
+                "prix": prix,
+                "seuil_alerte": seuil,
+            }
+        )
+
+        # Si le médicament existait déjà, on met à jour son stock/prix
+        if not created:
+            medicament.stock += stock
+            medicament.prix = prix
+            medicament.save()
+
+        return JsonResponse({
+            "success": True,
+            "medicament": {
+                "id": medicament.id,
+                "nom": medicament.catalogue.nom,
+                "prix": float(medicament.prix),
+                "stock": medicament.stock,
+            }
+        }, status=201)
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)

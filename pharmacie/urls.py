@@ -35,6 +35,8 @@ urlpatterns = [
     # Exports
     path("export/excel/", views.export_pharmacie_excel, name="export_pharmacie_excel"),
     path("export/pdf/", views.export_pharmacie_pdf, name="export_pharmacie_pdf"),
+    # pharmacie/urls.py
+    path("api/creer-express/", views.api_creer_medicament_express, name="api_creer_medicament_express"),
 
     # DRF Router
     path('api/', include(router.urls)),
