@@ -121,7 +121,15 @@ def pharmacie_dashboard(request):
         date__date=today
     ).aggregate(total=Sum("total"))["total"] or 0
 
-    stock_critique = Medicament.objects.filter(stock__lte=5)
+    # ✅ NOUVEAUX CALCULS POUR LE STOCK DE LA PHARMACIE
+    total_medicaments = Medicament.objects.count()  # Nombre total de références en stock
+    total_fournisseurs = Fournisseur.objects.count() if 'Fournisseur' in globals() else 0
+    
+    # Alertes selon le seuil individuel de chaque médicament (ou par défaut <= 5)
+    stock_critique = Medicament.objects.filter(stock__lte=F('seuil_alerte')).select_related('catalogue', 'catalogue__famille')
+    
+    # Derniers médicaments ajoutés pour la carte "Derniers ajouts"
+    derniers_ajouts = Medicament.objects.select_related('catalogue', 'catalogue__famille').order_by('-id')[:5]
 
     jours_mois = []
     ventes_mois = []
@@ -146,39 +154,19 @@ def pharmacie_dashboard(request):
         "total_consultations": total_consultations,
         "total_rdv": total_rdv,
         "total_ventes": total_ventes,
+        
+        # ✅ Clés ajoutées pour l'affichage correct dans les cartes
+        "total_medicaments": total_medicaments,
+        "total_fournisseurs": total_fournisseurs,
         "stock_critique": stock_critique,
+        "derniers_ajouts": derniers_ajouts,
+
         "jours_mois": jours_mois,
         "ventes_mois": ventes_mois,
         "consultations_mois": consultations_mois,
     }
 
     return render(request, "pharmacie/dashboard.html", context)
-
-
-def medicaments_list(request):
-    search = request.GET.get("search", "")
-
-    medicaments = Medicament.objects.select_related(
-        'catalogue__famille', 'fournisseur'
-    ).all()
-
-    if search:
-        medicaments = medicaments.filter(
-            Q(catalogue__nom__icontains=search) |
-            Q(catalogue__famille__nom__icontains=search) |
-            Q(fournisseur__nom__icontains=search)
-        )
-
-    context = {
-        "medicaments": medicaments,
-        "familles": FamilleMedicament.objects.all(),
-        "medicaments_ok": medicaments.filter(stock__gt=F('seuil_alerte')).count(),
-        "medicaments_critiques": medicaments.filter(stock__lte=F('seuil_alerte')).count(),
-        "valeur_totale": sum(m.stock * m.prix for m in medicaments),
-        "search": search,
-    }
-
-    return render(request, "pharmacie/medicaments_list.html", context)
 
 
 def medicament_create(request):
