@@ -26,7 +26,7 @@ urlpatterns = [
     path("api/<int:medicament_id>/modifier/", views.api_modifier_medicament, name="api_modifier_medicament"),
     path("api/<int:medicament_id>/supprimer/", views.api_supprimer_medicament, name="api_supprimer_medicament"),
     path("famille/ajouter-ajax/", views.ajouter_famille_ajax, name="ajouter_famille_ajax"),
-    path("catalogue/ajouter-ajax/", views.ajouter_catalogue_ajax, name="ajouter_catalogue_ajax"),
+    
 
     # ✅ Exports
     path("export/excel/", views.export_pharmacie_excel, name="export_pharmacie_excel"),

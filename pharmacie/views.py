@@ -36,7 +36,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 
-
 # ===================== DRF VIEWSETS =====================
 class FamilleMedicamentViewSet(viewsets.ModelViewSet):
     queryset = FamilleMedicament.objects.all()
@@ -121,14 +120,10 @@ def pharmacie_dashboard(request):
         date__date=today
     ).aggregate(total=Sum("total"))["total"] or 0
 
-    # ✅ NOUVEAUX CALCULS POUR LE STOCK DE LA PHARMACIE
-    total_medicaments = Medicament.objects.count()  # Nombre total de références en stock
+    total_medicaments = Medicament.objects.count()
     total_fournisseurs = Fournisseur.objects.count() if 'Fournisseur' in globals() else 0
     
-    # Alertes selon le seuil individuel de chaque médicament (ou par défaut <= 5)
     stock_critique = Medicament.objects.filter(stock__lte=F('seuil_alerte')).select_related('catalogue', 'catalogue__famille')
-    
-    # Derniers médicaments ajoutés pour la carte "Derniers ajouts"
     derniers_ajouts = Medicament.objects.select_related('catalogue', 'catalogue__famille').order_by('-id')[:5]
 
     jours_mois = []
@@ -154,19 +149,47 @@ def pharmacie_dashboard(request):
         "total_consultations": total_consultations,
         "total_rdv": total_rdv,
         "total_ventes": total_ventes,
-        
-        # ✅ Clés ajoutées pour l'affichage correct dans les cartes
         "total_medicaments": total_medicaments,
         "total_fournisseurs": total_fournisseurs,
         "stock_critique": stock_critique,
         "derniers_ajouts": derniers_ajouts,
-
         "jours_mois": jours_mois,
         "ventes_mois": ventes_mois,
         "consultations_mois": consultations_mois,
     }
 
     return render(request, "pharmacie/dashboard.html", context)
+
+
+# ✅ VUE MANQUANTE : medicaments_list
+def medicaments_list(request):
+    """
+    Affiche la liste complète des médicaments pour la page web HTML.
+    """
+    search = request.GET.get("search", "")
+    famille_id = request.GET.get("famille", "")
+
+    medicaments = Medicament.objects.select_related(
+        'catalogue__famille', 'fournisseur'
+    ).all().order_by("catalogue__nom")
+
+    if search:
+        medicaments = medicaments.filter(
+            Q(catalogue__nom__icontains=search) |
+            Q(catalogue__famille__nom__icontains=search) |
+            Q(fournisseur__nom__icontains=search)
+        )
+
+    if famille_id:
+        medicaments = medicaments.filter(catalogue__famille_id=famille_id)
+
+    context = {
+        "medicaments": medicaments,
+        "familles": FamilleMedicament.objects.all(),
+        "search": search,
+    }
+
+    return render(request, "pharmacie/medicaments_list.html", context)
 
 
 def medicament_create(request):
@@ -407,7 +430,6 @@ def api_supprimer_medicament(request, medicament_id):
 def api_medicaments_liste(request):
     """
     GET /pharmacie/api/liste/
-    Version enrichie de api_medicaments — renvoie l'id pour le CRUD Flutter.
     """
     qs = Medicament.objects.select_related(
         "catalogue__famille", "fournisseur"
@@ -541,6 +563,7 @@ def export_pharmacie_pdf(request):
     doc.build(elements)
     return response
 
+
 @login_required
 @require_POST
 def ajouter_famille_ajax(request):
@@ -556,10 +579,6 @@ def ajouter_famille_ajax(request):
         "created": created
     })
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.contrib.auth.decorators import login_required
-from .models import CatalogueMedicament, FamilleMedicament
 
 @login_required
 @require_POST
@@ -572,7 +591,6 @@ def ajouter_catalogue_ajax(request):
 
     try:
         famille = FamilleMedicament.objects.get(id=famille_id)
-        #get_or_create évite les doublons si le médicament existe déjà
         med, created = CatalogueMedicament.objects.get_or_create(
             nom=nom,
             famille=famille
@@ -586,4 +604,3 @@ def ajouter_catalogue_ajax(request):
         return JsonResponse({"success": False, "error": "Famille introuvable."}, status=404)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
-
