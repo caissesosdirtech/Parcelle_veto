@@ -7,6 +7,8 @@ from datetime import timedelta
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 
 # ===================== EXPORTS (Excel / PDF) =====================
 from openpyxl import Workbook
@@ -32,6 +34,7 @@ from .serializers import MedicamentSerializer, FamilleMedicamentSerializer
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+
 
 
 # ===================== DRF VIEWSETS =====================
@@ -549,3 +552,18 @@ def export_pharmacie_pdf(request):
 
     doc.build(elements)
     return response
+
+@login_required
+@require_POST
+def ajouter_famille_ajax(request):
+    nom = request.POST.get("nom", "").strip()
+    if not nom:
+        return JsonResponse({"success": False, "error": "Le nom de la famille est obligatoire."}, status=400)
+    
+    famille, created = FamilleMedicament.objects.get_or_create(nom=nom)
+    return JsonResponse({
+        "success": True,
+        "id": famille.id,
+        "nom": famille.nom,
+        "created": created
+    })

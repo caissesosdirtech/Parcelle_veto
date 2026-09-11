@@ -50,6 +50,16 @@
 .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
 
+/* Groupe d'entrées personnalisées pour les boutons d'ajout */
+.input-btn-group { display: flex; gap: 8px; }
+.input-btn-group .form-select { flex: 1; }
+.btn-add-quick {
+    background: #eef4ff; color: #1f6feb; border: 1px solid #c8dafe;
+    border-radius: 10px; padding: 0 16px; font-weight: 700; font-size: 1.1rem;
+    cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center;
+}
+.btn-add-quick:hover { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+
 .input-with-suffix { position:relative; }
 .input-with-suffix .form-control { padding-right:60px; }
 .input-suffix {
@@ -87,12 +97,27 @@
 /* STOCK INDICATOR */
 .stock-bar { height:6px; border-radius:3px; background:#e7ecf2; margin-top:8px; overflow:hidden; }
 .stock-fill { height:100%; border-radius:3px; background:#28a745; transition:width .4s; }
+
+/* MODALES */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal-overlay.active { display: flex; }
+.modal-content-custom {
+    background: #fff; width: 100%; max-width: 450px; border-radius: 16px;
+    padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: fadeIn 0.2s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.modal-header-custom { font-weight: 700; font-size: 1.1rem; color: #1e2a3a; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+.modal-footer-custom { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.alert-danger-custom { background: #ffe3e3; color: #dc3545; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 14px; display: none; }
 </style>
 
 <div class="page-title">💊 Ajouter un médicament</div>
 <div class="page-sub">Enregistrement dans le stock pharmacie</div>
 
-<form method="post">
+<form method="post" id="medForm">
 {% csrf_token %}
 
 <div class="wrapper">
@@ -108,27 +133,33 @@
                 <div class="row-2">
                     <div class="form-group">
                         <label>Médicament</label>
-                        <select name="catalogue" class="form-select" required id="medSelect">
-                            <option value="">-- Choisir --</option>
-                            {% regroup catalogues by famille.nom as grouped %}
-                            {% for group in grouped %}
-                            <optgroup label="{{ group.grouper }}">
-                                {% for c in group.list %}
-                                <option value="{{ c.id }}">{{ c.nom }}</option>
+                        <div class="input-btn-group">
+                            <select name="catalogue" class="form-select" required id="medSelect">
+                                <option value="">-- Choisir --</option>
+                                {% regroup catalogues by famille.nom as grouped %}
+                                {% for group in grouped %}
+                                <optgroup label="{{ group.grouper }}">
+                                    {% for c in group.list %}
+                                    <option value="{{ c.id }}">{{ c.nom }}</option>
+                                    {% endfor %}
+                                </optgroup>
                                 {% endfor %}
-                            </optgroup>
-                            {% endfor %}
-                        </select>
+                            </select>
+                            <button type="button" class="btn-add-quick" onclick="openModal('modalMedicament')" title="Ajouter un nouveau médicament au catalogue">+</button>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label>Famille</label>
-                        <select name="famille" class="form-select" required id="familleSelect">
-                            <option value="">-- Choisir --</option>
-                            {% for f in familles %}
-                            <option value="{{ f.id }}">{{ f.nom }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="input-btn-group">
+                            <select name="famille" class="form-select" required id="familleSelect">
+                                <option value="">-- Choisir --</option>
+                                {% for f in familles %}
+                                <option value="{{ f.id }}">{{ f.nom }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn-add-quick" onclick="openModal('modalFamille')" title="Ajouter une nouvelle famille">+</button>
+                        </div>
                     </div>
                 </div>
 
@@ -174,42 +205,43 @@
             </div>
         </div>
 
-      <!-- SECTION FOURNISSEUR -->
-<div class="card">
-    <div class="card-header">🏭 Fournisseur <span style="font-size:.8rem;opacity:.7;">(optionnel)</span></div>
+        <!-- SECTION FOURNISSEUR -->
+        <div class="card">
+            <div class="card-header">🏭 Fournisseur <span style="font-size:.8rem;opacity:.7;">(optionnel)</span></div>
 
-    <div class="card-body">
+            <div class="card-body">
 
-        <div class="row-2">
+                <div class="row-2">
 
-            <div class="form-group">
-                <label>Nom du fournisseur</label>
-                <input type="text" name="fournisseur_nom" class="form-control"
-                       placeholder="Ex: PharmaVet Sénégal" id="foNom">
+                    <div class="form-group">
+                        <label>Nom du fournisseur</label>
+                        <input type="text" name="fournisseur_nom" class="form-control"
+                               placeholder="Ex: PharmaVet Sénégal" id="foNom">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Téléphone</label>
+                        <input type="text" name="fournisseur_contact" class="form-control"
+                               placeholder="+221 77 000 00 00">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email (optionnel)</label>
+                        <input type="email" name="fournisseur_email" class="form-control"
+                            placeholder="exemple@gmail.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Adresse</label>
+                        <textarea name="fournisseur_adresse" class="form-control"
+                                  placeholder="Adresse complète du fournisseur"></textarea>
+                    </div>
+
+                </div>
+
             </div>
-
-            <div class="form-group">
-                <label>Téléphone</label>
-                <input type="text" name="fournisseur_contact" class="form-control"
-                       placeholder="+221 77 000 00 00">
-            </div>
-
-            <div class="form-group">
-                <label>Email (optionnel)</label>
-                <input type="email" name="fournisseur_email" class="form-control"
-                    placeholder="exemple@gmail.com">
-            </div>
-
-            <div class="form-group">
-                <label>Adresse</label>
-                <textarea name="fournisseur_adresse" class="form-control"
-                          placeholder="Adresse complète du fournisseur"></textarea>
-            </div>
-
         </div>
 
-    </div>
-</div>
         <!-- ACTIONS -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
             <a href="{% url 'medicaments_list' %}" class="btn-back">← Liste des médicaments</a>
@@ -265,7 +297,55 @@
 </div>
 </form>
 
+<!-- MODAL : AJOUTER UNE FAMILLE -->
+<div class="modal-overlay" id="modalFamille">
+    <div class="modal-content-custom">
+        <div class="modal-header-custom">
+            <span>➕ Ajouter une Famille</span>
+            <span style="cursor:pointer;" onclick="closeModal('modalFamille')">&times;</span>
+        </div>
+        <div id="errFamille" class="alert-danger-custom"></div>
+        <div class="form-group">
+            <label>Nom de la famille</label>
+            <input type="text" id="inputNomFamille" class="form-control" placeholder="Ex: Anti-inflammatoire, Antibiotique...">
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn-back" onclick="closeModal('modalFamille')">Annuler</button>
+            <button type="button" class="btn-submit" style="width:auto; padding:10px 20px;" onclick="addFamilleAjax()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL : AJOUTER UN MÉDICAMENT AU CATALOGUE -->
+<div class="modal-overlay" id="modalMedicament">
+    <div class="modal-content-custom">
+        <div class="modal-header-custom">
+            <span>➕ Ajouter au Catalogue</span>
+            <span style="cursor:pointer;" onclick="closeModal('modalMedicament')">&times;</span>
+        </div>
+        <div id="errMedicament" class="alert-danger-custom"></div>
+        <div class="form-group">
+            <label>Nom du médicament</label>
+            <input type="text" id="inputNomMed" class="form-control" placeholder="Ex: Paracétamol 500mg, Amoxicilline...">
+        </div>
+        <div class="form-group">
+            <label>Famille associée</label>
+            <select id="inputFamilleMed" class="form-select">
+                <option value="">-- Choisir une famille --</option>
+                {% for f in familles %}
+                <option value="{{ f.id }}">{{ f.nom }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn-back" onclick="closeModal('modalMedicament')">Annuler</button>
+            <button type="button" class="btn-submit" style="width:auto; padding:10px 20px;" onclick="addMedicamentAjax()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
 <script>
+// Mettre à jour le résumé dynamiquement
 function updateSummary() {
     const medOpt    = document.getElementById('medSelect');
     const faOpt     = document.getElementById('familleSelect');
@@ -295,6 +375,107 @@ function updateSummary() {
         el?.addEventListener('change', updateSummary);
         el?.addEventListener('input',  updateSummary);
     });
+
+// Gestion des fenêtres Modales
+function openModal(id) {
+    document.getElementById(id).classList.add('active');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+
+// AJAX : Ajouter une Famille
+function addFamilleAjax() {
+    const input = document.getElementById('inputNomFamille');
+    const nom = input.value.trim();
+    const err = document.getElementById('errFamille');
+
+    if (!nom) {
+        err.textContent = "Veuillez entrer un nom de famille.";
+        err.style.display = "block";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('nom', nom);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch("{% url 'ajouter_famille_ajax' %}", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Ajouter aux deux listes déroulantes de famille
+            const select1 = document.getElementById('familleSelect');
+            const select2 = document.getElementById('inputFamilleMed');
+            
+            const opt1 = new Option(data.nom, data.id, true, true);
+            const opt2 = new Option(data.nom, data.id);
+
+            select1.add(opt1);
+            select2.add(opt2);
+
+            input.value = '';
+            err.style.display = "none";
+            closeModal('modalFamille');
+            updateSummary();
+        } else {
+            err.textContent = data.error || "Une erreur s'est produite.";
+            err.style.display = "block";
+        }
+    })
+    .catch(() => {
+        err.textContent = "Erreur de connexion au serveur.";
+        err.style.display = "block";
+    });
+}
+
+// AJAX : Ajouter un Médicament au catalogue
+function addMedicamentAjax() {
+    const nom = document.getElementById('inputNomMed').value.trim();
+    const familleId = document.getElementById('inputFamilleMed').value;
+    const err = document.getElementById('errMedicament');
+
+    if (!nom || !familleId) {
+        err.textContent = "Veuillez remplir tous les champs.";
+        err.style.display = "block";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('nom', nom);
+    formData.append('famille_id', familleId);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch("{% url 'ajouter_catalogue_ajax' %}", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const selectMed = document.getElementById('medSelect');
+            const opt = new Option(data.nom, data.id, true, true);
+            selectMed.add(opt);
+
+            document.getElementById('inputNomMed').value = '';
+            document.getElementById('inputFamilleMed').value = '';
+            err.style.display = "none";
+            closeModal('modalMedicament');
+            updateSummary();
+        } else {
+            err.textContent = data.error || "Une erreur s'est produite.";
+            err.style.display = "block";
+        }
+    })
+    .catch(() => {
+        err.textContent = "Erreur de connexion au serveur.";
+        err.style.display = "block";
+    });
+}
 </script>
 
 {% endblock %}
