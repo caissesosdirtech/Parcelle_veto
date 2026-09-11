@@ -28,7 +28,7 @@ def home(request):
         return redirect("dashboard:dashboard_docteur")  # Redirige vers le dashboard (sans accès caisse)
 
     # Pour les ADMIN, DOCTEUR, Superutilisateurs ou rôles indéfinis
-    return redirect("dashboard:dashboard_docteur")
+    return redirect("dashboard_docteur")
 
 
 urlpatterns = [
