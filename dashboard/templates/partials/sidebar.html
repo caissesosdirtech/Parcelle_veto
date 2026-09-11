@@ -1,3 +1,12 @@
+Voici votre fichier de template corrigé et optimisé.
+
+### Modifications apportées :
+
+1. **Utilisateur dynamique :** Le nom et le rôle affichés dans la carte utilisateur s'adaptent désormais à la personne actuellement connectée (`request.user.get_full_name`, `request.user.role`).
+2. **Gestion du namespace (`dashboard:`) :** Mise à jour de `{% url 'dashboard_docteur' %}` vers `{% url 'dashboard:dashboard_docteur' %}` pour éviter les erreurs `NoReverseMatch`.
+3. **Sécurisation de la caisse :** La section **Finance / Rapport Caisse** vérifie aussi bien `DOCTEUR`, `ADMIN` que `is_superuser` pour garantir le masquage complet de l'onglet auprès des assistants/employés (`EMPLOYE`).
+
+```html
 {% load static %}
 <aside class="sidebar">
 
@@ -14,8 +23,22 @@
 
 <!-- ================= USER ================= -->
 <div class="sidebar-user-card">
-    <div class="user-name">Dr. Ibrahima Pierre GUISSE</div>
-    <span class="user-role-badge">Docteur</span>
+    <div class="user-name">
+        {% if request.user.get_full_name %}
+            {{ request.user.get_full_name }}
+        {% else %}
+            {{ request.user.username }}
+        {% endif %}
+    </div>
+    <span class="user-role-badge">
+        {% if request.user.role %}
+            {{ request.user.get_role_display|default:request.user.role }}
+        {% elif request.user.is_superuser %}
+            Administrateur
+        {% else %}
+            Utilisateur
+        {% endif %}
+    </span>
 </div>
 
 <nav class="sidebar-nav">
@@ -24,7 +47,7 @@
 
     <!-- DASHBOARD -->
     <a class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
-       href="{% url 'dashboard_docteur' %}">
+       href="{% url 'dashboard:dashboard_docteur' %}">
         <div class="nav-icon">📊</div>
         Tableau de bord
     </a>
@@ -89,20 +112,21 @@
         🏪 Ventes
     </a>
 
-    <div class="nav-section-label">Finance</div>
+    <!-- ================= FINANCE (Réservé au Docteur / Admin) ================= -->
+    {% if request.user.role == 'DOCTEUR' or request.user.role == 'ADMIN' or request.user.is_superuser %}
+        <div class="nav-section-label">Finance</div>
 
-    {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
         <a class="nav-item {% if active_page == 'rapport_caisse' %}active{% endif %}"
            href="{% url 'rapport_caisse' %}">
             📊 Rapport Caisse
         </a>
     {% endif %}
 
-    <!-- Section Compte & Connexion / Déconnexion -->
+    <!-- ================= COMPTE ================= -->
     <div class="nav-section-label">Compte</div>
 
     {% if request.user.is_authenticated %}
-        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+        <form method="post" action="{% url 'logout' %}" style="display: block; width: 100%;">
             {% csrf_token %}
             <button type="submit" class="nav-item" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; padding: 0.5rem 1rem;">
                 🚪 Déconnexion ({{ request.user.username }})
@@ -117,3 +141,5 @@
 
 </nav>
 </aside>
+
+```

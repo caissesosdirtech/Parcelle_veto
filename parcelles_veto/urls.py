@@ -9,27 +9,26 @@ from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
+from django.shortcuts import redirect
+
 def home(request):
     """
     Redirige l'utilisateur en fonction de son état de connexion et de son rôle.
-     Si non connecté -> Redirige vers la page de connexion
-     Si connecté -> Redirige vers le dashboard correspondant à son rôle
+    - Si non connecté -> Redirige vers la page de connexion
+    - Si connecté -> Redirige vers le dashboard correspondant
     """
     if not request.user.is_authenticated:
         return redirect("login")
 
-    # Récupération du rôle (sécurisé si le champ rôle n'existe pas encore)
+    # Récupération sécurisée du rôle
     role = getattr(request.user, "role", None)
 
-    if request.user.is_superuser or role == "ADMIN":
-        return redirect("dashboard_docteur")
-    elif role == "DOCTEUR":
-        return redirect("dashboard_docteur")
-    elif role == "EMPLOYE":
-        return redirect("caisse")  # Ou l'URL réservée aux employés
-    else:
-        # Destination par défaut si aucun rôle spécifique n'est défini
-        return redirect("dashboard_docteur")
+    # Si l'utilisateur a le rôle EMPLOYE (assistant)
+    if role == "EMPLOYE":
+        return redirect("dashboard:dashboard_docteur")  # Redirige vers le dashboard (sans accès caisse)
+
+    # Pour les ADMIN, DOCTEUR, Superutilisateurs ou rôles indéfinis
+    return redirect("dashboard:dashboard_docteur")
 
 
 urlpatterns = [
