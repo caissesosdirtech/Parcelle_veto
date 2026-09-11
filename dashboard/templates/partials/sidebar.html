@@ -3,7 +3,7 @@ Voici votre fichier de template corrigé et optimisé.
 ### Modifications apportées :
 
 1. **Utilisateur dynamique :** Le nom et le rôle affichés dans la carte utilisateur s'adaptent désormais à la personne actuellement connectée (`request.user.get_full_name`, `request.user.role`).
-2. **Gestion du namespace (`dashboard:`) :** Mise à jour de `{% url 'dashboard_docteur' %}` vers `{% url 'dashboard:dashboard_docteur' %}` pour éviter les erreurs `NoReverseMatch`.
+2. **Gestion du namespace (`dashboard:`) :** Mise à jour de `{% url 'dashboard_docteur' %}` vers `{% url 'dashboard_docteur' %}` pour éviter les erreurs `NoReverseMatch`.
 3. **Sécurisation de la caisse :** La section **Finance / Rapport Caisse** vérifie aussi bien `DOCTEUR`, `ADMIN` que `is_superuser` pour garantir le masquage complet de l'onglet auprès des assistants/employés (`EMPLOYE`).
 
 ```html
