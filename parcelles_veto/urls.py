@@ -25,7 +25,7 @@ def home(request):
 
     # Si l'utilisateur a le rôle EMPLOYE (assistant)
     if role == "EMPLOYE":
-        return redirect("dashboard:dashboard_docteur")  # Redirige vers le dashboard (sans accès caisse)
+        return redirect("dashboard_docteur")  # Redirige vers le dashboard (sans accès caisse)
 
     # Pour les ADMIN, DOCTEUR, Superutilisateurs ou rôles indéfinis
     return redirect("dashboard_docteur")
