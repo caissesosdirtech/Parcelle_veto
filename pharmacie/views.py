@@ -567,3 +567,35 @@ def ajouter_famille_ajax(request):
         "nom": famille.nom,
         "created": created
     })
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from .models import CatalogueMedicament, FamilleMedicament
+
+@login_required
+@require_POST
+def ajouter_catalogue_ajax(request):
+    nom = request.POST.get("nom", "").strip()
+    famille_id = request.POST.get("famille_id")
+
+    if not nom or not famille_id:
+        return JsonResponse({"success": False, "error": "Tous les champs sont requis."}, status=400)
+
+    try:
+        famille = FamilleMedicament.objects.get(id=famille_id)
+        #get_or_create évite les doublons si le médicament existe déjà
+        med, created = CatalogueMedicament.objects.get_or_create(
+            nom=nom,
+            famille=famille
+        )
+        return JsonResponse({
+            "success": True,
+            "id": med.id,
+            "nom": med.nom
+        })
+    except FamilleMedicament.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Famille introuvable."}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
