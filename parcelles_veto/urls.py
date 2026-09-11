@@ -22,7 +22,7 @@ def home(request):
     role = getattr(request.user, "role", None)
 
     if request.user.is_superuser or role == "ADMIN":
-        return redirect("dashboard_admin")
+        return redirect("dashboard_docteur")
     elif role == "DOCTEUR":
         return redirect("dashboard_docteur")
     elif role == "EMPLOYE":
