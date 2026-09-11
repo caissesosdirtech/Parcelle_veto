@@ -118,16 +118,25 @@
     <div class="nav-section-label">Compte</div>
 
     {% if request.user.is_authenticated %}
-        <form method="post" action="{% url 'logout' %}" style="display: block; width: 100%;">
+        <form method="post" action="{% url 'logout' %}" style="display: block;">
             {% csrf_token %}
-            <button type="submit" class="nav-item" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; padding: 0.5rem 1rem;">
-                🚪 Déconnexion ({{ request.user.username }})
+            <button type="submit" class="btn-account btn-logout">
+                <span class="btn-account-icon">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </span>
+                <span>
+                    Déconnexion
+                    <br><span class="btn-account-user">{{ request.user.username }}</span>
+                </span>
             </button>
         </form>
     {% else %}
-        <a class="nav-item {% if active_page == 'login' %}active{% endif %}"
+        <a class="btn-account btn-login {% if active_page == 'login' %}active{% endif %}"
            href="{% url 'login' %}">
-            🔑 Connexion
+            <span class="btn-account-icon">
+                <i class="fa-solid fa-right-to-bracket"></i>
+            </span>
+            <span>Connexion</span>
         </a>
     {% endif %}
 

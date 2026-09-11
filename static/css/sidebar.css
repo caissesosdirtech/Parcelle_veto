@@ -300,3 +300,85 @@
     background: #2dd4bf;
     box-shadow: 0 0 6px rgba(45,212,191,0.8);
 }
+/* ================= BOUTON COMPTE (connexion / deconnexion) ================= */
+
+.btn-account {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: calc(100% - 30px);
+    margin: 6px 15px 10px;
+    padding: 11px 16px;
+    border: none;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.15s ease;
+}
+
+.btn-account .btn-account-icon {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 13px;
+    background: rgba(255,255,255,0.15);
+}
+
+.btn-account:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+.btn-account:active {
+    transform: translateY(0);
+}
+
+/* ---- Variante DECONNEXION (rouge/orange, action de sortie) ---- */
+.btn-account.btn-logout {
+    background: linear-gradient(135deg, rgba(248,113,113,0.16), rgba(239,68,68,0.08));
+    border: 1px solid rgba(248,113,113,0.35);
+    color: #fca5a5;
+}
+
+.btn-account.btn-logout .btn-account-icon {
+    background: rgba(248,113,113,0.22);
+    color: #fca5a5;
+}
+
+.btn-account.btn-logout:hover {
+    background: linear-gradient(135deg, rgba(248,113,113,0.26), rgba(239,68,68,0.14));
+    box-shadow: 0 8px 20px -8px rgba(239,68,68,0.55);
+    color: #fee2e2;
+}
+
+/* ---- Variante CONNEXION (bleu cyan, coherent avec l'accent du sidebar) ---- */
+.btn-account.btn-login {
+    background: linear-gradient(135deg, rgba(56,189,248,0.22), rgba(56,189,248,0.08));
+    border: 1px solid rgba(56,189,248,0.4);
+    color: #7dd3fc;
+}
+
+.btn-account.btn-login .btn-account-icon {
+    background: rgba(56,189,248,0.25);
+    color: #38bdf8;
+}
+
+.btn-account.btn-login:hover {
+    background: linear-gradient(135deg, rgba(56,189,248,0.32), rgba(56,189,248,0.14));
+    box-shadow: 0 8px 20px -8px rgba(56,189,248,0.6);
+    color: #e0f6ff;
+}
+
+.btn-account-user {
+    font-weight: 400;
+    opacity: 0.75;
+    font-size: 12.5px;
+}
