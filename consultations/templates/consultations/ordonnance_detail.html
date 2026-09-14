@@ -2,6 +2,9 @@
 {% load static %}
 
 {% block content %}
+<!-- CDN SweetAlert2 pour les notifications -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <style>
 /* ===== BASE ===== */
 .page-title { font-size:18px; font-weight:700; margin-bottom:6px; color:#1f6feb; }
@@ -179,27 +182,14 @@
         <!-- ORDONNANCE IMPRIMABLE -->
         <div class="card" id="print-zone">
             {% if ordonnance.rendez_vous %}
-<div style="margin-top:20px;padding:15px;border:1px solid #dbe5f1;border-radius:10px;background:#f8fbff;">
+            <div style="margin-top:20px;padding:15px;border:1px solid #dbe5f1;border-radius:10px;background:#f8fbff;">
+                <h4>📅 Prochain rendez-vous</h4>
+                <p><strong>Date :</strong> {{ ordonnance.rendez_vous.date_rdv|date:"d/m/Y à H:i" }}</p>
+                <p><strong>Motif :</strong> {{ ordonnance.rendez_vous.motif }}</p>
+                <p><strong>Lieu :</strong> {{ ordonnance.rendez_vous.get_type_rdv_display }}</p>
+            </div>
+            {% endif %}
 
-    <h4>📅 Prochain rendez-vous</h4>
-
-    <p>
-        <strong>Date :</strong>
-        {{ ordonnance.rendez_vous.date_rdv|date:"d/m/Y à H:i" }}
-    </p>
-
-    <p>
-        <strong>Motif :</strong>
-        {{ ordonnance.rendez_vous.motif }}
-    </p>
-
-    <p>
-        <strong>Lieu :</strong>
-        {{ ordonnance.rendez_vous.get_type_rdv_display }}
-    </p>
-
-</div>
-{% endif %}
             <div class="card-header">
                 💊 Médicaments prescrits
                 <span style="font-size:.8rem; font-weight:400; opacity:.85;">
@@ -265,19 +255,13 @@
                         <div class="form-group">
                             <label>Médicament</label>
                             <select class="form-select" id="medSelect">
-    <option value="">-- Choisir un médicament --</option>
-
-    {% for med in medicaments %}
-        <option
-            value="{{ med.id }}"
-            data-prix="{{ med.prix }}"
-            data-stock="{{ med.stock }}"
-        >
-            {{ med.catalogue.nom }}
-            (Stock : {{ med.stock }})
-        </option>
-    {% endfor %}
-</select>
+                                <option value="">-- Choisir un médicament --</option>
+                                {% for med in medicaments %}
+                                    <option value="{{ med.id }}" data-prix="{{ med.prix }}" data-stock="{{ med.stock }}">
+                                        {{ med.catalogue.nom }} (Stock : {{ med.stock }})
+                                    </option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Quantité</label>
@@ -285,8 +269,7 @@
                         </div>
                         <div class="form-group">
                             <label>Posologie</label>
-                            <input type="text" class="form-control" id="posologieInput"
-                                placeholder="Ex: 2 fois/jour pendant 5 jours">
+                            <input type="text" class="form-control" id="posologieInput" placeholder="Ex: 2 fois/jour pendant 5 jours">
                         </div>
                     </div>
                     <div style="display:flex; justify-content:flex-end; margin-top:12px;">
@@ -335,76 +318,44 @@
             </div>
             <div class="sum-row">
                 <span class="sum-label">Total estimé</span>
-                <span class="sum-value sum-total" id="sumTotal">
-                    {% with total=0 %}
-                    {% for ligne in ordonnance.lignes.all %}
-                    {% endfor %}
-                    — FCFA
-                    {% endwith %}
-                </span>
+                <span class="sum-value sum-total" id="sumTotal">— FCFA</span>
             </div>
 
             <hr class="divider">
 
-<div class="card no-print" style="margin-top:20px;">
-    <div class="card-header">
-        📅 Programmer un rendez-vous
-    </div>
+            <!-- FORMULAIRE RDV -->
+            <div class="card no-print" style="margin-top:20px;">
+                <div class="card-header">📅 Programmer un rendez-vous</div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'enregistrer_rendez_vous' ordonnance.id %}">
+                        {% csrf_token %}
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Date</label>
+                                <input type="date" name="date_rdv" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Heure</label>
+                                <input type="time" name="heure_rdv" class="form-control" required>
+                            </div>
+                        </div>
 
-    <div class="card-body">
+                        <div class="form-group" style="margin-top:10px;">
+                            <label>Motif</label>
+                            <input type="text" name="motif" class="form-control" placeholder="Contrôle, vaccin, suivi..." required>
+                        </div>
 
-        <form method="post"
-              action="{% url 'enregistrer_rendez_vous' ordonnance.id %}">
-
-            {% csrf_token %}
-
-            <div class="form-row">
-
-                <div class="form-group">
-                    <label>Date</label>
-                    <input
-                        type="date"
-                        name="date_rdv"
-                        class="form-control"
-                        required>
+                        <div style="margin-top:15px;">
+                            <button class="btn btn-success">💾 Enregistrer le rendez-vous</button>
+                        </div>
+                    </form>
                 </div>
-
-                <div class="form-group">
-                    <label>Heure</label>
-                    <input
-                        type="time"
-                        name="heure_rdv"
-                        class="form-control"
-                        required>
-                </div>
-
             </div>
 
-            <div class="form-group" style="margin-top:10px;">
-                <label>Motif</label>
-                <input
-                    type="text"
-                    name="motif"
-                    class="form-control"
-                    placeholder="Contrôle, vaccin, suivi, retrait des points..."
-                    required>
-            </div>
-
-            <div style="margin-top:15px;">
-                <button class="btn btn-success">
-                    💾 Enregistrer le rendez-vous
-                </button>
-            </div>
-
-        </form>
-
-    </div>
-</div>
-
-            <!-- ACTIONS -->
+            <!-- ACTIONS PRINCIPALES -->
             <a href="{% url 'ordonnance_pdf' ordonnance.id %}" target="_blank" class="btn btn-outline btn-block" style="margin-bottom:10px; text-align:center; display:block;">
-    🖨️ Imprimer l'ordonnance
-</a>
+                🖨️ Imprimer l'ordonnance
+            </a>
 
             {% if ordonnance.consultation.statut == "en_cours" %}
             <button class="btn btn-success btn-block" onclick="confirmerTerminer()">
@@ -418,8 +369,7 @@
 
             <hr class="divider">
 
-            <a href="{% url 'consultation_detail' ordonnance.consultation.id %}"
-               style="display:block; text-align:center; color:#7c8a9e; font-size:.82rem; text-decoration:none;">
+            <a href="{% url 'consultation_detail' ordonnance.consultation.id %}" style="display:block; text-align:center; color:#7c8a9e; font-size:.82rem; text-decoration:none;">
                 ← Retour à la consultation
             </a>
         </div>
@@ -427,7 +377,7 @@
 
 </div>
 
-<!-- MODAL CONFIRMATION (CORRIGÉE) -->
+<!-- MODAL CONFIRMATION (REFAITE EN POST) -->
 <div id="modalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:16px; padding:30px; max-width:400px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.2);">
         <div style="font-size:2.5rem; margin-bottom:12px;">⚠️</div>
@@ -435,11 +385,11 @@
         <p style="color:#7c8a9e; font-size:.88rem; margin-bottom:24px;">
             Cette action va créer la vente et déduire les médicaments du stock. Elle est irréversible.
         </p>
-        <div style="display:flex; gap:12px; justify-content:center;">
+        <div style="display:flex; gap:12px; justify-content:center; align-items:center;">
             <button class="btn btn-outline" type="button" onclick="fermerModal()">Annuler</button>
             
-            <!-- FORMULAIRE POST À LA PLACE DU SIMPLE LIEN GET -->
-            <form method="post" action="{% url 'terminer_consultation' ordonnance.consultation.id %}" style="margin:0;">
+            <!-- FORMULAIRE DE SOUMISSION POST SECURISE -->
+            <form id="formTerminer" method="post" action="{% url 'terminer_consultation' ordonnance.consultation.id %}" style="margin:0;">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success">Confirmer</button>
             </form>
@@ -459,6 +409,24 @@ function getCookie(name) {
     });
     return v;
 }
+
+// ===========================
+// MESSAGES DJANGO DANS SWEETALERT2
+// ===========================
+document.addEventListener('DOMContentLoaded', function() {
+    recalcTotal();
+
+    {% if messages %}
+        {% for message in messages %}
+            Swal.fire({
+                title: "{% if message.tags == 'success' %}Succès !{% elif message.tags == 'error' %}Erreur !{% else %}Information{% endif %}",
+                text: "{{ message }}",
+                icon: "{{ message.tags|default:'info' }}",
+                confirmButtonColor: '#1f6feb'
+            });
+        {% endfor %}
+    {% endif %}
+});
 
 // ===========================
 // TOTAL (calculé côté client)
@@ -485,14 +453,14 @@ async function ajouterLigne() {
     const qteInput    = document.getElementById('qteInput');
     const posInput    = document.getElementById('posologieInput');
 
-    if (!medSelect.value)   { alert('Sélectionnez un médicament'); return; }
-    if (!qteInput.value || qteInput.value < 1) { alert('Quantité invalide'); return; }
-    if (!posInput.value)    { alert('Renseignez la posologie'); return; }
+    if (!medSelect.value)   { Swal.fire('Attention', 'Sélectionnez un médicament', 'warning'); return; }
+    if (!qteInput.value || qteInput.value < 1) { Swal.fire('Attention', 'Quantité invalide', 'warning'); return; }
+    if (!posInput.value)    { Swal.fire('Attention', 'Renseignez la posologie', 'warning'); return; }
 
     const opt   = medSelect.options[medSelect.selectedIndex];
     const stock = parseInt(opt.dataset.stock) || 0;
     if (parseInt(qteInput.value) > stock) {
-        alert(`Stock insuffisant (disponible : ${stock})`);
+        Swal.fire('Stock insuffisant', `Disponible en stock : ${stock}`, 'error');
         return;
     }
 
@@ -511,16 +479,12 @@ async function ajouterLigne() {
         });
 
         const data = await res.json();
-        if (!res.ok) { alert(data.error || 'Erreur serveur'); return; }
+        if (!res.ok) { Swal.fire('Erreur', data.error || 'Erreur serveur', 'error'); return; }
 
-        // Ajouter la ligne dans le tableau sans recharger
         const tbody = document.getElementById('lignesBody');
-
-        // Supprimer l'état vide si présent
         const emptyState = document.querySelector('.empty-state');
         if (emptyState) emptyState.closest('table, .empty-state')?.remove();
 
-        // Créer table si absente
         if (!tbody) { location.reload(); return; }
 
         const num   = tbody.querySelectorAll('tr').length + 1;
@@ -544,15 +508,15 @@ async function ajouterLigne() {
             </td>`;
         tbody.appendChild(tr);
 
-        // Reset form
         medSelect.value  = '';
         qteInput.value   = 1;
         posInput.value   = '';
 
         recalcTotal();
+        Swal.fire({ title: 'Ajouté !', text: 'Médicament ajouté à l\'ordonnance', icon: 'success', timer: 1500, showConfirmButton: false });
 
     } catch(e) {
-        alert('Erreur réseau : ' + e.message);
+        Swal.fire('Erreur réseau', e.message, 'error');
     }
 }
 
@@ -560,7 +524,18 @@ async function ajouterLigne() {
 // SUPPRIMER UNE LIGNE
 // ===========================
 async function supprimerLigne(ligneId) {
-    if (!confirm('Supprimer ce médicament ?')) return;
+    const result = await Swal.fire({
+        title: 'Supprimer ce médicament ?',
+        text: "Cette action retirera la ligne de l'ordonnance.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Oui, supprimer',
+        cancelButtonText: 'Annuler'
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
         const res = await fetch(`/consultations/ordonnance/ligne/${ligneId}/supprimer/`, {
@@ -571,17 +546,18 @@ async function supprimerLigne(ligneId) {
         if (res.ok) {
             document.getElementById(`row-${ligneId}`)?.remove();
             recalcTotal();
+            Swal.fire({ title: 'Supprimé !', icon: 'success', timer: 1200, showConfirmButton: false });
         } else {
             const data = await res.json();
-            alert(data.error || 'Erreur serveur');
+            Swal.fire('Erreur', data.error || 'Erreur serveur', 'error');
         }
     } catch(e) {
-        alert('Erreur réseau : ' + e.message);
+        Swal.fire('Erreur réseau', e.message, 'error');
     }
 }
 
 // ===========================
-// MODIFIER UNE LIGNE (édition en ligne)
+// MODIFIER UNE LIGNE
 // ===========================
 function editerLigne(ligneId, btn) {
     const row = document.getElementById(`row-${ligneId}`);
@@ -593,7 +569,6 @@ function editerLigne(ligneId, btn) {
 
     const cellQte  = row.querySelector('.cell-qte');
     const cellPos  = row.querySelector('.cell-posologie');
-    const cellTot  = row.querySelector('.cell-total');
     const cellActions = row.querySelector('.actions-cell');
 
     const qteActuelle = cellQte.dataset.value;
@@ -609,7 +584,6 @@ function editerLigne(ligneId, btn) {
 }
 
 function annulerEditionLigne(ligneId) {
-    // Simplement recharger l'ordonnance pour restaurer l'affichage d'origine.
     location.reload();
 }
 
@@ -620,9 +594,9 @@ async function sauvegarderLigne(ligneId, prix, stock) {
     const quantite  = parseInt(qteInput.value);
     const posologie = posInput.value.trim();
 
-    if (!quantite || quantite < 1) { alert('Quantité invalide'); return; }
-    if (!posologie) { alert('Renseignez la posologie'); return; }
-    if (quantite > stock) { alert(`Stock insuffisant (disponible : ${stock})`); return; }
+    if (!quantite || quantite < 1) { Swal.fire('Attention', 'Quantité invalide', 'warning'); return; }
+    if (!posologie) { Swal.fire('Attention', 'Renseignez la posologie', 'warning'); return; }
+    if (quantite > stock) { Swal.fire('Stock insuffisant', `Disponible en stock : ${stock}`, 'error'); return; }
 
     try {
         const res = await fetch(`/consultations/ordonnance/ligne/${ligneId}/modifier/`, {
@@ -635,7 +609,7 @@ async function sauvegarderLigne(ligneId, prix, stock) {
         });
 
         const data = await res.json();
-        if (!res.ok) { alert(data.error || 'Erreur serveur'); return; }
+        if (!res.ok) { Swal.fire('Erreur', data.error || 'Erreur serveur', 'error'); return; }
 
         const row = document.getElementById(`row-${ligneId}`);
         const cellQte = row.querySelector('.cell-qte');
@@ -658,19 +632,18 @@ async function sauvegarderLigne(ligneId, prix, stock) {
 
         row.dataset.editing = '0';
         recalcTotal();
+        Swal.fire({ title: 'Mis à jour !', icon: 'success', timer: 1200, showConfirmButton: false });
 
     } catch(e) {
-        alert('Erreur réseau : ' + e.message);
+        Swal.fire('Erreur réseau', e.message, 'error');
     }
 }
-
 
 // ===========================
 // MODAL TERMINER
 // ===========================
 function confirmerTerminer() {
-    const overlay = document.getElementById('modalOverlay');
-    overlay.style.display = 'flex';
+    document.getElementById('modalOverlay').style.display = 'flex';
 }
 function fermerModal() {
     document.getElementById('modalOverlay').style.display = 'none';
@@ -678,9 +651,6 @@ function fermerModal() {
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
     if (e.target === this) fermerModal();
 });
-
-// Calcul initial au chargement
-document.addEventListener('DOMContentLoaded', recalcTotal);
 </script>
 
 {% endblock %}
