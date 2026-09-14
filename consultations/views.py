@@ -403,38 +403,51 @@ def consultation_detail(request, consultation_id):
     })
 
 
+import logging
+from django.db import transaction
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+
+logger = logging.getLogger(__name__)
+
 @login_required
 @require_POST
 def terminer_consultation(request, consultation_id):
     consultation = get_object_or_404(Consultation, id=consultation_id)
 
     if consultation.statut == "terminee":
-        return redirect("consultation_detail", consultation_id=consultation.id)
+        return JsonResponse({
+            'status': 'OK',
+            'message': 'Consultation déjà terminée.',
+            'redirect_url': reverse("consultation_detail", kwargs={'consultation_id': consultation.id})
+        })
 
     ordonnance = Ordonnance.objects.filter(consultation=consultation).first()
 
     if not ordonnance:
-        return redirect("ordonnance_create", consultation_id=consultation.id)
+        return JsonResponse({
+            'error': "Aucune ordonnance n'a été trouvée pour cette consultation.",
+            'redirect_url': reverse("ordonnance_create", kwargs={'consultation_id': consultation.id})
+        }, status=400)
 
     if not ordonnance.lignes.exists():
-        messages.warning(
-            request,
-            "Impossible de terminer la consultation : "
-            "l'ordonnance doit contenir au moins un médicament."
-        )
-        return redirect("ordonnance_detail", ordonnance_id=ordonnance.id)
+        return JsonResponse({
+            'error': "Impossible de terminer la consultation : l'ordonnance doit contenir au moins un médicament."
+        }, status=400)
 
     try:
         with transaction.atomic():
             # Vérification préalable des stocks
             for ligne in ordonnance.lignes.select_related("medicament").select_for_update():
                 if ligne.medicament.stock < ligne.quantite:
-                    messages.error(
-                        request,
-                        f"Stock insuffisant pour {ligne.medicament}. Stock actuel: {ligne.medicament.stock}"
-                    )
-                    return redirect("ordonnance_detail", ordonnance_id=ordonnance.id)
+                    return JsonResponse({
+                        'error': f"Stock insuffisant pour {ligne.medicament.catalogue.nom}. Stock actuel : {ligne.medicament.stock}"
+                    }, status=400)
 
+            # Création de la vente
             vente = Vente.objects.create(
                 ordonnance=ordonnance,
                 total=0
@@ -452,7 +465,7 @@ def terminer_consultation(request, consultation_id):
                 )
                 total += montant
 
-                # Déduction de stock sécurisée
+                # Déduction du stock
                 med = ligne.medicament
                 med.stock -= ligne.quantite
                 med.save()
@@ -463,14 +476,19 @@ def terminer_consultation(request, consultation_id):
             consultation.statut = "terminee"
             consultation.save()
 
-        return redirect("vente_detail", vente_id=vente.id)
+        # Succès : on renvoie le statut OK et l'URL vers la fiche de vente
+        return JsonResponse({
+            'status': 'OK',
+            'message': 'Consultation terminée avec succès.',
+            'redirect_url': reverse("vente_detail", kwargs={'vente_id': vente.id})
+        })
 
     except Exception as exc:
         logger.error(f"Erreur terminer_consultation: {exc}")
-        messages.error(request, "Une erreur est survenue lors de la validation de la consultation.")
-        return redirect("consultation_detail", consultation_id=consultation.id)
-
-
+        return JsonResponse({
+            'error': "Une erreur est survenue lors de la validation de la consultation."
+        }, status=500)
+    
 @login_required
 def edit_consultation(request, id):
     consultation = get_object_or_404(

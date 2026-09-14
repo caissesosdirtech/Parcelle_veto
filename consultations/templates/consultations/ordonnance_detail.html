@@ -640,30 +640,31 @@ async function confirmerTerminer() {
         const res = await fetch("{% url 'terminer_consultation' ordonnance.consultation.id %}", {
             method: 'POST',
             headers: {
-                'X-CSRFToken': getCookie('csrftoken')
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Accept': 'application/json'
             }
         });
 
         const data = await res.json();
 
-        if (res.ok && (data.status === 'OK' || data.message === 'OK' || data.success)) {
+        if (res.ok && data.status === 'OK') {
             Swal.fire({
                 title: 'Consultation terminée !',
-                html: `La consultation a été enregistrée avec succès.<br><br>Vous allez être redirigé vers la gestion des ventes.`,
+                text: data.message,
                 icon: 'success',
-                confirmButtonText: 'Continuer vers les ventes ➡️',
+                confirmButtonText: 'Voir la vente ➡️',
                 confirmButtonColor: '#28a745',
                 allowOutsideClick: false,
                 allowEscapeKey: false
             }).then((resultFinal) => {
-                if (resultFinal.isConfirmed) {
-                    window.location.href = "/ventes/"; // ⬅️ Modifiez le chemin si votre URL des ventes est différente
+                if (resultFinal.isConfirmed && data.redirect_url) {
+                    window.location.href = data.redirect_url;
                 }
             });
         } else {
-            Swal.fire('Erreur', data.error || data.message || "Une erreur s'est produite lors de la finalisation.", 'error');
+            Swal.fire('Attention', data.error || "Une erreur s'est produite lors de la finalisation.", 'error');
         }
-    } catch(e) {
+    } catch (e) {
         Swal.fire('Erreur réseau', e.message, 'error');
     }
 }
