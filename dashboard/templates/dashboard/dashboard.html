@@ -5,62 +5,171 @@
 
 {% block content %}
 <style>
-/* ===== RECHERCHE RAPIDE ===== */
+/* ===== RECHERCHE RAPIDE MODERNISÉE ===== */
 .quick-search-container { 
     position: relative; 
-    margin-bottom: 24px; 
+    margin-bottom: 28px; 
 }
+
 .quick-search-box {
     display: flex; 
     align-items: center; 
-    background: #fff;
-    border: 2px solid #e7ecf2; 
-    border-radius: 12px; 
-    padding: 8px 18px;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    background: #ffffff;
+    border: 2px solid #e2e8f0; 
+    border-radius: 14px; 
+    padding: 6px 16px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
+
+.quick-search-box:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
 .quick-search-box:focus-within { 
-    border-color: #1f6feb; 
-    box-shadow: 0 4px 16px rgba(31,111,235,0.15); 
+    border-color: #2563eb; 
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 20px rgba(0, 0, 0, 0.06); 
 }
+
 .quick-search-box input { 
     border: none; 
     outline: none; 
     width: 100%; 
-    padding: 8px 12px; 
+    padding: 10px 12px; 
     font-size: 1rem; 
+    color: #1e293b;
+    background: transparent;
 }
+
+.quick-search-box input::placeholder {
+    color: #94a3b8;
+}
+
+.search-clear-btn {
+    background: #f1f5f9;
+    border: none;
+    color: #64748b;
+    font-size: 0.85rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    margin-right: 8px;
+}
+
+.search-clear-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+/* DROPDOWN ET RÉSULTATS */
 .search-dropdown {
     position: absolute; 
-    top: 108%; 
+    top: calc(100% + 8px); 
     left: 0; 
     right: 0; 
-    background: #fff;
-    border-radius: 12px; 
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    border: 1px solid #f1f4f8; 
+    background: #ffffff;
+    border-radius: 16px; 
+    box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.12), 0 8px 15px -6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0; 
     z-index: 1000; 
-    max-height: 350px; 
+    max-height: 380px; 
     overflow-y: auto;
+    animation: fadeInDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .search-item {
     display: flex; 
     justify-content: space-between; 
     align-items: center;
-    padding: 12px 16px; 
-    border-bottom: 1px solid #f1f4f8; 
-    transition: background 0.15s;
+    padding: 14px 18px; 
+    border-bottom: 1px solid #f1f5f9; 
+    transition: all 0.15s ease;
+    cursor: pointer;
+    position: relative;
 }
-.search-item:hover { background: #f4f7fb; }
-.search-item-nom { font-weight: 700; color: #1e2a3a; font-size: 0.9rem; }
-.search-item-sub { font-size: 0.75rem; color: #7c8a9e; }
 
-/* BADGES & EMPTY STATES */
-.badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
-.badge-ok { background: #e6f4ea; color: #1e7e34; }
-.badge-alerte { background: #fff3e0; color: #e65100; }
-.badge-danger { background: #fce8e6; color: #c62828; }
+.search-item:last-child {
+    border-bottom: none;
+}
+
+.search-item:hover { 
+    background: #f8fafc; 
+    padding-left: 22px;
+}
+
+.search-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #2563eb;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+}
+
+.search-item:hover::before {
+    opacity: 1;
+}
+
+.search-item-nom { 
+    font-weight: 700; 
+    color: #0f172a; 
+    font-size: 0.95rem; 
+    margin-bottom: 3px;
+}
+
+.search-item-sub { 
+    font-size: 0.8rem; 
+    color: #64748b; 
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.highlight-match {
+    background-color: #fef08a;
+    color: #854d0e;
+    padding: 0 2px;
+    border-radius: 3px;
+    font-weight: 700;
+}
+
+/* BADGES MODERNES */
+.badge { 
+    display: inline-flex; 
+    align-items: center;
+    padding: 4px 10px; 
+    border-radius: 20px; 
+    font-size: 0.75rem; 
+    font-weight: 700; 
+    letter-spacing: 0.2px;
+}
+
+.badge-ok { background: #dcfce7; color: #15803d; }
+.badge-alerte { background: #ffedd5; color: #c2410c; }
+.badge-danger { background: #fee2e2; color: #b91c1c; }
+
+.price-tag {
+    font-weight: 800; 
+    color: #2563eb; 
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
 
 .empty-msg.success-box {
     text-align: center; padding: 25px 20px;
@@ -74,7 +183,7 @@
 
 <div class="dashboard-container">
 
-    <!-- HEADER (Premier cadre/section) -->
+    <!-- HEADER -->
     <div class="dashboard-header">
         <div>
             <h1>Tableau de bord</h1>
@@ -85,12 +194,13 @@
         </div>
     </div>
 
-    <!-- 🔍 RECHERCHE RAPIDE (Placée juste après le 1er cadre) -->
+    <!-- 🔍 RECHERCHE RAPIDE MODERNISÉE -->
     <div class="quick-search-container">
         <div class="quick-search-box">
-            <span style="font-size: 1.2rem; color: #7c8a9e;">🔍</span>
-            <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (prix, stock)...">
-            <span id="searchSpinner" style="display:none;">⏳</span>
+            <span style="font-size: 1.2rem; color: #64748b;">🔍</span>
+            <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (nom, famille, prix, stock)...">
+            <button type="button" id="clearSearchBtn" class="search-clear-btn" title="Effacer">✕</button>
+            <span id="searchSpinner" style="display:none; color: #2563eb;">⏳</span>
         </div>
         <div id="quickSearchResults" class="search-dropdown" style="display:none;"></div>
     </div>
@@ -301,18 +411,58 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 3. Script Recherche Rapide Médicament
+    // 3. Script Recherche Rapide Insensible à la Casse & Améliorée
     const searchInput = document.getElementById('quickSearchInput');
     const searchResults = document.getElementById('quickSearchResults');
     const spinner = document.getElementById('searchSpinner');
+    const clearBtn = document.getElementById('clearSearchBtn');
     let timeout = null;
 
+    // Normaliser une chaîne (supprime accents et force le bas de casse)
+    function normalizeStr(str) {
+        if (!str) return '';
+        return str.toString()
+                  .toLowerCase()
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    // Surligner la partie correspondante (Insensible à la casse)
+    function highlightText(text, query) {
+        if (!query || !text) return text;
+        const normText = normalizeStr(text);
+        const normQuery = normalizeStr(query);
+        const index = normText.indexOf(normQuery);
+
+        if (index >= 0) {
+            const originalMatch = text.substring(index, index + query.length);
+            return text.substring(0, index) + 
+                   `<span class="highlight-match">${originalMatch}</span>` + 
+                   text.substring(index + query.length);
+        }
+        return text;
+    }
+
     if (searchInput) {
+        // Gestion de l'affichage du bouton "Effacer"
+        searchInput.addEventListener('input', function() {
+            clearBtn.style.display = this.value.trim().length > 0 ? 'inline-flex' : 'none';
+        });
+
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            searchResults.style.display = 'none';
+            searchResults.innerHTML = '';
+            clearBtn.style.display = 'none';
+            searchInput.focus();
+        });
+
         searchInput.addEventListener('input', function() {
             clearTimeout(timeout);
-            const query = this.value.trim();
+            const queryRaw = this.value;
+            const queryClean = normalizeStr(queryRaw.trim());
 
-            if (query.length < 2) {
+            if (queryClean.length < 2) {
                 searchResults.style.display = 'none';
                 searchResults.innerHTML = '';
                 return;
@@ -321,39 +471,53 @@ document.addEventListener('DOMContentLoaded', function() {
             spinner.style.display = 'inline-block';
 
             timeout = setTimeout(() => {
-                fetch(`{% url 'api_recherche_medicament' %}?q=${encodeURIComponent(query)}`)
+                fetch(`{% url 'api_recherche_medicament' %}?q=${encodeURIComponent(queryRaw.trim())}`)
                     .then(response => response.json())
                     .then(data => {
                         spinner.style.display = 'none';
                         searchResults.innerHTML = '';
 
-                        if (!data.medicaments || data.medicaments.length === 0) {
+                        const medicaments = data.medicaments || [];
+
+                        // Filtrage supplémentaire côté client (Insensible à la casse/accents)
+                        const filtered = medicaments.filter(med => {
+                            const nom = normalizeStr(med.nom);
+                            const famille = normalizeStr(med.famille);
+                            return nom.includes(queryClean) || famille.includes(queryClean);
+                        });
+
+                        if (filtered.length === 0) {
                             searchResults.innerHTML = `
-                                <div style="padding: 16px; text-align: center; color: #7c8a9e; font-size: 0.85rem;">
-                                    ❌ Aucun médicament trouvé pour "<b>${query}</b>"
+                                <div style="padding: 20px; text-align: center; color: #64748b; font-size: 0.9rem;">
+                                    🔍 Aucun médicament correspondant à "<b>${queryRaw}</b>"
                                 </div>`;
                         } else {
-                            data.medicaments.forEach(med => {
+                            filtered.forEach(med => {
                                 let badgeClass = 'badge-ok';
                                 let stockText = `${med.stock} en stock`;
 
                                 if (med.en_rupture) {
                                     badgeClass = 'badge-danger';
-                                    stockText = 'Rupture';
+                                    stockText = 'Rupture de stock';
                                 } else if (med.en_alerte) {
                                     badgeClass = 'badge-alerte';
-                                    stockText = `${med.stock} (Alerte)`;
+                                    stockText = `Stock critique (${med.stock})`;
                                 }
+
+                                const nomHighlighted = highlightText(med.nom, queryRaw.trim());
+                                const familleHighlighted = highlightText(med.famille || 'Général', queryRaw.trim());
 
                                 const item = document.createElement('div');
                                 item.className = 'search-item';
                                 item.innerHTML = `
                                     <div>
-                                        <div class="search-item-nom">💊 ${med.nom}</div>
-                                        <div class="search-item-sub">📂 ${med.famille}</div>
+                                        <div class="search-item-nom">💊 ${nomHighlighted}</div>
+                                        <div class="search-item-sub">
+                                            <span>📂 ${familleHighlighted}</span>
+                                        </div>
                                     </div>
                                     <div style="text-align: right;">
-                                        <div style="font-weight:700; color:#1f6feb; font-size:0.9rem;">${med.prix}</div>
+                                        <div class="price-tag">${med.prix}</div>
                                         <span class="badge ${badgeClass}">${stockText}</span>
                                     </div>
                                 `;
@@ -364,13 +528,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .catch(err => {
                         spinner.style.display = 'none';
-                        console.error("Erreur recherche:", err);
+                        console.error("Erreur lors de la recherche:", err);
                     });
-            }, 300);
+            }, 250);
         });
 
+        // Fermer les résultats en cliquant en dehors
         document.addEventListener('click', function(e) {
-            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target) && !clearBtn.contains(e.target)) {
                 searchResults.style.display = 'none';
             }
         });
