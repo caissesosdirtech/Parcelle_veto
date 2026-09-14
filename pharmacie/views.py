@@ -714,22 +714,13 @@ def recherche_rapide_medicament(request):
     return JsonResponse({'medicaments': resultats})    
 
 from django.shortcuts import render
-from django.db.models import Q
-from .models import CatalogueMedicament  # Adaptez selon le nom exact de votre modèle
+from .models import FamilleMedicament # Ajustez selon le nom de votre modèle
 
 def recherche_medicament_page(request):
-    query = request.GET.get('q', '').strip()
-    resultats = []
-
-    if query:
-        # Recherche tolérante sur le nom de médicament ou la famille
-        resultats = CatalogueMedicament.objects.filter(
-            Q(nom__icontains=query) | Q(famille__nom__icontains=query)
-        ).distinct()
-
-    context = {
+    familles = FamilleMedicament.objects.all()
+    # On passe initialement le paramètre 'q' pour remplir la barre de recherche au chargement
+    query = request.GET.get('q', '')
+    return render(request, 'pharmacie/medicaments_list.html', {
+        'familles': familles,
         'query': query,
-        'resultats': resultats,
-        'total_count': len(resultats) if isinstance(resultats, list) else resultats.count(),
-    }
-    return render(request, 'pharmacie/resultats_recherche_rapide.html', context)
+    })

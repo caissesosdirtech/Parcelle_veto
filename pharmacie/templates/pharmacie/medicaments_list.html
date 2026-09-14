@@ -6,7 +6,7 @@
 {% block content %}
 
 <style>
-/* ====== TON CSS INCHANGÉ ====== */
+/* ====== STYLES ====== */
 .page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
 .page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
 
@@ -27,6 +27,13 @@
     border:1px solid #ddd;
 }
 
+.search-card select{
+    padding:10px;
+    border-radius:10px;
+    border:1px solid #ddd;
+    background:#fff;
+}
+
 .search-card button{
     padding:10px 15px;
     border:none;
@@ -38,7 +45,8 @@
 }
 
 .table-card {
-    background:#fff; border-radius:16px;
+    background:#fff; 
+    border-radius:16px;
     box-shadow:0 8px 25px rgba(0,0,0,0.08);
     overflow:hidden;
 }
@@ -74,7 +82,7 @@
 
 .btn-add {
     display: inline-block;
-    padding: 20px 20px;          /* réduit la hauteur et la largeur */
+    padding: 10px 18px;
     border-radius: 8px;
     background: linear-gradient(135deg, #28a745, #1e7e34);
     color: #fff;
@@ -89,21 +97,20 @@
     opacity: 0.9;
     transform: translateY(-1px);
 }
-
 </style>
 
 <!-- HEADER -->
-<div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
     <div>
         <div class="page-title">💊 Médicaments</div>
         <div class="page-sub">Gestion du stock pharmacie</div>
     </div>
-    <a href="{% url 'medicament_create' %}" class="btn-add">➕ Ajouter Medicament</a>
+    <a href="{% url 'medicament_create' %}" class="btn-add">➕ Ajouter Médicament</a>
 </div>
 
 <!-- 🔎 SEARCH -->
 <div class="search-card">
-    <input type="text" id="search" placeholder="Rechercher médicament...">
+    <input type="text" id="search" placeholder="Rechercher médicament..." value="{{ query|default:'' }}">
 
     <select id="famille">
         <option value="">Toutes familles</option>
@@ -131,51 +138,71 @@
             </tr>
         </thead>
 
-        <tbody id="tableBody"></tbody>
+        <tbody id="tableBody">
+            <tr>
+                <td colspan="6" style="text-align:center; padding:20px; color:#7c8a9e;">Chargement des données...</td>
+            </tr>
+        </tbody>
     </table>
 </div>
 
 <script>
-
 function loadData(){
-
     let search = document.getElementById("search").value;
     let famille = document.getElementById("famille").value;
 
-    fetch(`/pharmacie/api/medicaments/?search=${search}&famille=${famille}`)
+    fetch(`/pharmacie/api/medicaments/?search=${encodeURIComponent(search)}&famille=${encodeURIComponent(famille)}`)
     .then(res => res.json())
     .then(data => {
-
         let html = "";
+        
+        // Support pour la pagination REST Framework (data.results) ou une liste directe (data)
+        let items = data.results ? data.results : data;
 
-        data.results.forEach(m => {
-
-            html += `
-                <tr>
-                    <td><b>${m.nom}</b></td>
-                    <td>${m.famille || "-"}</td>
-                    <td>${m.fournisseur || "-"}</td>
-                    <td>${m.stock}</td>
-                    <td>${m.prix} FCFA</td>
-                    <td>
-                        <span class="badge">
-                            ${m.statut}
-                        </span>
-                    </td>
-                </tr>
-            `;
-        });
+        if (!items || items.length === 0) {
+            html = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#7c8a9e;">Aucun médicament trouvé.</td></tr>`;
+        } else {
+            items.forEach(m => {
+                html += `
+                    <tr>
+                        <td><b>${m.nom || '-'}</b></td>
+                        <td>${m.famille || "-"}</td>
+                        <td>${m.fournisseur || "-"}</td>
+                        <td>${m.stock !== undefined ? m.stock : '-'}</td>
+                        <td>${m.prix ? m.prix + ' FCFA' : '-'}</td>
+                        <td>
+                            <span class="badge ${getBadgeClass(m.statut)}">
+                                ${m.statut || "-"}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
 
         document.getElementById("tableBody").innerHTML = html;
+    })
+    .catch(err => {
+        console.error("Erreur lors du chargement :", err);
+        document.getElementById("tableBody").innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#c62828;">Erreur lors du chargement des données.</td></tr>`;
     });
 }
 
-// 🔥 recherche live
+function getBadgeClass(statut) {
+    if (!statut) return '';
+    let s = statut.toLowerCase();
+    if (s.includes('ok') || s.includes('disponible')) return 'badge-ok';
+    if (s.includes('alerte') || s.includes('faible')) return 'badge-alerte';
+    if (s.includes('critique') || s.includes('rupture')) return 'badge-critique';
+    return 'badge-famille';
+}
+
+// Recherche dynamique en direct
 document.getElementById("search").addEventListener("input", loadData);
 document.getElementById("famille").addEventListener("change", loadData);
 
+// Lancement automatique au chargement de la page
 window.onload = loadData;
-
 </script>
 
 {% endblock %}
