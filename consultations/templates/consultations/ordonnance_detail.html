@@ -377,26 +377,6 @@
 
 </div>
 
-<!-- MODAL CONFIRMATION (REFAITE EN POST) -->
-<div id="modalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
-    <div style="background:#fff; border-radius:16px; padding:30px; max-width:400px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.2);">
-        <div style="font-size:2.5rem; margin-bottom:12px;">⚠️</div>
-        <h3 style="margin:0 0 10px; color:#1e2a3a;">Terminer la consultation ?</h3>
-        <p style="color:#7c8a9e; font-size:.88rem; margin-bottom:24px;">
-            Cette action va créer la vente et déduire les médicaments du stock. Elle est irréversible.
-        </p>
-        <div style="display:flex; gap:12px; justify-content:center; align-items:center;">
-            <button class="btn btn-outline" type="button" onclick="fermerModal()">Annuler</button>
-            
-            <!-- FORMULAIRE DE SOUMISSION POST SECURISE -->
-            <form id="formTerminer" method="post" action="{% url 'terminer_consultation' ordonnance.consultation.id %}" style="margin:0;">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-success">Confirmer</button>
-            </form>
-        </div>
-    </div>
-</div>
-
 <script>
 // ===========================
 // CSRF
@@ -640,17 +620,53 @@ async function sauvegarderLigne(ligneId, prix, stock) {
 }
 
 // ===========================
-// MODAL TERMINER
+// MODAL TERMINER (SWEETALERT2)
 // ===========================
-function confirmerTerminer() {
-    document.getElementById('modalOverlay').style.display = 'flex';
+async function confirmerTerminer() {
+    const result = await Swal.fire({
+        title: 'Terminer la consultation ?',
+        text: "Cette action va créer la vente et déduire les médicaments du stock. Elle est irréversible.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Oui, confirmer',
+        cancelButtonText: 'Annuler'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const res = await fetch("{% url 'terminer_consultation' ordonnance.consultation.id %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+
+        const data = await res.json();
+
+        if (res.ok && (data.status === 'OK' || data.message === 'OK' || data.success)) {
+            Swal.fire({
+                title: 'Consultation terminée !',
+                html: `La consultation a été enregistrée avec succès.<br><br>Vous allez être redirigé vers la gestion des ventes.`,
+                icon: 'success',
+                confirmButtonText: 'Continuer vers les ventes ➡️',
+                confirmButtonColor: '#28a745',
+                allowOutsideClick: false,
+                allowEscapeKey: false
+            }).then((resultFinal) => {
+                if (resultFinal.isConfirmed) {
+                    window.location.href = "/ventes/"; // ⬅️ Modifiez le chemin si votre URL des ventes est différente
+                }
+            });
+        } else {
+            Swal.fire('Erreur', data.error || data.message || "Une erreur s'est produite lors de la finalisation.", 'error');
+        }
+    } catch(e) {
+        Swal.fire('Erreur réseau', e.message, 'error');
+    }
 }
-function fermerModal() {
-    document.getElementById('modalOverlay').style.display = 'none';
-}
-document.getElementById('modalOverlay').addEventListener('click', function(e) {
-    if (e.target === this) fermerModal();
-});
 </script>
 
 {% endblock %}
