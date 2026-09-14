@@ -54,6 +54,19 @@
         <div class="date-box">
             📅 <span id="current-date"></span>
         </div>
+
+        <!-- COLONNE 2 : RECHERCHE RAPIDE & STOCK CRITIQUE -->
+        <div class="panel-column">
+            
+            <!-- RECHERCHE RAPIDE MÉDICAMENT -->
+            <div class="quick-search-container">
+                <div class="quick-search-box">
+                    <span style="font-size: 1.1rem; color: #7c8a9e;">🔍</span>
+                    <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (prix, stock)...">
+                    <span id="searchSpinner" style="display:none;">⏳</span>
+                </div>
+                <div id="quickSearchResults" class="search-dropdown" style="display:none;"></div>
+            </div>
     </div>
 
     <!-- STATS -->
@@ -155,18 +168,6 @@
             </div>
         </div>
 
-        <!-- COLONNE 2 : RECHERCHE RAPIDE & STOCK CRITIQUE -->
-        <div class="panel-column">
-            
-            <!-- RECHERCHE RAPIDE MÉDICAMENT -->
-            <div class="quick-search-container">
-                <div class="quick-search-box">
-                    <span style="font-size: 1.1rem; color: #7c8a9e;">🔍</span>
-                    <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (prix, stock)...">
-                    <span id="searchSpinner" style="display:none;">⏳</span>
-                </div>
-                <div id="quickSearchResults" class="search-dropdown" style="display:none;"></div>
-            </div>
 
             <!-- STOCK CRITIQUE -->
             <div class="panel">
