@@ -4,7 +4,8 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer, UtilisateurSerializer
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
@@ -70,3 +71,7 @@ def rediriger_selon_role(request):
         return redirect("consultations:liste_consultations")  # URL du docteur
     else:
         return redirect("ventes:caisse")  # URL de l'employé/caisse
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

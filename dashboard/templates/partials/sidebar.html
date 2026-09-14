@@ -22,15 +22,10 @@
             {{ request.user.username }}
         {% endif %}
     </div>
-    <span class="user-role-badge">
-        {% if request.user.role %}
-            {{ request.user.get_role_display|default:request.user.role }}
-        {% elif request.user.is_superuser %}
-            Administrateur
-        {% else %}
-            Utilisateur
-        {% endif %}
-    </span>
+    <!-- Affichage universel du rôle (Local & Railway) -->
+<span class="user-role-badge">
+    {{ request.user.libelle_role }}
+</span>
 </div>
 
 <nav class="sidebar-nav">
