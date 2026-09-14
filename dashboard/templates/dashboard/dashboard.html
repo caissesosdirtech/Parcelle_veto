@@ -5,7 +5,7 @@
 
 {% block content %}
 <style>
-/* ===== RECHERCHE RAPIDE MODERNISÉE ===== */
+/* ===== RECHERCHE RAPIDE MODERNISÉE & REDIRIGEABLE ===== */
 .quick-search-container { 
     position: relative; 
     margin-bottom: 28px; 
@@ -149,6 +149,22 @@
     font-weight: 700;
 }
 
+.search-see-more {
+    padding: 12px; 
+    text-align: center; 
+    background: #f8fafc; 
+    border-top: 1px solid #e2e8f0; 
+    font-weight: 600; 
+    font-size: 0.85rem; 
+    color: #2563eb; 
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-see-more:hover {
+    background: #eff6ff;
+}
+
 /* BADGES MODERNES */
 .badge { 
     display: inline-flex; 
@@ -194,14 +210,17 @@
         </div>
     </div>
 
-    <!-- 🔍 RECHERCHE RAPIDE MODERNISÉE -->
+    <!-- 🔍 RECHERCHE RAPIDE MODERNISÉE ET REDIRIGEABLE -->
     <div class="quick-search-container">
-        <div class="quick-search-box">
-            <span style="font-size: 1.2rem; color: #64748b;">🔍</span>
-            <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (nom, famille, prix, stock)...">
-            <button type="button" id="clearSearchBtn" class="search-clear-btn" title="Effacer">✕</button>
-            <span id="searchSpinner" style="display:none; color: #2563eb;">⏳</span>
-        </div>
+        <!-- Remplacez l'action par l'URL de votre page globale de recherche si disponible -->
+        <form id="searchForm" action="{% url 'recherche_medicament_page' %}" method="GET">
+            <div class="quick-search-box">
+                <span style="font-size: 1.2rem; color: #64748b;">🔍</span>
+                <input type="text" name="q" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (Entrée pour voir la liste complète)...">
+                <button type="button" id="clearSearchBtn" class="search-clear-btn" title="Effacer">✕</button>
+                <span id="searchSpinner" style="display:none; color: #2563eb;">⏳</span>
+            </div>
+        </form>
         <div id="quickSearchResults" class="search-dropdown" style="display:none;"></div>
     </div>
 
@@ -411,14 +430,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 3. Script Recherche Rapide Insensible à la Casse & Améliorée
+    // 3. Script Recherche Rapide Insensible à la Casse & Redirigeable
+    const searchForm = document.getElementById('searchForm');
     const searchInput = document.getElementById('quickSearchInput');
     const searchResults = document.getElementById('quickSearchResults');
     const spinner = document.getElementById('searchSpinner');
     const clearBtn = document.getElementById('clearSearchBtn');
     let timeout = null;
 
-    // Normaliser une chaîne (supprime accents et force le bas de casse)
+    // Normalisation de la chaîne (Insensible aux accents et à la casse)
     function normalizeStr(str) {
         if (!str) return '';
         return str.toString()
@@ -427,7 +447,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   .replace(/[\u0300-\u036f]/g, "");
     }
 
-    // Surligner la partie correspondante (Insensible à la casse)
+    // Surlignage dynamique des correspondances
     function highlightText(text, query) {
         if (!query || !text) return text;
         const normText = normalizeStr(text);
@@ -444,7 +464,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (searchInput) {
-        // Gestion de l'affichage du bouton "Effacer"
+        // Affichage/Masquage du bouton d'effacement rapide
         searchInput.addEventListener('input', function() {
             clearBtn.style.display = this.value.trim().length > 0 ? 'inline-flex' : 'none';
         });
@@ -457,6 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
             searchInput.focus();
         });
 
+        // Saisie utilisateur avec délai anti-rebond (Debounce)
         searchInput.addEventListener('input', function() {
             clearTimeout(timeout);
             const queryRaw = this.value;
@@ -479,7 +500,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         const medicaments = data.medicaments || [];
 
-                        // Filtrage supplémentaire côté client (Insensible à la casse/accents)
+                        // Filtrage tolérant casse et accents
                         const filtered = medicaments.filter(med => {
                             const nom = normalizeStr(med.nom);
                             const famille = normalizeStr(med.famille);
@@ -507,8 +528,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const nomHighlighted = highlightText(med.nom, queryRaw.trim());
                                 const familleHighlighted = highlightText(med.famille || 'Général', queryRaw.trim());
 
+                                // Récupération de l'URL individuelle ou valeur de repli
+                                const targetUrl = med.url_detail || `/pharmacie/medicament/${med.id}/`;
+
                                 const item = document.createElement('div');
                                 item.className = 'search-item';
+                                
+                                // Redirection au clic sur un médicament
+                                item.addEventListener('click', function() {
+                                    window.location.href = targetUrl;
+                                });
+
                                 item.innerHTML = `
                                     <div>
                                         <div class="search-item-nom">💊 ${nomHighlighted}</div>
@@ -523,6 +553,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                 `;
                                 searchResults.appendChild(item);
                             });
+
+                            // Lien de redirection complète en bas du dropdown
+                            const seeMore = document.createElement('div');
+                            seeMore.className = 'search-see-more';
+                            seeMore.innerHTML = `Voir tous les résultats pour "${queryRaw}" →`;
+                            seeMore.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                searchForm.submit();
+                            });
+                            searchResults.appendChild(seeMore);
                         }
                         searchResults.style.display = 'block';
                     })
@@ -533,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 250);
         });
 
-        // Fermer les résultats en cliquant en dehors
+        // Masquer le menu en cliquant à l'extérieur
         document.addEventListener('click', function(e) {
             if (!searchInput.contains(e.target) && !searchResults.contains(e.target) && !clearBtn.contains(e.target)) {
                 searchResults.style.display = 'none';
