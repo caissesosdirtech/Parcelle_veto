@@ -4,6 +4,7 @@
 
 {% block content %}
 <style>
+/* ================= STYLES ECRAN (DASHBOARD) ================= */
 .page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
 .page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
 
@@ -40,7 +41,7 @@
 .badge-med { display:inline-block; padding:3px 10px; border-radius:20px; background:#e8f0fe; color:#1f6feb; font-weight:700; font-size:.8rem; }
 .qty-badge { display:inline-block; padding:3px 10px; border-radius:20px; background:#e6f4ea; color:#28a745; font-weight:700; font-size:.8rem; }
 
-/* SUMMARY */
+/* SUMMARY SIDEBAR */
 .summary { background:#fff; border-radius:16px; box-shadow:0 8px 20px rgba(0,0,0,0.07); padding:20px; position:sticky; top:20px; }
 .summary h4 { font-size:.95rem; font-weight:700; color:#1e2a3a; margin-bottom:16px; }
 .sum-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f1f4f8; font-size:.84rem; }
@@ -50,7 +51,7 @@
 .sum-total { font-size:1.2rem; color:#28a745; }
 .divider { border:none; border-top:1px solid #e7ecf2; margin:16px 0; }
 
-/* BADGE TYPE */
+/* BADGES */
 .badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700; }
 .badge-ordo   { background:#e6f4ea; color:#1e7e34; }
 .badge-direct { background:#fff3e0; color:#e65100; }
@@ -61,27 +62,17 @@
 .btn-back    { background:#fff; color:#7c8a9e; border:1px solid #e7ecf2; }
 .btn:hover { opacity:.9; }
 
-/* PRINT */
-@media print {
-    .no-print { display:none !important; }
-    .wrapper  { grid-template-columns:1fr; }
-    .card     { box-shadow:none; border:1px solid #ddd; }
+/* ELEMENT CACHÉ PAR DÉFAUT (SEULEMENT POUR L'IMPRESSION) */
+.print-header, .print-footer { display:none; }
 
-    .print-header {
-        display:flex !important;
-        justify-content:space-between;
-        align-items:center;
-        border-bottom:2px solid #1f6feb;
-        padding-bottom:12px;
-        margin-bottom:20px;
+/* ================= STYLES IMPRESSION ================= */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm;
     }
-}
-.print-header { display:none; }
 
-/* ================= IMPRESSION ================= */
-@media print {
-
-    /* Cacher tout le dashboard */
+    /* Masquer tous les éléments d'interface du Dashboard */
     .sidebar,
     .dashboard-header-global,
     .dashboard-footer,
@@ -104,55 +95,88 @@
         background: #fff !important;
     }
 
-    /* Afficher seulement la partie principale */
+    /* Layout mono-colonne à l'impression */
     .wrapper {
         display: block !important;
+        width: 100% !important;
     }
 
-    .card,
-    .summary {
+    .card {
         box-shadow: none !important;
-        border: 1px solid #ccc;
-        margin-bottom: 20px;
+        border: 1px solid #d0d7de !important;
+        margin-bottom: 20px !important;
+        page-break-inside: avoid;
     }
 
-    /* Afficher l'en-tête d'impression */
+    .card-header {
+        background: #f4f7fb !important;
+        color: #1e2a3a !important;
+        border-bottom: 1px solid #d0d7de !important;
+    }
+
+    /* Header d'impression professionnel */
     .print-header {
         display: flex !important;
         justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        border-bottom: 2px solid #000;
-        padding-bottom: 10px;
+        align-items: flex-start;
+        border-bottom: 2px solid #1f6feb;
+        padding-bottom: 12px;
+        margin-bottom: 24px;
     }
 
-    @page {
-        size: A4 portrait;
-        margin: 10mm;
+    .print-header h1 {
+        font-size: 1.4rem;
+        color: #1f6feb;
+        margin: 0 0 4px 0;
+    }
+
+    .print-header p {
+        margin: 2px 0;
+        font-size: 0.82rem;
+        color: #4a5568;
+    }
+
+    /* Table d'impression */
+    .vente-table th {
+        background: #f8fafc !important;
+        color: #334155 !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+    }
+
+    .vente-table td {
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+
+    /* Footer d'impression avec signature */
+    .print-footer {
+        display: flex !important;
+        justify-content: space-between;
+        margin-top: 40px;
+        padding-top: 15px;
+        border-top: 1px dashed #cbd5e1;
+        font-size: 0.85rem;
     }
 }
 </style>
 
-<!-- PRINT HEADER -->
+<!-- EN-TÊTE DE FACTURE / REÇU (IMPRESSION UNIQUEMENT) -->
 <div class="print-header">
-    <h1>🐾 Parcelles Veto THIÈS</h1>
-    
-    <p>Historique des ventes</p>
-
-    <p>
-        Date d'impression : {% now "d/m/Y à H:i" %}
-    </p>
-
-    <p style="margin-top:6px; font-weight:600; color:#1e2a3a;">
-        📞 Tel: 775385729 / 768331623
-    </p>
-
-    <p style="font-weight:600; color:#1e2a3a;">
-        ✉️ Mail: parcelles-veto@gmail.com
-    </p>
+    <div>
+        <h1>🐾 Parcelles Veto THIÈS</h1>
+        <p><strong>Clinique & Pharmacie Vétérinaire</strong></p>
+        <p>Quartier Ngoumsane, Thiès</p>
+        <p>📞 Tel: 77 538 57 29 / 76 833 16 23</p>
+        <p>✉️ Mail: parcelles-veto@gmail.com</p>
+    </div>
+    <div style="text-align:right;">
+        <h2 style="margin:0; font-size:1.2rem; color:#1e2a3a;">REÇU DE VENTE</h2>
+        <p style="font-weight:700; font-size:1rem; margin-top:4px;">#{{ vente.id }}</p>
+        <p>Date : {{ vente.date|date:"d/m/Y à H:i" }}</p>
+        <p>Imprimé le : {% now "d/m/Y à H:i" %}</p>
+    </div>
 </div>
 
-<!-- HEADER PAGE -->
+<!-- EN-TÊTE DE LA PAGE (ÉCRAN UNIQUEMENT) -->
 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;" class="no-print">
     <div>
         <div class="page-title">🧾 Vente #{{ vente.id }}</div>
@@ -165,7 +189,7 @@
         </div>
     </div>
     <div style="display:flex; gap:10px;">
-        <button onclick="window.print()" class="btn btn-back">🖨️ Imprimer</button>
+        <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer le reçu</button>
         <a href="{% url 'ventes_list' %}" class="btn btn-back">← Retour</a>
     </div>
 </div>
@@ -178,7 +202,7 @@
         <!-- INFO CLIENT / ANIMAL -->
         {% if vente.ordonnance %}
         <div class="card">
-            <div class="card-header">🩺 Consultation liée</div>
+            <div class="card-header">🩺 Consultation & Ordonnance associée</div>
             <div class="card-body">
                 <div class="info-grid">
                     <div class="info-item">
@@ -202,11 +226,11 @@
         </div>
         {% elif vente.client %}
         <div class="card">
-            <div class="card-header">👤 Client</div>
+            <div class="card-header">👤 Information Client</div>
             <div class="card-body">
                 <div class="info-grid">
                     <div class="info-item">
-                        <label>Nom</label>
+                        <label>Nom du Client</label>
                         <span>{{ vente.client.nom }}</span>
                     </div>
                     <div class="info-item">
@@ -218,21 +242,21 @@
         </div>
         {% endif %}
 
-        <!-- LIGNES DE VENTE -->
+        <!-- TABLEAU DES LIGNES DE VENTE -->
         <div class="card">
             <div class="card-header green">
-                💊 Médicaments vendus
-                <span style="font-size:.8rem; font-weight:400; opacity:.85;">{{ vente.lignes.count }} ligne(s)</span>
+                💊 Médicaments & Produits vendus
+                <span style="font-size:.8rem; font-weight:400; opacity:.85;" class="no-print">{{ vente.lignes.count }} ligne(s)</span>
             </div>
             <div style="padding:0;">
                 <table class="vente-table">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Médicament</th>
+                            <th>Désignation</th>
                             <th>Quantité</th>
                             <th style="text-align:right;">Prix unitaire</th>
-                            <th style="text-align:right;">Montant</th>
+                            <th style="text-align:right;">Montant Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -247,14 +271,14 @@
                         {% empty %}
                         <tr>
                             <td colspan="5" style="text-align:center; padding:40px; color:#b0bcc9;">
-                                Aucune ligne de vente.
+                                Aucune ligne enregistrée pour cette vente.
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="4" style="text-align:right; color:#7c8a9e;">TOTAL</td>
+                            <td colspan="4" style="text-align:right; color:#7c8a9e;">TOTAL À PAYER</td>
                             <td style="text-align:right; font-size:1.1rem; color:#28a745;">{{ vente.total|floatformat:0 }} FCFA</td>
                         </tr>
                     </tfoot>
@@ -262,9 +286,20 @@
             </div>
         </div>
 
+        <!-- PIED DE PAGE (IMPRESSION SEULEMENT) -->
+        <div class="print-footer">
+            <div>
+                <p>Merci pour votre confiance !</p>
+                <p style="font-size:0.75rem; color:#7c8a9e;">Les médicaments vendus ne sont ni repris ni échangés.</p>
+            </div>
+            <div style="text-align:right; margin-top:10px;">
+                <p><strong>Cachet & Signature</strong></p>
+            </div>
+        </div>
+
     </div>
 
-    <!-- RÉSUMÉ -->
+    <!-- PANNEAU LATÉRAL RÉSUMÉ (MASQUÉ À L'IMPRESSION) -->
     <div class="no-print">
         <div class="summary">
             <h4>📋 Récapitulatif</h4>
