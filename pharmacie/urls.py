@@ -40,4 +40,6 @@ urlpatterns = [
 
     # DRF Router
     path('api/', include(router.urls)),
+
+    path('api/recherche-medicament/', views.recherche_rapide_medicament, name='api_recherche_medicament'),
 ]

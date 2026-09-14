@@ -684,3 +684,31 @@ def api_creer_medicament_express(request):
 
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+from django.http import JsonResponse
+from django.db.models import Q
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def recherche_rapide_medicament(request):
+    query = request.GET.get('q', '').strip()
+    resultats = []
+    
+    if len(query) >= 2:  # Recherche à partir de 2 caractères
+        medicaments = Medicament.objects.filter(
+            Q(catalogue__nom__icontains=query) |
+            Q(catalogue__famille__nom__icontains=query)
+        ).select_related('catalogue', 'catalogue__famille')[:8] # Limite à 8 résultats
+        
+        for med in medicaments:
+            resultats.append({
+                'id': med.id,
+                'nom': med.catalogue.nom,
+                'famille': med.catalogue.famille.nom if med.catalogue.famille else 'Générique',
+                'prix': f"{med.prix:.0f} FCFA",
+                'stock': med.stock,
+                'en_alerte': med.stock <= med.seuil_alerte,
+                'en_rupture': med.stock == 0,
+            })
+            
+    return JsonResponse({'medicaments': resultats})    
