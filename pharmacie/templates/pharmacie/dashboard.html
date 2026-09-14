@@ -6,7 +6,7 @@
 <style>
 /* ===== BASE ===== */
 .page-title { font-size:18px; font-weight:700; margin-bottom:4px; color:#1f6feb; }
-.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:24px; }
+.page-sub { font-size:.85rem; color:#7c8a9e; margin-bottom:24px; }
 
 /* ===== STATS ===== */
 .stats-grid {
@@ -338,7 +338,7 @@
                     {% endif %}
                     <div class="stock-bar">
                         <div class="stock-fill"
-                            style="width:{% widthratio med.stock med.seuil_alerte 100 %}%;
+                            style="width:{% if med.seuil_alerte and med.seuil_alerte > 0 %}{% widthratio med.stock med.seuil_alerte 100 %}{% else %}100{% endif %}%;
                                    background:{% if med.stock == 0 %}#dc3545{% else %}#fd7e14{% endif %};">
                         </div>
                     </div>
@@ -374,7 +374,7 @@
                     </div>
                 </div>
                 <div style="text-align:right;">
-                    <span class="badge {% if med.stock <= med.seuil_alerte %}badge-danger{% else %}badge-ok{% endif %}">
+                    <span class="badge {% if med.seuil_alerte and med.stock <= med.seuil_alerte %}badge-danger{% else %}badge-ok{% endif %}">
                         {{ med.stock }} unités
                     </span>
                     <div style="font-size:.75rem; color:#7c8a9e; margin-top:3px;">
@@ -447,9 +447,10 @@
 </div>
 
 <script>
-document.getElementById('currentDate').textContent = new Date().toLocaleDateString('fr-FR', {
-    weekday:'long', year:'numeric', month:'long', day:'numeric'
-});
+    const strDate = new Date().toLocaleDateString('fr-FR', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    document.getElementById('currentDate').textContent = strDate.charAt(0).toUpperCase() + strDate.slice(1);
 </script>
 
 {% endblock %}
