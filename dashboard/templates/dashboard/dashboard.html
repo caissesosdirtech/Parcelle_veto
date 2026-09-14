@@ -6,22 +6,51 @@
 {% block content %}
 <style>
 /* ===== RECHERCHE RAPIDE ===== */
-.quick-search-container { position: relative; margin-bottom: 20px; }
-.quick-search-box {
-    display: flex; align-items: center; background: #fff;
-    border: 2px solid #e7ecf2; border-radius: 12px; padding: 6px 16px;
-    transition: all 0.2s ease;
+.quick-search-container { 
+    position: relative; 
+    margin-bottom: 24px; 
 }
-.quick-search-box:focus-within { border-color: #1f6feb; box-shadow: 0 4px 16px rgba(31,111,235,0.15); }
-.quick-search-box input { border: none; outline: none; width: 100%; padding: 8px; font-size: 0.95rem; }
+.quick-search-box {
+    display: flex; 
+    align-items: center; 
+    background: #fff;
+    border: 2px solid #e7ecf2; 
+    border-radius: 12px; 
+    padding: 8px 18px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+.quick-search-box:focus-within { 
+    border-color: #1f6feb; 
+    box-shadow: 0 4px 16px rgba(31,111,235,0.15); 
+}
+.quick-search-box input { 
+    border: none; 
+    outline: none; 
+    width: 100%; 
+    padding: 8px 12px; 
+    font-size: 1rem; 
+}
 .search-dropdown {
-    position: absolute; top: 108%; left: 0; right: 0; background: #fff;
-    border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    border: 1px solid #f1f4f8; z-index: 1000; max-height: 350px; overflow-y: auto;
+    position: absolute; 
+    top: 108%; 
+    left: 0; 
+    right: 0; 
+    background: #fff;
+    border-radius: 12px; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border: 1px solid #f1f4f8; 
+    z-index: 1000; 
+    max-height: 350px; 
+    overflow-y: auto;
 }
 .search-item {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-bottom: 1px solid #f1f4f8; transition: background 0.15s;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    padding: 12px 16px; 
+    border-bottom: 1px solid #f1f4f8; 
+    transition: background 0.15s;
 }
 .search-item:hover { background: #f4f7fb; }
 .search-item-nom { font-weight: 700; color: #1e2a3a; font-size: 0.9rem; }
@@ -45,7 +74,7 @@
 
 <div class="dashboard-container">
 
-    <!-- HEADER -->
+    <!-- HEADER (Premier cadre/section) -->
     <div class="dashboard-header">
         <div>
             <h1>Tableau de bord</h1>
@@ -54,19 +83,16 @@
         <div class="date-box">
             📅 <span id="current-date"></span>
         </div>
+    </div>
 
-        <!-- COLONNE 2 : RECHERCHE RAPIDE & STOCK CRITIQUE -->
-        <div class="panel-column">
-            
-            <!-- RECHERCHE RAPIDE MÉDICAMENT -->
-            <div class="quick-search-container">
-                <div class="quick-search-box">
-                    <span style="font-size: 1.1rem; color: #7c8a9e;">🔍</span>
-                    <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (prix, stock)...">
-                    <span id="searchSpinner" style="display:none;">⏳</span>
-                </div>
-                <div id="quickSearchResults" class="search-dropdown" style="display:none;"></div>
-            </div>
+    <!-- 🔍 RECHERCHE RAPIDE (Placée juste après le 1er cadre) -->
+    <div class="quick-search-container">
+        <div class="quick-search-box">
+            <span style="font-size: 1.2rem; color: #7c8a9e;">🔍</span>
+            <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (prix, stock)...">
+            <span id="searchSpinner" style="display:none;">⏳</span>
+        </div>
+        <div id="quickSearchResults" class="search-dropdown" style="display:none;"></div>
     </div>
 
     <!-- STATS -->
@@ -168,8 +194,8 @@
             </div>
         </div>
 
-
-            <!-- STOCK CRITIQUE -->
+        <!-- COLONNE 2 : STOCK CRITIQUE -->
+        <div class="panel-column">
             <div class="panel">
                 <div class="panel-header danger">
                     <h3 class="panel-title">⚠️ Alertes de stock</h3>
@@ -202,7 +228,6 @@
                     {% endfor %}
                 </div>
             </div>
-
         </div>
 
     </div>
