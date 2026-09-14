@@ -1,4 +1,4 @@
-# pharmacie/urls.py — version finale avec exports
+# pharmacie/urls.py — version finale avec exports et recherche
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
@@ -9,6 +9,7 @@ from .views import (
     medicaments_list,
     medicament_create,
     recherche_rapide_medicament,
+    recherche_medicament_page,  # <-- Import de la vue pour la page de recherche
 )
 
 router = DefaultRouter()
@@ -20,6 +21,7 @@ urlpatterns = [
     path('dashboard/', pharmacie_dashboard, name='pharmacie_dashboard'),
     path('medicaments/', medicaments_list, name='medicaments_list'),
     path('medicament/ajouter/', medicament_create, name='medicament_create'),
+    path('recherche/', recherche_medicament_page, name='recherche_medicament_page'),  # <-- Route pour la page de recherche
 
     # Endpoints AJAX
     path("famille/ajouter-ajax/", views.ajouter_famille_ajax, name="ajouter_famille_ajax"),
@@ -36,13 +38,10 @@ urlpatterns = [
     # Exports
     path("export/excel/", views.export_pharmacie_excel, name="export_pharmacie_excel"),
     path("export/pdf/", views.export_pharmacie_pdf, name="export_pharmacie_pdf"),
-    # pharmacie/urls.py
     path("api/creer-express/", views.api_creer_medicament_express, name="api_creer_medicament_express"),
 
     path('api/recherche-medicament/', views.recherche_rapide_medicament, name='api_recherche_medicament'),
 
-
     # DRF Router
     path('api/', include(router.urls)),
-
 ]
