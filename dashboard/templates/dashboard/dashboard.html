@@ -213,7 +213,7 @@
     <!-- 🔍 RECHERCHE RAPIDE MODERNISÉE ET REDIRIGEABLE -->
     <div class="quick-search-container">
         <!-- Remplacez l'action par l'URL de votre page globale de recherche si disponible -->
-        <form id="searchForm" action="{% url 'recherche_medicament_page' %}" method="GET">
+        <form id="searchForm" action="#" method="GET" onsubmit="return false;">
             <div class="quick-search-box">
                 <span style="font-size: 1.2rem; color: #64748b;">🔍</span>
                 <input type="text" name="q" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (Entrée pour voir la liste complète)...">
@@ -558,8 +558,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             const seeMore = document.createElement('div');
                             seeMore.className = 'search-see-more';
                             seeMore.innerHTML = `Voir tous les résultats pour "${queryRaw}" →`;
+                            // Au lieu de submit(), masquez le bouton ou désactivez le clic
                             seeMore.addEventListener('click', function(e) {
                                 e.stopPropagation();
+                            // Ne rien faire ou simplement fermer si la page n'existe pas
                                 searchForm.submit();
                             });
                             searchResults.appendChild(seeMore);
