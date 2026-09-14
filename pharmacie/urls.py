@@ -34,6 +34,7 @@ urlpatterns = [
     path("api/ajouter/", views.api_ajouter_medicament, name="api_ajouter_medicament"),
     path("api/<int:medicament_id>/modifier/", views.api_modifier_medicament, name="api_modifier_medicament"),
     path("api/<int:medicament_id>/supprimer/", views.api_supprimer_medicament, name="api_supprimer_medicament"),
+    path('medicament/<int:pk>/', views.medicament_detail, name='medicament_detail'),
 
     # Exports
     path("export/excel/", views.export_pharmacie_excel, name="export_pharmacie_excel"),
