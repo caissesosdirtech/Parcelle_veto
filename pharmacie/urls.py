@@ -8,6 +8,7 @@ from .views import (
     pharmacie_dashboard,
     medicaments_list,
     medicament_create,
+    recherche_rapide_medicament,
 )
 
 router = DefaultRouter()
@@ -38,8 +39,10 @@ urlpatterns = [
     # pharmacie/urls.py
     path("api/creer-express/", views.api_creer_medicament_express, name="api_creer_medicament_express"),
 
+    path('api/recherche-medicament/', views.recherche_rapide_medicament, name='api_recherche_medicament'),
+
+
     # DRF Router
     path('api/', include(router.urls)),
 
-    path('api/recherche-medicament/', views.recherche_rapide_medicament, name='api_recherche_medicament'),
 ]
