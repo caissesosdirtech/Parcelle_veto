@@ -1,9 +1,47 @@
 {% extends "base_dashboard.html" %}
 {% load static %}
 
-{% block title %}Tableau board - PV{% endblock %}
+{% block title %}Tableau de bord - PV{% endblock %}
 
 {% block content %}
+<style>
+/* ===== RECHERCHE RAPIDE ===== */
+.quick-search-container { position: relative; margin-bottom: 20px; }
+.quick-search-box {
+    display: flex; align-items: center; background: #fff;
+    border: 2px solid #e7ecf2; border-radius: 12px; padding: 6px 16px;
+    transition: all 0.2s ease;
+}
+.quick-search-box:focus-within { border-color: #1f6feb; box-shadow: 0 4px 16px rgba(31,111,235,0.15); }
+.quick-search-box input { border: none; outline: none; width: 100%; padding: 8px; font-size: 0.95rem; }
+.search-dropdown {
+    position: absolute; top: 108%; left: 0; right: 0; background: #fff;
+    border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border: 1px solid #f1f4f8; z-index: 1000; max-height: 350px; overflow-y: auto;
+}
+.search-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid #f1f4f8; transition: background 0.15s;
+}
+.search-item:hover { background: #f4f7fb; }
+.search-item-nom { font-weight: 700; color: #1e2a3a; font-size: 0.9rem; }
+.search-item-sub { font-size: 0.75rem; color: #7c8a9e; }
+
+/* BADGES & EMPTY STATES */
+.badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+.badge-ok { background: #e6f4ea; color: #1e7e34; }
+.badge-alerte { background: #fff3e0; color: #e65100; }
+.badge-danger { background: #fce8e6; color: #c62828; }
+
+.empty-msg.success-box {
+    text-align: center; padding: 25px 20px;
+    background: linear-gradient(180deg, #f4fbf7 0%, #ffffff 100%);
+    border-radius: 12px;
+}
+.icon-wrapper { position: relative; display: inline-block; margin-bottom: 8px; }
+.icon-wrapper .icon-pulse-box { font-size: 2.2rem; animation: floatIcon 3s ease-in-out infinite; }
+@keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+</style>
 
 <div class="dashboard-container">
 
@@ -18,23 +56,12 @@
         </div>
     </div>
 
-    <!-- IA ASSISTANT -->
-    <!-- <div class="ai-banner">
-        🧠 <strong>Assistant IA Vétérinaire :</strong>
-        {% if stock_critique %}
-            Attention, {{ stock_critique|length }} médicaments en rupture ou stock critique détecté.
-        {% else %}
-            Aucun problème critique détecté. Tout est stable.
-        {% endif %}
-    </div> -->
-
     <!-- STATS -->
     <div class="stats-grid">
-
         <div class="stat-card revenue">
             <div class="icon">💰</div>
             <div>
-                <h3>{{ total_ventes|floatformat:0 }} FCFA</h3>
+                <h3>{{ total_ventes|default:0|floatformat:0 }} FCFA</h3>
                 <p>Recettes aujourd'hui</p>
             </div>
         </div>
@@ -42,7 +69,7 @@
         <div class="stat-card blue">
             <div class="icon">🩺</div>
             <div>
-                <h3>{{ total_consultations }}</h3>
+                <h3>{{ total_consultations|default:0 }}</h3>
                 <p>Consultations</p>
             </div>
         </div>
@@ -50,7 +77,7 @@
         <div class="stat-card green">
             <div class="icon">📅</div>
             <div>
-                <h3>{{ total_rdv }}</h3>
+                <h3>{{ total_rdv|default:0 }}</h3>
                 <p>Rendez-vous</p>
             </div>
         </div>
@@ -62,134 +89,265 @@
                 <p>Alertes stock</p>
             </div>
         </div>
-
     </div>
 
     <!-- GRAPHIQUES -->
-<div class="charts-grid">
-    <div class="chart-card">
-        <h3>📊 Ventes (7 derniers jours)</h3>
-        <canvas id="salesChart" style="height:220px; max-height:220px;"></canvas>
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>📊 Ventes (7 derniers jours)</h3>
+            <canvas id="salesChart" style="height:220px; max-height:220px;"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>📈 Consultations (7 derniers jours)</h3>
+            <canvas id="consultChart" style="height:220px; max-height:220px;"></canvas>
+        </div>
     </div>
-    <div class="chart-card">
-        <h3>📈 Consultations (7 derniers jours)</h3>
-        <canvas id="consultChart" style="height:220px; max-height:220px;"></canvas>
-    </div>
-</div>
 
-<!-- TABLES / PANELS -->
-<div class="grid-2">
+    <!-- TABLES / PANELS -->
+    <div class="grid-2">
 
-    <!-- PROCHAINS RENDEZ-VOUS -->
-<!-- PROCHAINS RENDEZ-VOUS -->
-<div class="panel">
-    <div class="panel-header">
-        <h3 class="panel-title">
-            📅 Prochains rendez-vous
-            <span class="rdv-count">({{ prochains_rdv|length }})</span>
-        </h3>
-    </div>
-   
-    <div class="rdv-list">
-        {% for rdv in prochains_rdv %}
-        <div class="rdv-item {% if rdv.date_rdv|date:'Y-m-d' == today|date:'Y-m-d' %}rdv-today{% endif %}">
-          
-            <!-- DATE + HEURE -->
-            <div class="rdv-time">
-                <span class="day">{{ rdv.date_rdv|date:"d" }}</span>
-                <span class="month">{{ rdv.date_rdv|date:"M" }}</span>
-                <span class="hour">{{ rdv.date_rdv|date:"H:i" }}</span>
+        <!-- COLONNE 1 : PROCHAINS RENDEZ-VOUS -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">
+                    📅 Prochains rendez-vous
+                    <span class="rdv-count">({{ prochains_rdv|length }})</span>
+                </h3>
             </div>
-          
-            <div class="rdv-content">
-                <div class="rdv-client">
-                    <strong>{{ rdv.animal.client.nom }}</strong>
-                    {% if rdv.date_rdv|date:'Y-m-d' == today|date:'Y-m-d' %}
-                        <span class="today-badge">
-                            🛎️ AUJOURD'HUI
-                        </span>
-                    {% endif %}
+           
+            <div class="rdv-list">
+                {% for rdv in prochains_rdv %}
+                <div class="rdv-item {% if rdv.date_rdv|date:'Y-m-d' == today|date:'Y-m-d' %}rdv-today{% endif %}">
+                    <div class="rdv-time">
+                        <span class="day">{{ rdv.date_rdv|date:"d" }}</span>
+                        <span class="month">{{ rdv.date_rdv|date:"M" }}</span>
+                        <span class="hour">{{ rdv.date_rdv|date:"H:i" }}</span>
+                    </div>
+                  
+                    <div class="rdv-content">
+                        <div class="rdv-client">
+                            <strong>{{ rdv.animal.client.nom }}</strong>
+                            {% if rdv.date_rdv|date:'Y-m-d' == today|date:'Y-m-d' %}
+                                <span class="today-badge">🛎️ AUJOURD'HUI</span>
+                            {% endif %}
+                        </div>
+                        <div class="rdv-animal">
+                            🐾 {{ rdv.animal.nom }}
+                            <span class="espece">• {{ rdv.animal.espece }}</span>
+                        </div>
+                    </div>
+                  
+                    <div class="rdv-status">
+                        {% if rdv.statut == 'confirmé' %}
+                            <span class="status-badge confirmed">✓ Confirmé</span>
+                        {% elif rdv.statut == 'en_attente' %}
+                            <span class="status-badge pending">⏳ En attente</span>
+                        {% else %}
+                            <span class="status-badge">RDV</span>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="rdv-animal">
-                    🐾 {{ rdv.animal.nom }}
-                    <span class="espece">• {{ rdv.animal.espece }}</span>
+                {% empty %}
+                <div class="empty-state">
+                    <p>Aucun rendez-vous prévu pour les prochains jours.</p>
                 </div>
-            </div>
-          
-            <div class="rdv-status">
-                {% if rdv.statut == 'confirmé' %}
-                    <span class="status-badge confirmed">✓ Confirmé</span>
-                {% elif rdv.statut == 'en_attente' %}
-                    <span class="status-badge pending">⏳ En attente</span>
-                {% else %}
-                    <span class="status-badge">RDV</span>
-                {% endif %}
+                {% endfor %}
             </div>
         </div>
-        {% empty %}
-        <div class="empty-state">
-            <p>Aucun rendez-vous prévu pour les prochains jours.</p>
+
+        <!-- COLONNE 2 : RECHERCHE RAPIDE & STOCK CRITIQUE -->
+        <div class="panel-column">
+            
+            <!-- RECHERCHE RAPIDE MÉDICAMENT -->
+            <div class="quick-search-container">
+                <div class="quick-search-box">
+                    <span style="font-size: 1.1rem; color: #7c8a9e;">🔍</span>
+                    <input type="text" id="quickSearchInput" autocomplete="off" placeholder="Recherche rapide d'un médicament (prix, stock)...">
+                    <span id="searchSpinner" style="display:none;">⏳</span>
+                </div>
+                <div id="quickSearchResults" class="search-dropdown" style="display:none;"></div>
+            </div>
+
+            <!-- STOCK CRITIQUE -->
+            <div class="panel">
+                <div class="panel-header danger">
+                    <h3 class="panel-title">⚠️ Alertes de stock</h3>
+                </div>
+                <div class="panel-body">
+                    {% for med in stock_critique %}
+                    <div class="med-item" style="display:flex; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #f1f4f8;">
+                        <div>
+                            <div style="font-weight:700; color:#1e2a3a;">💊 {{ med.catalogue.nom }}</div>
+                            <div style="font-size:.75rem; color:#7c8a9e;">
+                                {% if med.catalogue.famille %}📂 {{ med.catalogue.famille.nom }}{% endif %}
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            {% if med.stock == 0 %}
+                                <span class="badge badge-danger">Rupture</span>
+                            {% else %}
+                                <span class="badge badge-alerte">{{ med.stock }} restant(s)</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-msg success-box">
+                        <div class="icon-wrapper">
+                            <div class="icon-pulse-box">✅</div>
+                        </div>
+                        <div style="font-size:0.95rem; font-weight:700; color:#1e7e34;">Tous les stocks sont suffisants !</div>
+                        <p style="font-size:0.78rem; color:#7c8a9e; margin-top:4px;">Aucun médicament sous le seuil d'alerte.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
         </div>
-        {% endfor %}
+
     </div>
+
 </div>
-
-<!-- CHART JS -->
-
 {% endblock %}
 
 {% block extra_js %}
-<script>
-const labels      = {{ jours_mois|safe }};
-const ventesData  = {{ ventes_mois|safe }};
-const consultData = {{ consultations_mois|safe }};
+<!-- Import de Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-new Chart(document.getElementById('salesChart'), {
-    type: 'line',
-    data: {
-        labels: labels,
-        datasets: [{
-            label: 'Ventes (FCFA)',
-            data: ventesData,
-            borderColor: '#1f6feb',
-            backgroundColor: 'rgba(31,111,235,0.08)',
-            tension: 0.4,
-            fill: true,
-            pointBackgroundColor: '#1f6feb',
-            pointRadius: 4,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: { callback: v => v.toLocaleString('fr-FR') + ' F' }
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Affichage de la date courante
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('fr-FR', {
+        weekday:'long', year:'numeric', month:'long', day:'numeric'
+    });
+
+    // 1. Graphique des Ventes
+    const labels = {{ jours_mois|safe|default:"[]" }};
+    const ventesData = {{ ventes_mois|safe|default:"[]" }};
+    const consultData = {{ consultations_mois|safe|default:"[]" }};
+
+    new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ventes (FCFA)',
+                data: ventesData,
+                borderColor: '#1f6feb',
+                backgroundColor: 'rgba(31,111,235,0.08)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#1f6feb',
+                pointRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: v => v.toLocaleString('fr-FR') + ' F' }
+                }
             }
         }
-    }
-});
+    });
 
-new Chart(document.getElementById('consultChart'), {
-    type: 'bar',
-    data: {
-        labels: labels,
-        datasets: [{
-            label: 'Consultations',
-            data: consultData,
-            backgroundColor: 'rgba(40,167,69,0.7)',
-            borderRadius: 6,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+    // 2. Graphique des Consultations
+    new Chart(document.getElementById('consultChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Consultations',
+                data: consultData,
+                backgroundColor: 'rgba(40,167,69,0.7)',
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
         }
+    });
+
+    // 3. Script Recherche Rapide Médicament
+    const searchInput = document.getElementById('quickSearchInput');
+    const searchResults = document.getElementById('quickSearchResults');
+    const spinner = document.getElementById('searchSpinner');
+    let timeout = null;
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(timeout);
+            const query = this.value.trim();
+
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            spinner.style.display = 'inline-block';
+
+            timeout = setTimeout(() => {
+                fetch(`{% url 'api_recherche_medicament' %}?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        spinner.style.display = 'none';
+                        searchResults.innerHTML = '';
+
+                        if (!data.medicaments || data.medicaments.length === 0) {
+                            searchResults.innerHTML = `
+                                <div style="padding: 16px; text-align: center; color: #7c8a9e; font-size: 0.85rem;">
+                                    ❌ Aucun médicament trouvé pour "<b>${query}</b>"
+                                </div>`;
+                        } else {
+                            data.medicaments.forEach(med => {
+                                let badgeClass = 'badge-ok';
+                                let stockText = `${med.stock} en stock`;
+
+                                if (med.en_rupture) {
+                                    badgeClass = 'badge-danger';
+                                    stockText = 'Rupture';
+                                } else if (med.en_alerte) {
+                                    badgeClass = 'badge-alerte';
+                                    stockText = `${med.stock} (Alerte)`;
+                                }
+
+                                const item = document.createElement('div');
+                                item.className = 'search-item';
+                                item.innerHTML = `
+                                    <div>
+                                        <div class="search-item-nom">💊 ${med.nom}</div>
+                                        <div class="search-item-sub">📂 ${med.famille}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-weight:700; color:#1f6feb; font-size:0.9rem;">${med.prix}</div>
+                                        <span class="badge ${badgeClass}">${stockText}</span>
+                                    </div>
+                                `;
+                                searchResults.appendChild(item);
+                            });
+                        }
+                        searchResults.style.display = 'block';
+                    })
+                    .catch(err => {
+                        spinner.style.display = 'none';
+                        console.error("Erreur recherche:", err);
+                    });
+            }, 300);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
     }
 });
 </script>
