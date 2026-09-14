@@ -1,60 +1,361 @@
 {% extends "base_dashboard.html" %}
 {% load static %}
 
-{% block title %}Détails - {{ medicament.catalogue.nom }}{% endblock %}
+{% block title %}{{ medicament.catalogue.nom }} — Détails Pharmacie{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+<style>
+/* ===== ANIMATIONS ===== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulseGlow {
+    0% { box-shadow: 0 0 0 0 rgba(31, 111, 235, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(31, 111, 235, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(31, 111, 235, 0); }
+}
+
+@keyframes fillBar {
+    from { width: 0%; }
+}
+
+/* ===== CONTENEUR PRINCIPAL ===== */
+.detail-container {
+    max-width: 850px;
+    margin: 10px auto 40px auto;
+    animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #7c8a9e;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+.btn-back:hover {
+    color: #1f6feb;
+    transform: translateX(-4px);
+}
+
+/* ===== CARTE CARD HERO ===== */
+.med-card {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    border: 1px solid #f0f4f8;
+    position: relative;
+}
+
+/* Bandeau décoratif en haut */
+.med-card-header-bg {
+    height: 100px;
+    background: linear-gradient(135deg, #1f6feb 0%, #0d47a1 100%);
+    position: relative;
+}
+
+.med-card-body {
+    padding: 0 32px 32px 32px;
+    position: relative;
+}
+
+/* Icône Médicament en surimpression */
+.med-avatar {
+    width: 72px;
+    height: 72px;
+    background: #ffffff;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    margin-top: -36px;
+    margin-bottom: 16px;
+    border: 3px solid #ffffff;
+}
+
+/* Header infos principales */
+.med-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.med-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1e2a3a;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.02em;
+}
+
+.med-category {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #7c8a9e;
+    background: #f4f7fb;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* ===== BADGES D'ÉTAT ANIMÉS ===== */
+.status-badge {
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-badge.ok {
+    background: #e6f4ea;
+    color: #1e7e34;
+}
+.status-badge.ok .dot {
+    width: 8px; height: 8px; background: #28a745; border-radius: 50%;
+    animation: pulseGlow 2s infinite;
+}
+
+.status-badge.alert {
+    background: #fff3e0;
+    color: #e65100;
+}
+.status-badge.alert .dot {
+    width: 8px; height: 8px; background: #fd7e14; border-radius: 50%;
+    animation: pulseGlow 2s infinite;
+}
+
+.status-badge.danger {
+    background: #fce8e6;
+    color: #c62828;
+}
+.status-badge.danger .dot {
+    width: 8px; height: 8px; background: #dc3545; border-radius: 50%;
+}
+
+/* ===== GRILLE DE DÉTAILS / METRICS ===== */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+    margin-bottom: 28px;
+}
+
+.metric-card {
+    background: #f8fafc;
+    border: 1px solid #eef2f6;
+    border-radius: 14px;
+    padding: 20px;
+    transition: all 0.25s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-3px);
+    background: #ffffff;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    border-color: #e2e8f0;
+}
+
+.metric-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #7c8a9e;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+}
+
+.metric-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1e2a3a;
+    line-height: 1;
+}
+
+.metric-value.price {
+    color: #1f6feb;
+}
+
+/* ===== BARRE DE STOCK ANIMÉE ===== */
+.stock-progress-container {
+    margin-top: 10px;
+}
+
+.stock-progress-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.stock-progress-fill {
+    height: 100%;
+    border-radius: 10px;
+    animation: fillBar 1s ease-out forwards;
+}
+
+/* ===== ACTIONS FOOTER ===== */
+.card-footer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #f1f4f8;
+    padding-top: 24px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-action-custom {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-action-custom.secondary {
+    background: #f4f7fb;
+    color: #1f6feb;
+}
+.btn-action-custom.secondary:hover {
+    background: #e8f0fe;
+    transform: translateY(-1px);
+}
+
+.btn-action-custom.primary {
+    background: linear-gradient(135deg, #1f6feb, #0d47a1);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(31, 111, 235, 0.25);
+}
+.btn-action-custom.primary:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(31, 111, 235, 0.35);
+}
+</style>
+
+<div class="detail-container">
     
-    <div style="margin-bottom: 20px;">
-        <a href="javascript:history.back()" style="text-decoration: none; color: #1f6feb; font-weight: 600;">
-            ← Retour
-        </a>
-    </div>
+    <!-- Bouton Retour -->
+    <a href="javascript:history.back()" class="btn-back">
+        <span>←</span> Retour à la recherche
+    </a>
 
-    <div style="background: #fff; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.07); padding: 30px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-            <div>
-                <h1 style="font-size: 1.5rem; font-weight: 800; color: #1e2a3a; margin: 0 0 6px 0;">
-                    💊 {{ medicament.catalogue.nom }}
-                </h1>
-                <p style="color: #7c8a9e; margin: 0;">
-                    Catégorie/Famille : <b>{{ medicament.catalogue.famille.nom|default:"Non spécifiée" }}</b>
-                </p>
-            </div>
+    <!-- Carte Principale -->
+    <div class="med-card">
+        
+        <!-- Header Décoratif -->
+        <div class="med-card-header-bg"></div>
+
+        <div class="med-card-body">
             
-            {% if medicament.stock == 0 %}
-                <span style="background: #fce8e6; color: #c62828; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">Rupture de stock</span>
-            {% elif medicament.seuil_alerte and medicament.stock <= medicament.seuil_alerte %}
-                <span style="background: #fff3e0; color: #e65100; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">Stock critique</span>
-            {% else %}
-                <span style="background: #e6f4ea; color: #1e7e34; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">En stock</span>
-            {% endif %}
-        </div>
+            <!-- Avatar / Icône -->
+            <div class="med-avatar">💊</div>
 
-        <hr style="border: none; border-top: 1px solid #f1f4f8; margin: 20px 0;">
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
-            <div style="background: #f8fa00; padding: 16px; border-radius: 12px; background-color: #f4f7fb;">
-                <div style="font-size: 0.75rem; text-transform: uppercase; color: #7c8a9e; font-weight: 700;">Prix Unitaire</div>
-                <div style="font-size: 1.4rem; font-weight: 800; color: #1f6feb; margin-top: 4px;">
-                    {{ medicament.prix|floatformat:0 }} FCFA
+            <!-- Header Info + Statut -->
+            <div class="med-header-flex">
+                <div>
+                    <h1 class="med-title">{{ medicament.catalogue.nom }}</h1>
+                    <div class="med-category">
+                        📂 {{ medicament.catalogue.famille.nom|default:"Famille non spécifiée" }}
+                    </div>
                 </div>
+
+                <!-- Badge Dynamic Status -->
+                {% if medicament.stock == 0 %}
+                    <div class="status-badge danger">
+                        <span class="dot"></span> Rupture de stock
+                    </div>
+                {% elif medicament.seuil_alerte and medicament.stock <= medicament.seuil_alerte %}
+                    <div class="status-badge alert">
+                        <span class="dot"></span> Stock Critique
+                    </div>
+                {% else %}
+                    <div class="status-badge ok">
+                        <span class="dot"></span> En Stock
+                    </div>
+                {% endif %}
             </div>
 
-            <div style="background: #f4f7fb; padding: 16px; border-radius: 12px;">
-                <div style="font-size: 0.75rem; text-transform: uppercase; color: #7c8a9e; font-weight: 700;">Quantité disponible</div>
-                <div style="font-size: 1.4rem; font-weight: 800; color: #1e2a3a; margin-top: 4px;">
-                    {{ medicament.stock }} unité(s)
+            <!-- Grille d'indicateurs (Metrics) -->
+            <div class="metrics-grid">
+                
+                <!-- Carte Prix -->
+                <div class="metric-card">
+                    <div class="metric-label">Prix Vente Unitaire</div>
+                    <div class="metric-value price">
+                        {{ medicament.prix|floatformat:0 }} <span style="font-size: 1rem; font-weight: 600;">FCFA</span>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <div style="display: flex; gap: 12px;">
-            <a href="{% url 'medicaments_list' %}" style="padding: 10px 20px; background: #e8f0fe; color: #1f6feb; border-radius: 8px; text-decoration: none; font-weight: 700;">
-                Voir la liste complète
-            </a>
+                <!-- Carte Stock Disponibilité -->
+                <div class="metric-card">
+                    <div class="metric-label">Quantité en Stock</div>
+                    <div class="metric-value">
+                        {{ medicament.stock }} <span style="font-size: 1rem; font-weight: 500; color: #7c8a9e;">unités</span>
+                    </div>
+                    
+                    <!-- Barre de progression visuelle du stock -->
+                    <div class="stock-progress-container">
+                        <div class="stock-progress-bar">
+                            <div class="stock-progress-fill" 
+                                style="width: {% if medicament.seuil_alerte and medicament.seuil_alerte > 0 %}{% widthratio medicament.stock medicament.seuil_alerte 100 %}{% else %}100{% endif %}%;
+                                       background: {% if medicament.stock == 0 %}#dc3545{% elif medicament.seuil_alerte and medicament.stock <= medicament.seuil_alerte %}#fd7e14{% else %}#28a745{% endif %};">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Carte Seuil d'alerte (si existe) -->
+                <div class="metric-card">
+                    <div class="metric-label">Seuil d'Alerte Configuré</div>
+                    <div class="metric-value" style="color: #7c8a9e;">
+                        {{ medicament.seuil_alerte|default:"-" }} <span style="font-size: 1rem; font-weight: 500;">unités</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="card-footer-actions">
+                <a href="{% url 'medicaments_list' %}" class="btn-action-custom secondary">
+                    📋 Liste complète du stock
+                </a>
+                
+                <a href="{% url 'vente_create' %}" class="btn-action-custom primary">
+                    🛒 Effectuer une vente
+                </a>
+            </div>
+
         </div>
     </div>
+
 </div>
 {% endblock %}
