@@ -96,6 +96,11 @@ def api_medicaments(request):
 
 
 # ===================== DJANGO VIEWS =====================
+from django.shortcuts import render
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Sum, F
+
 def pharmacie_dashboard(request):
     today = timezone.localdate()
 
@@ -118,16 +123,29 @@ def pharmacie_dashboard(request):
     total_consultations = Consultation.objects.count()
     total_rdv = RendezVous.objects.count()
 
-    total_ventes = Vente.objects.filter(
+    # Recettes aujourd'hui
+    recettes_aujourdhui = Vente.objects.filter(
         date__date=today
     ).aggregate(total=Sum("total"))["total"] or 0
 
     total_medicaments = Medicament.objects.count()
     total_fournisseurs = Fournisseur.objects.count() if 'Fournisseur' in globals() else 0
     
-    stock_critique = Medicament.objects.filter(stock__lte=F('seuil_alerte')).select_related('catalogue', 'catalogue__famille')
-    derniers_ajouts = Medicament.objects.select_related('catalogue', 'catalogue__famille').order_by('-id')[:5]
+    # Stock critique
+    stock_critique = Medicament.objects.filter(
+        stock__lte=F('seuil_alerte')
+    ).select_related('catalogue', 'catalogue__famille')
 
+    # Derniers ajouts de médicaments (nommé medicaments_recent pour correspondre au template)
+    medicaments_recent = Medicament.objects.select_related('catalogue', 'catalogue__famille').order_by('-id')[:5]
+
+    # ✅ AJOUT : Récupération des dernières ventes réelles pour la table
+    dernieres_ventes = Vente.objects.select_related(
+        'ordonnance__consultation__client', 
+        'client'
+    ).order_by('-date')[:5]
+
+    # Données graphiques / 7 derniers jours
     jours_mois = []
     ventes_mois = []
     consultations_mois = []
@@ -150,11 +168,12 @@ def pharmacie_dashboard(request):
         "prochains_rdv": prochains_rdv,
         "total_consultations": total_consultations,
         "total_rdv": total_rdv,
-        "total_ventes": total_ventes,
+        "recettes_aujourdhui": recettes_aujourdhui,  # Fix 1 : Renommé
         "total_medicaments": total_medicaments,
         "total_fournisseurs": total_fournisseurs,
         "stock_critique": stock_critique,
-        "derniers_ajouts": derniers_ajouts,
+        "medicaments_recent": medicaments_recent,    # Fix 2 : Renommé
+        "dernieres_ventes": dernieres_ventes,        # Fix 3 : Ajouté
         "jours_mois": jours_mois,
         "ventes_mois": ventes_mois,
         "consultations_mois": consultations_mois,
