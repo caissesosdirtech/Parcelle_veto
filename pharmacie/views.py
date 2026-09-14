@@ -713,13 +713,13 @@ def recherche_rapide_medicament(request):
             
     return JsonResponse({'medicaments': resultats})    
 
-from django.shortcuts import render
-from .models import FamilleMedicament # Ajustez selon le nom de votre modèle
+# pharmacie/views.py
 
 def recherche_medicament_page(request):
-    familles = FamilleMedicament.objects.all()
-    # On passe initialement le paramètre 'q' pour remplir la barre de recherche au chargement
+    # Récupère le paramètre ?q= dans l'URL (ex: ?q=9)
     query = request.GET.get('q', '')
+    familles = FamilleMedicament.objects.all()
+    
     return render(request, 'pharmacie/medicaments_list.html', {
         'familles': familles,
         'query': query,
