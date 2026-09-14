@@ -1,0 +1,60 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block title %}Détails - {{ medicament.catalogue.nom }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    
+    <div style="margin-bottom: 20px;">
+        <a href="javascript:history.back()" style="text-decoration: none; color: #1f6feb; font-weight: 600;">
+            ← Retour
+        </a>
+    </div>
+
+    <div style="background: #fff; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.07); padding: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+            <div>
+                <h1 style="font-size: 1.5rem; font-weight: 800; color: #1e2a3a; margin: 0 0 6px 0;">
+                    💊 {{ medicament.catalogue.nom }}
+                </h1>
+                <p style="color: #7c8a9e; margin: 0;">
+                    Catégorie/Famille : <b>{{ medicament.catalogue.famille.nom|default:"Non spécifiée" }}</b>
+                </p>
+            </div>
+            
+            {% if medicament.stock == 0 %}
+                <span style="background: #fce8e6; color: #c62828; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">Rupture de stock</span>
+            {% elif medicament.seuil_alerte and medicament.stock <= medicament.seuil_alerte %}
+                <span style="background: #fff3e0; color: #e65100; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">Stock critique</span>
+            {% else %}
+                <span style="background: #e6f4ea; color: #1e7e34; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;">En stock</span>
+            {% endif %}
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #f1f4f8; margin: 20px 0;">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <div style="background: #f8fa00; padding: 16px; border-radius: 12px; background-color: #f4f7fb;">
+                <div style="font-size: 0.75rem; text-transform: uppercase; color: #7c8a9e; font-weight: 700;">Prix Unitaire</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #1f6feb; margin-top: 4px;">
+                    {{ medicament.prix|floatformat:0 }} FCFA
+                </div>
+            </div>
+
+            <div style="background: #f4f7fb; padding: 16px; border-radius: 12px;">
+                <div style="font-size: 0.75rem; text-transform: uppercase; color: #7c8a9e; font-weight: 700;">Quantité disponible</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #1e2a3a; margin-top: 4px;">
+                    {{ medicament.stock }} unité(s)
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px;">
+            <a href="{% url 'medicaments_list' %}" style="padding: 10px 20px; background: #e8f0fe; color: #1f6feb; border-radius: 8px; text-decoration: none; font-weight: 700;">
+                Voir la liste complète
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

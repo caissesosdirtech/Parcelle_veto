@@ -724,3 +724,11 @@ def recherche_medicament_page(request):
         'familles': familles,
         'query': query,
     })
+
+
+from django.shortcuts import render, get_object_or_404
+from .models import Medicament 
+
+def medicament_detail(request, pk):
+    medicament = get_object_or_404(Medicament, pk=pk)
+    return render(request, 'pharmacie/medicament_detail.html', {'medicament': medicament})
