@@ -639,18 +639,47 @@ from .models import Consultation  # Ajustez selon le nom exact de votre modèle
 # Endpoints API JSON pour Consultations
 # ==========================================
 
+from django.http import JsonResponse
+from .models import Consultation, Ordonnance, LigneOrdonnance
+
 def api_consultations_liste(request):
-    """GET /consultations/api/liste/"""
-    consultations = Consultation.objects.all().order_by("-id")
+    consultations = Consultation.objects.select_related('client', 'animal').all()
     data = []
     for c in consultations:
         data.append({
-            "id": c.id,
-            "statut": getattr(c, "statut", ""),
-            "date": c.created_at.strftime("%Y-%m-%d %H:%M") if hasattr(c, "created_at") and c.created_at else "",
-            # Ajoutez ici les autres champs nécessaires à votre application Flutter
+            'id': c.id,
+            'statut': c.statut,
+            'motif': c.motif,
+            'client_nom': str(c.client) if c.client else "Non renseigné",
+            'animal_nom': str(c.animal) if c.animal else "Non renseigné",
         })
     return JsonResponse(data, safe=False)
+
+
+def api_ordonnance_detail(request, consultation_id):
+    try:
+        ordonnance = Ordonnance.objects.get(consultation_id=consultation_id)
+        lignes = LigneOrdonnance.objects.filter(ordonnance=ordonnance)
+        
+        medicaments = []
+        for l in lignes:
+            medicaments.append({
+                'nom': l.medicament.nom if hasattr(l.medicament, 'nom') else str(l.medicament),
+                'posologie': l.posologie,
+                'quantite': getattr(l, 'quantite', 1),
+            })
+
+        data = {
+            'id': ordonnance.id,
+            'consultation_id': consultation_id,
+            'client_nom': str(ordonnance.consultation.client) if ordonnance.consultation and ordonnance.consultation.client else "Non renseigné",
+            'animal_nom': str(ordonnance.consultation.animal) if ordonnance.consultation and ordonnance.consultation.animal else "Non renseigné",
+            'motif': ordonnance.consultation.motif if ordonnance.consultation else "Consultation",
+            'medicaments': medicaments,
+        }
+        return JsonResponse(data)
+    except Ordonnance.DoesNotExist:
+        return JsonResponse({'error': 'Ordonnance introuvable'}, status=404)
 
 
 @csrf_exempt
