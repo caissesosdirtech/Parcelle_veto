@@ -993,16 +993,16 @@ from .models import Consultation, RendezVous, Ordonnance  # Ajustez selon vos mo
 # ==========================================
 
 def api_consultations_liste(request):
-    """GET /consultations/api/liste/"""
-    consultations = Consultation.objects.all().order_by("-id")
-    data = [
-        {
-            "id": c.id,
-            "statut": getattr(c, "statut", ""),
-            "motif": getattr(c, "motif", ""),
-        }
-        for c in consultations
-    ]
+    consultations = Consultation.objects.select_related('client', 'animal').all()
+    data = []
+    for c in consultations:
+        data.append({
+            'id': c.id,
+            'statut': c.statut,
+            'motif': c.motif,
+            'client_nom': str(c.client) if c.client else "Non renseigné",
+            'animal_nom': str(c.animal) if c.animal else "Non renseigné",
+        })
     return JsonResponse(data, safe=False)
 
 
@@ -1102,19 +1102,4 @@ def api_modifier_statut_rdv(request, rdv_id):
         return JsonResponse({"error": str(e)}, status=400)
 
 
-# ==========================================
-# Endpoints API — Ordonnances
-# ==========================================
 
-def api_ordonnance_detail(request, consultation_id):
-    """GET /consultations/api/<consultation_id>/ordonnance/"""
-    try:
-        ordonnance = Ordonnance.objects.get(consultation_id=consultation_id)
-        data = {
-            "id": ordonnance.id,
-            "consultation_id": consultation_id,
-            # Ajoutez la structure de votre ordonnance
-        }
-        return JsonResponse(data)
-    except Ordonnance.DoesNotExist:
-        return JsonResponse({"error": "Ordonnance introuvable pour cette consultation"}, status=404)
