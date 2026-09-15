@@ -681,7 +681,6 @@ def api_ordonnance_detail(request, consultation_id):
     except Ordonnance.DoesNotExist:
         return JsonResponse({'error': 'Ordonnance introuvable'}, status=404)
 
-
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_consultation(request):
