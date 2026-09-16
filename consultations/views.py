@@ -298,7 +298,6 @@ def nouveau_rendez_vous(request):
 
 
 @login_required
-@csrf_exempt
 def nouvelle_consultation(request):
     clients = Client.objects.all()
 
@@ -319,7 +318,7 @@ def nouvelle_consultation(request):
         "active_page": "nouvelle_consultation",
     })
 
-
+@csrf_exempt
 @login_required
 @require_POST
 def create_consultation(request):
