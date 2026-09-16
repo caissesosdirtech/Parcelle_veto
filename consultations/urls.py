@@ -48,4 +48,6 @@ urlpatterns = [
 
     # ✅ API Terminer consultation (avec création vente + déduction stock)
     path("api/<int:consultation_id>/terminer/", views.api_terminer_consultation, name="api_terminer_consultation"),
+
+    path('api/clients/', views.api_clients_liste, name='api_clients_liste'),
 ]
