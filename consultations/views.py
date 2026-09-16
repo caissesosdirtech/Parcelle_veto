@@ -10,6 +10,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import permissions, viewsets
 
@@ -24,6 +25,7 @@ from animaux.models import Animal
 from clients.models import Client
 from pharmacie.models import Medicament
 from ventes.models import LigneVente, Vente
+
 
 from .models import Consultation, LigneOrdonnance, Ordonnance, RendezVous, RendezVousManuel
 from .serializers import (
