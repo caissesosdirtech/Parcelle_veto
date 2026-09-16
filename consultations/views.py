@@ -333,45 +333,6 @@ logger = logging.getLogger(__name__)
 
 
 
-@csrf_exempt
-@require_GET
-def api_clients_liste(request):
-    """
-    Endpoint API pour récupérer la liste de tous les clients avec leurs animaux.
-    Utilisé pour alimenter la liste déroulante (Dropdown) côté mobile.
-    """
-    try:
-        clients = Client.objects.prefetch_related('animaux').all().order_by('nom')
-        data = []
-
-        for c in clients:
-            # Récupération de la liste des animaux du client
-            animaux_list = [
-                {
-                    "id": a.id,
-                    "nom": a.nom,
-                    "espece": getattr(a, 'espece', ''),
-                    "race": getattr(a, 'race', ''),
-                    "sexe": getattr(a, 'sexe', ''),
-                    "poids": float(a.poids) if getattr(a, 'poids', None) else None
-                }
-                for a in c.animaux.all()
-            ]
-
-            data.append({
-                "id": c.id,
-                "nom": c.nom,
-                "label": f"{c.nom} ({c.telephone})" if getattr(c, 'telephone', None) else c.nom,
-                "telephone": getattr(c, 'telephone', '') or '',
-                "adresse": getattr(c, 'adresse', '') or '',
-                "animaux": animaux_list
-            })
-
-        return JsonResponse(data, safe=False, status=200)
-    except Exception as exc:
-        logger.exception("Erreur lors de la récupération des clients")
-        return JsonResponse({"error": str(exc)}, status=500)
-
 
 @login_required
 def consultation_detail(request, consultation_id):
@@ -845,6 +806,7 @@ def ordonnance_pdf(request, ordonnance_id):
     styles = getSampleStyleSheet()
     elements = []
 
+    # En-tête du cabinet
     gauche = Paragraph(
         """
         <b><font size="16">PARCELLES VETO</font></b><br/>
@@ -877,6 +839,7 @@ def ordonnance_pdf(request, ordonnance_id):
     elements.append(header)
     elements.append(Spacer(1, 0.6 * cm))
 
+    # Titre
     titre_style = ParagraphStyle(
         "TitreOrdonnance",
         parent=styles["Heading1"],
@@ -886,6 +849,7 @@ def ordonnance_pdf(request, ordonnance_id):
     elements.append(Paragraph("<u><b>ORDONNANCE</b></u>", titre_style))
     elements.append(Spacer(1, 0.8 * cm))
 
+    # Informations Client / Animal
     info_style = styles["Normal"]
     elements.append(Paragraph(
         f"""
@@ -898,6 +862,7 @@ def ordonnance_pdf(request, ordonnance_id):
     ))
     elements.append(Spacer(1, 1 * cm))
 
+    # Lignes d'ordonnance
     lignes = ordonnance.lignes.select_related(
         "medicament", "medicament__catalogue"
     ).all()
@@ -928,22 +893,14 @@ def ordonnance_pdf(request, ordonnance_id):
         ]))
         elements.append(table)
     else:
-        elements.append(Paragraph(
-            "<i>Aucun médicament prescrit.</i>", styles["Normal"]
-        ))
+        elements.append(Paragraph("<i>Aucun médicament prescrit dans cette ordonnance.</i>", styles["Normal"]))
 
-    elements.append(Spacer(1, 3 * cm))
+    # Signature
+    elements.append(Spacer(1, 1.5 * cm))
+    signature_style = ParagraphStyle("SigStyle", parent=styles["Normal"], alignment=TA_RIGHT)
+    elements.append(Paragraph("<b>Signature et Cachet du Vétérinaire</b>", signature_style))
 
-    elements.append(HRFlowable(width="100%", color=colors.grey, thickness=0.5))
-    elements.append(Spacer(1, 0.3 * cm))
-    pied_style = ParagraphStyle(
-        "Pied", parent=styles["Normal"], alignment=TA_CENTER, fontSize=9
-    )
-    elements.append(Paragraph(
-        "Veuillez rapporter l'ordonnance à la prochaine consultation",
-        pied_style,
-    ))
-
+    # Génération du document PDF
     doc.build(elements)
     return response
 
