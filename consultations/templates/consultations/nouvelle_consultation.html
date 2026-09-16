@@ -53,6 +53,97 @@
     padding:10px 24px; border-radius:10px; border:none; cursor:pointer;
     font-weight:600; font-size:.9rem; background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff;
 }
+
+/* ==========================================
+   CSS RESPONSIVE MOBILE & MEDIA QUERIES
+   ========================================== */
+
+/* Gestion générale du container principal */
+.wrapper {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+/* Grilles par défaut (Desktop) */
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+/* Amélioration de l'accessibilité tactiles (Boutons & Inputs sur Mobile) */
+.form-control, .form-select {
+    width: 100%;
+    padding: 12px; /* Légèrement augmenté pour le confort tactile */
+    border-radius: 10px;
+    border: 1px solid #e7ecf2;
+    font-size: 16px; /* 16px empêche le zoom automatique forcé sur iOS Safari */
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+.mode-btn {
+    min-height: 48px; /* Taper target conforme aux standards mobiles */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- Media Queries pour Écrans Mobiles (<= 768px) --- */
+@media screen and (max-width: 768px) {
+    
+    /* Titre adaptatif */
+    .page-title {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+
+    /* Le basculeur de mode passe en pile verticale sur petits écrans si besoin */
+    .mode-switch {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    /* Passage de la mise en page 2 colonnes à 1 seule colonne */
+    .wrapper {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* Passage de toutes les sous-grilles sur une seule colonne */
+    .row-2, .row-3 {
+        grid-template-columns: 1fr;
+        gap: 0px; /* Les marges des inputs suffisent */
+    }
+
+    /* Le résumé passe en bas sous le formulaire */
+    .summary {
+        position: static; /* Désactive le sticky qui prend trop de place en hauteur sur mobile */
+        order: 2; /* S'assure qu'il se place sous le formulaire */
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    .card {
+        order: 1;
+        border-radius: 12px;
+    }
+
+    .card-header {
+        border-radius: 12px 12px 0 0;
+        padding: 14px;
+        font-size: 0.95rem;
+    }
+
+    .card-body {
+        padding: 16px;
+    }
+
+    /* Modale d'erreur ajustée pour mobile */
+    .modal-box {
+        padding: 20px;
+        width: 92%;
+    }
+}
+
 </style>
 
 <!-- MODAL ERREUR -->
