@@ -296,6 +296,7 @@ def nouveau_rendez_vous(request):
 
 
 @login_required
+@csrf_exempt
 def nouvelle_consultation(request):
     clients = Client.objects.all()
 
