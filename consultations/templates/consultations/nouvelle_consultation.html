@@ -57,93 +57,38 @@
 /* ==========================================
    CSS RESPONSIVE MOBILE & MEDIA QUERIES
    ========================================== */
-
-/* Gestion générale du container principal */
-.wrapper {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 20px;
-}
-
-/* Grilles par défaut (Desktop) */
+.wrapper { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 
-/* Amélioration de l'accessibilité tactiles (Boutons & Inputs sur Mobile) */
 .form-control, .form-select {
     width: 100%;
-    padding: 12px; /* Légèrement augmenté pour le confort tactile */
+    padding: 12px;
     border-radius: 10px;
     border: 1px solid #e7ecf2;
-    font-size: 16px; /* 16px empêche le zoom automatique forcé sur iOS Safari */
+    font-size: 16px;
     margin-bottom: 10px;
     box-sizing: border-box;
 }
 
 .mode-btn {
-    min-height: 48px; /* Taper target conforme aux standards mobiles */
+    min-height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-/* --- Media Queries pour Écrans Mobiles (<= 768px) --- */
 @media screen and (max-width: 768px) {
-    
-    /* Titre adaptatif */
-    .page-title {
-        font-size: 16px;
-        margin-bottom: 12px;
-    }
-
-    /* Le basculeur de mode passe en pile verticale sur petits écrans si besoin */
-    .mode-switch {
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    /* Passage de la mise en page 2 colonnes à 1 seule colonne */
-    .wrapper {
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-
-    /* Passage de toutes les sous-grilles sur une seule colonne */
-    .row-2, .row-3 {
-        grid-template-columns: 1fr;
-        gap: 0px; /* Les marges des inputs suffisent */
-    }
-
-    /* Le résumé passe en bas sous le formulaire */
-    .summary {
-        position: static; /* Désactive le sticky qui prend trop de place en hauteur sur mobile */
-        order: 2; /* S'assure qu'il se place sous le formulaire */
-        padding: 16px;
-        border-radius: 12px;
-    }
-
-    .card {
-        order: 1;
-        border-radius: 12px;
-    }
-
-    .card-header {
-        border-radius: 12px 12px 0 0;
-        padding: 14px;
-        font-size: 0.95rem;
-    }
-
-    .card-body {
-        padding: 16px;
-    }
-
-    /* Modale d'erreur ajustée pour mobile */
-    .modal-box {
-        padding: 20px;
-        width: 92%;
-    }
+    .page-title { font-size: 16px; margin-bottom: 12px; }
+    .mode-switch { flex-direction: column; gap: 8px; }
+    .wrapper { grid-template-columns: 1fr; gap: 16px; }
+    .row-2, .row-3 { grid-template-columns: 1fr; gap: 0px; }
+    .summary { position: static; order: 2; padding: 16px; border-radius: 12px; }
+    .card { order: 1; border-radius: 12px; }
+    .card-header { border-radius: 12px 12px 0 0; padding: 14px; font-size: 0.95rem; }
+    .card-body { padding: 16px; }
+    .modal-box { padding: 20px; width: 92%; }
 }
-
 </style>
 
 <!-- MODAL ERREUR -->
@@ -181,6 +126,7 @@
                         {% for client in clients %}
                         <option 
                             value="{{ client.id }}"
+                            data-nom="{{ client.nom }}"
                             data-phone="{{ client.telephone }}"
                             data-adresse="{{ client.adresse }}">
                             {{ client.nom }}
@@ -286,15 +232,15 @@
                     <div class="section">
                         <label>Espèce</label>
                         <select class="form-select" id="newAnimalEspece">
-    <option value="">-- Choisir --</option>
-    <option value="Chien">🐕 Chien</option>
-    <option value="Chat">🐈 Chat</option>
-    <option value="Bovin">🐄 Bovin</option>
-    <option value="Ovin">🐑 Ovin</option>
-    <option value="Caprin">🐐 Caprin</option>
-    <option value="Volaille">🐓 Volaille</option>
-    <option value="Cheval">🐴 Cheval</option>
-    <option value="Poisson">🐟 Poisson</option>
+                            <option value="">-- Choisir --</option>
+                            <option value="Chien">🐕 Chien</option>
+                            <option value="Chat">🐈 Chat</option>
+                            <option value="Bovin">🐄 Bovin</option>
+                            <option value="Ovin">🐑 Ovin</option>
+                            <option value="Caprin">🐐 Caprin</option>
+                            <option value="Volaille">🐓 Volaille</option>
+                            <option value="Cheval">🐴 Cheval</option>
+                            <option value="Poisson">🐟 Poisson</option>
                         </select>
                     </div>
                 </div>
@@ -308,7 +254,7 @@
                     <div class="section">
                         <label>Sexe</label>
                         <select class="form-select" id="newAnimalSexe">
-                            <option value="M">Male</option>
+                            <option value="M">Mâle</option>
                             <option value="F">Femelle</option>
                         </select>
                     </div>
@@ -366,7 +312,7 @@ const races = {
     "Chien":   ["Chien local","Berger allemand", "Berger belge Malinois", "Labrador","Rottweiler","Husky","Caniche","Autre"],
     "Chat":    ["Siamois","Persan","Maine Coon","Bengal","Autre"],
     "Bovin":   ["Gobra","Maure", "Djiakoré", "N'dama", "Zébu","Holstein","Autre"],
-    "Caprin":  ["Checre du Sahel", "Chevre naine d'Afrique de l'Ouest", "Chevre rousse de Maradi", "Boer","Alpine","Autre"],
+    "Caprin":  ["Chevre du Sahel", "Chevre naine d'Afrique de l'Ouest", "Chevre rousse de Maradi", "Boer","Alpine","Autre"],
     "Ovin":    ["Ladoum", "Mouton Peul-Peul", "Touabir", "Mérinos","Suffolk","Autre"],
     "Volaille":["Poulet local","poulet de chair (Broiler)","Pondeuse", "Oie", "Dinde", "Canard", "Pintade","Autre"],
     "Cheval":  ["M'bayar", "Cheval du fleuve", "Barbe", "Pur-sang arabe","Autre"],
@@ -384,15 +330,18 @@ function setMode(mode){
     document.getElementById("btnNew").className =
         "mode-btn" + (mode === "new" ? " active new" : "");
 
-    // reset résumé
+    // Reset résumé
     ["sumClient","sumAnimal","sumEspece","sumRace","sumSexe","sumPoids","sumPhone","sumAdresse","sumObservations"]
     .forEach(id => document.getElementById(id).textContent = "—");
 
-    // reset mini-form nouvel animal pour client existant
+    // Reset inputs
+    document.getElementById("clientSelect").value = "";
+    document.getElementById("clientPhone").value = "";
+    document.getElementById("clientAdresse").value = "";
+    document.getElementById("animalSelect").innerHTML = "<option value=''>-- Sélectionner un animal --</option>";
     document.getElementById("newAnimalForClientForm").classList.add("hidden");
 }
 
-// CSRF
 function getCookie(name){
     let v = null;
     document.cookie.split(';').forEach(c => {
@@ -402,28 +351,27 @@ function getCookie(name){
     return v;
 }
 
-//
-// ======================
 // CLIENT EXISTANT
-// ======================
 document.getElementById("clientSelect").addEventListener("change", function(){
-
     const opt = this.options[this.selectedIndex];
-
     const phone = opt.dataset.phone || "—";
     const adresse = opt.dataset.adresse || "—";
+    const nomClient = opt.dataset.nom || "—";
 
-    document.getElementById("sumClient").textContent = opt.text || "—";
-    document.getElementById("sumPhone").textContent = phone;
-    document.getElementById("sumAdresse").textContent = adresse;
+    document.getElementById("sumClient").textContent = this.value ? nomClient : "—";
+    document.getElementById("sumPhone").textContent = this.value ? phone : "—";
+    document.getElementById("sumAdresse").textContent = this.value ? adresse : "—";
 
-    document.getElementById("clientPhone").value = phone;
-    document.getElementById("clientAdresse").value = adresse;
+    document.getElementById("clientPhone").value = this.value ? phone : "";
+    document.getElementById("clientAdresse").value = this.value ? adresse : "";
 
-    // reset animaux + mini-form
     const a = document.getElementById("animalSelect");
-    a.innerHTML = "<option value=''>-- choisir --</option>";
+    a.innerHTML = "<option value=''>-- Sélectionner un animal --</option>";
     document.getElementById("newAnimalForClientForm").classList.add("hidden");
+
+    // Reset résumé de l'animal
+    ["sumAnimal","sumEspece","sumRace","sumSexe","sumPoids"]
+        .forEach(id => document.getElementById(id).textContent = "—");
 
     if (!this.value) return;
 
@@ -433,29 +381,24 @@ document.getElementById("clientSelect").addEventListener("change", function(){
         data.forEach(x => {
             a.innerHTML += `
                 <option value="${x.id}"
-                    data-espece="${x.espece}"
-                    data-race="${x.race}"
-                    data-sexe="${x.sexe}"
-                    data-poids="${x.poids}">
+                    data-nom="${x.nom}"
+                    data-espece="${x.espece || '—'}"
+                    data-race="${x.race || '—'}"
+                    data-sexe="${x.sexe || '—'}"
+                    data-poids="${x.poids || ''}">
                     ${x.nom} (${x.espece})
                 </option>`;
         });
-        // Option pour ajouter un nouvel animal à ce client
         a.innerHTML += `<option value="__new__">➕ Nouvel animal pour ce client</option>`;
     });
 });
 
-//
-// ======================
-// ANIMAL EXISTANT / NOUVEL ANIMAL POUR CE CLIENT
-// ======================
+// SELECTION ANIMAL EXISTANT
 document.getElementById("animalSelect").addEventListener("change", function(){
-
     const newAnimalForm = document.getElementById("newAnimalForClientForm");
 
     if (this.value === "__new__") {
         newAnimalForm.classList.remove("hidden");
-        // reset résumé animal, sera rempli par le mini-form
         ["sumAnimal","sumEspece","sumRace","sumSexe","sumPoids"]
             .forEach(id => document.getElementById(id).textContent = "—");
         return;
@@ -464,9 +407,13 @@ document.getElementById("animalSelect").addEventListener("change", function(){
     newAnimalForm.classList.add("hidden");
 
     const opt = this.options[this.selectedIndex];
-    if(!this.value) return;
+    if(!this.value) {
+        ["sumAnimal","sumEspece","sumRace","sumSexe","sumPoids"]
+            .forEach(id => document.getElementById(id).textContent = "—");
+        return;
+    }
 
-    document.getElementById("sumAnimal").textContent = opt.text || "—";
+    document.getElementById("sumAnimal").textContent = opt.dataset.nom || "—";
     document.getElementById("sumEspece").textContent = opt.dataset.espece || "—";
     document.getElementById("sumRace").textContent = opt.dataset.race || "—";
     document.getElementById("sumSexe").textContent =
@@ -477,10 +424,7 @@ document.getElementById("animalSelect").addEventListener("change", function(){
         opt.dataset.poids ? opt.dataset.poids + " kg" : "—";
 });
 
-//
-// ======================
-// ESPÈCE → RACE (NOUVEL ANIMAL POUR CLIENT EXISTANT)
-// ======================
+// NOUVEL ANIMAL POUR CLIENT EXISTANT
 document.getElementById("newAnimalForClientEspece").addEventListener("change", function(){
     const raceSelect = document.getElementById("newAnimalForClientRace");
     raceSelect.innerHTML = "<option value=''>-- Race --</option>";
@@ -503,7 +447,7 @@ document.getElementById("newAnimalForClientEspece").addEventListener("change", f
 
 function updateNewAnimalForClientSummary(){
     document.getElementById("sumAnimal").textContent =
-        document.getElementById("newAnimalForClientName").value || "—";
+        document.getElementById("newAnimalForClientName").value || "Non renseigné";
 
     document.getElementById("sumEspece").textContent =
         document.getElementById("newAnimalForClientEspece").value || "—";
@@ -521,12 +465,8 @@ function updateNewAnimalForClientSummary(){
         poids ? poids + " kg" : "—";
 }
 
-//
-// ======================
-// ESPÈCE → RACE (NOUVEAU CLIENT)
-// ======================
+// NOUVEAU CLIENT
 document.getElementById("newAnimalEspece").addEventListener("change", function(){
-
     const raceSelect = document.getElementById("newAnimalRace");
     raceSelect.innerHTML = "<option value=''>-- Race --</option>";
 
@@ -537,11 +477,7 @@ document.getElementById("newAnimalEspece").addEventListener("change", function()
     document.getElementById("sumEspece").textContent = this.value || "—";
 });
 
-//
-// ======================
-// LIVE NEW CLIENT SUMMARY
-// ======================
-["newClientName","newAnimalName","newAnimalRace","newAnimalSexe","newAnimalPoids"]
+["newClientName","newClientPhone","newClientAdresse","newAnimalName","newAnimalRace","newAnimalSexe","newAnimalPoids"]
 .forEach(id => {
     const el = document.getElementById(id);
     if(el){
@@ -551,9 +487,14 @@ document.getElementById("newAnimalEspece").addEventListener("change", function()
 });
 
 function updateNewSummary(){
-
     document.getElementById("sumClient").textContent =
         document.getElementById("newClientName").value || "—";
+
+    document.getElementById("sumPhone").textContent =
+        document.getElementById("newClientPhone").value || "—";
+
+    document.getElementById("sumAdresse").textContent =
+        document.getElementById("newClientAdresse").value || "—";
 
     document.getElementById("sumAnimal").textContent =
         document.getElementById("newAnimalName").value || "—";
@@ -571,18 +512,11 @@ function updateNewSummary(){
         poids ? poids + " kg" : "—";
 }
 
-//
-// ======================
-// OBSERVATIONS
-// ======================
+// SUIVI MOTIF & OBSERVATIONS & LIEU
 document.getElementById("observations").addEventListener("input", function(){
     document.getElementById("sumObservations").textContent = this.value || "—";
 });
 
-//
-// ======================
-// LIEU + MOTIF
-// ======================
 document.getElementById("lieu").addEventListener("change", function(){
     document.getElementById("sumLieu").textContent =
         this.options[this.selectedIndex].text;
@@ -592,10 +526,7 @@ document.getElementById("motif").addEventListener("input", function(){
     document.getElementById("sumMotif").textContent = this.value || "—";
 });
 
-//
-// ======================
-// SUBMIT
-// ======================
+// ENVOI DU FORMULAIRE
 document.getElementById("submitBtn").addEventListener("click", async function(){
 
     const isExisting = !document.getElementById("existingMode").classList.contains("hidden");
@@ -603,15 +534,14 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
 
     if(isExisting){
         if(!document.getElementById("clientSelect").value){
-            alert("Sélectionnez un client"); return;
+            ouvrirErrorModal("Veuillez sélectionner un client."); return;
         }
         if(!document.getElementById("animalSelect").value){
-            alert("Sélectionnez un animal"); return;
+            ouvrirErrorModal("Veuillez sélectionner un animal."); return;
         }
     } else {
-        if(!document.getElementById("newClientName").value){
-            alert("Nom client requis");
-            return;
+        if(!document.getElementById("newClientName").value.trim()){
+            ouvrirErrorModal("Le nom du client est obligatoire."); return;
         }
     }
 
@@ -624,7 +554,7 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
 
     if (isNewAnimalForClient) {
         payload.client_id = document.getElementById("clientSelect").value;
-        payload.animal_nom = document.getElementById("newAnimalForClientName").value || "Non renseigné";
+        payload.animal_nom = document.getElementById("newAnimalForClientName").value.trim() || "Non renseigné";
         payload.animal_espece = document.getElementById("newAnimalForClientEspece").value;
         payload.animal_race = document.getElementById("newAnimalForClientRace").value;
         payload.animal_sexe = document.getElementById("newAnimalForClientSexe").value;
@@ -637,8 +567,7 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
         payload.client_phone = document.getElementById("newClientPhone").value;
         payload.client_adresse = document.getElementById("newClientAdresse").value;
 
-        payload.animal_nom =
-            document.getElementById("newAnimalName").value.trim() || "Non renseigné";
+        payload.animal_nom = document.getElementById("newAnimalName").value.trim() || "Non renseigné";
         payload.animal_espece = document.getElementById("newAnimalEspece").value;
         payload.animal_race = document.getElementById("newAnimalRace").value;
         payload.animal_sexe = document.getElementById("newAnimalSexe").value;
@@ -663,7 +592,7 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
         if(res.ok){
             window.location.href = `/consultations/${data.id}/`;
         } else {
-            ouvrirErrorModal(data.error || "Erreur serveur");
+            ouvrirErrorModal(data.error || "Une erreur est survenue lors de l'enregistrement.");
         }
 
     } catch(e){
@@ -674,9 +603,7 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
     this.textContent = "✔ Créer";
 });
 
-// ===========================
 // MODAL ERREUR
-// ===========================
 function ouvrirErrorModal(message, title){
     document.getElementById("errorModalTitle").textContent = title || "Impossible d'enregistrer";
     document.getElementById("errorModalMessage").textContent = message;

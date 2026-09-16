@@ -50,4 +50,5 @@ urlpatterns = [
     path("api/<int:consultation_id>/terminer/", views.api_terminer_consultation, name="api_terminer_consultation"),
 
     path('api/clients/', views.api_clients_liste, name='api_clients_liste'),
+    path('api/clients/<int:client_id>/animaux/', views.get_animaux_par_client, name='get_animaux_par_client'),
 ]

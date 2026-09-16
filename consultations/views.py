@@ -1219,4 +1219,13 @@ def create_consultation(request):
         logger.exception("Erreur lors de la création de la consultation")
         return JsonResponse({"error": str(exc)}, status=500)
 
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from .models import Animal
+
+@login_required
+def get_animaux_par_client(request, client_id):
+    animaux = Animal.objects.filter(client_id=client_id).values('id', 'nom', 'espece')
+    return JsonResponse(list(animaux), safe=False)    
+
 
