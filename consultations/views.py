@@ -319,7 +319,6 @@ def nouvelle_consultation(request):
     })
 
 @csrf_exempt
-@login_required
 @require_POST
 def create_consultation(request):
     try:
