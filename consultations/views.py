@@ -675,6 +675,57 @@ def ordonnance_create(request, consultation_id):
 # ===== ENDPOINTS API FLUTTER (MOBILE) =====
 # =============================================================================
 
+@csrf_exempt
+@require_POST
+def api_creer_consultation(request):
+    try:
+        data = json.loads(request.body)
+        
+        nom_client = data.get("nom_client", "")
+        telephone = data.get("telephone", "")
+        adresse = data.get("adresse", "")
+        
+        nom_animal = data.get("nom_animal", "")
+        espece = data.get("espece", "")
+        
+        motif = data.get("motif", "")
+        observations = data.get("observations", "")
+        lieu = data.get("lieu", "cabinet")
+
+        # 1. Récupération / Création du client
+        client, _ = Client.objects.get_or_create(
+            telephone=telephone,
+            defaults={"nom": nom_client, "adresse": adresse}
+        )
+
+        # 2. Récupération / Création de l'animal
+        animal, _ = Animal.objects.get_or_create(
+            client=client,
+            nom=nom_animal,
+            defaults={"espece": espece}
+        )
+
+        # 3. Création de la consultation
+        consultation = Consultation.objects.create(
+            client=client,
+            animal=animal,
+            motif=motif,
+            observations=observations,
+            lieu=lieu,
+            statut="en_cours"
+        )
+
+        return JsonResponse({
+            "status": "success",
+            "message": "Consultation créée avec succès",
+            "consultation_id": consultation.id
+        }, status=201)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Format JSON invalide"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 def api_consultations_liste(request):
     consultations = Consultation.objects.select_related('client', 'animal').all()
     data = []
@@ -786,14 +837,158 @@ def api_sauvegarder_ordonnance(request):
 
 
 
+import json
+import logging
+from django.http import JsonResponse
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+# Remplacez par vos imports de modèles
+from .models import Client, Animal, Consultation, Ordonnance
+
+logger = logging.getLogger(__name__)
+
+
+@csrf_exempt  # 👈 Indispensable pour éviter l'erreur 403 depuis Flutter / API
 @require_http_methods(["POST"])
 def api_ajouter_consultation(request):
+    """
+    Création d'une consultation compatible Web & Mobile.
+    Modes pris en compte:
+      - mode == 'nouveau' : Nouveau client + Nouvel animal
+      - mode == 'existant' : Client existant avec animal existant OU 'NEW_ANIMAL'
+    """
     try:
-        data = json.loads(request.body)
-        return JsonResponse({"message": "Consultation créée avec succès"}, status=201)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+        data = json.loads(request.body.decode('utf-8'))
+        mode = data.get("mode") or data.get("mode_creation")
 
+        client = None
+        animal = None
+        client_nouveau = False
+
+        with transaction.atomic():
+            # CAS 1 : NOUVEAU CLIENT
+            if mode == "nouveau":
+                client_nouveau = True
+                nom_client = str(data.get("nom_client") or data.get("client_nom") or "").strip()
+                tel_client = str(data.get("telephone") or data.get("client_tel") or "").strip()
+                adresse_client = str(data.get("adresse") or data.get("client_adresse") or "").strip()
+
+                if not nom_client:
+                    return JsonResponse({"error": "Le nom du client est obligatoire."}, status=400)
+
+                client = Client.objects.create(
+                    nom=nom_client,
+                    telephone=tel_client,
+                    adresse=adresse_client
+                )
+
+                nom_animal = str(data.get("nom_animal") or data.get("animal_nom") or "").strip()
+                if not nom_animal:
+                    return JsonResponse({"error": "Le nom de l'animal est obligatoire."}, status=400)
+
+                animal = Animal.objects.create(
+                    client=client,
+                    nom=nom_animal,
+                    espece=data.get("espece") or data.get("animal_espece") or "Chien",
+                    race=data.get("race") or data.get("animal_race") or "",
+                    sexe=data.get("sexe") or data.get("animal_sexe") or "M"
+                )
+
+            # CAS 2 : CLIENT EXISTANT
+            elif mode == "existant":
+                client_id = data.get("client_id")
+                animal_id = data.get("animal_id")
+
+                if not client_id:
+                    return JsonResponse({"error": "L'identifiant du client est requis."}, status=400)
+
+                client = get_object_or_404(Client, id=client_id)
+
+                # Option : Création d'un NOUVEL animal pour ce client existant
+                if str(animal_id) in ["NEW_ANIMAL", "", "None"] or not animal_id:
+                    nom_animal = str(data.get("nom_animal") or data.get("animal_nom") or "").strip()
+                    if not nom_animal:
+                        return JsonResponse({"error": "Le nom du nouvel animal est requis."}, status=400)
+
+                    animal = Animal.objects.create(
+                        client=client,
+                        nom=nom_animal,
+                        espece=data.get("espece") or data.get("animal_espece") or "Chien",
+                        race=data.get("race") or data.get("animal_race") or "",
+                        sexe=data.get("sexe") or data.get("animal_sexe") or "M"
+                    )
+                # Option : Sélection d'un animal EXISTANT dans la liste du client
+                else:
+                    animal = get_object_or_404(Animal, id=animal_id, client=client)
+
+            else:
+                return JsonResponse({"error": "Mode de création non spécifié ou invalide (attendu: 'nouveau' ou 'existant')."}, status=400)
+
+            # Traitement du poids
+            poids_raw = data.get("poids") or data.get("animal_poids")
+            poids_val = None
+            if poids_raw is not None and str(poids_raw).strip() != "":
+                try:
+                    poids_val = float(poids_raw)
+                except (ValueError, TypeError):
+                    poids_val = None
+
+            # Création de la consultation
+            consultation = Consultation.objects.create(
+                client=client,
+                animal=animal,
+                veterinaire=data.get("veterinaire", "Dr Ibrahima Pierre GUISSE"),
+                motif=str(data.get("motif", "")).strip(),
+                observations=str(data.get("observations", "")).strip(),
+                lieu=data.get("lieu", "cabinet"),
+                poids=poids_val,
+                statut="en_cours",
+                client_nouveau=client_nouveau,
+            )
+
+            # Création de l'ordonnance rattachée
+            ordonnance = Ordonnance.objects.create(consultation=consultation)
+
+        return JsonResponse({
+            "status": "success",
+            "message": "Consultation créée avec succès.",
+            "consultation_id": consultation.id,
+            "ordonnance_id": ordonnance.id,
+            "client_id": client.id,
+            "client_nom": client.nom,
+            "animal_id": animal.id,
+            "animal_nom": animal.nom
+        }, status=201)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Format JSON invalide."}, status=400)
+    except Exception as exc:
+        logger.exception("Erreur lors de la création de la consultation")
+        return JsonResponse({"error": str(exc)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_get_animaux_client(request, client_id):
+    """
+    API pour récupérer la liste des animaux d'un client existant
+    afin de charger le menu déroulant côté Web/Mobile.
+    """
+    client = get_object_or_404(Client, id=client_id)
+    animaux = list(client.animaux.values("id", "nom", "espece", "race"))
+    
+    # Ajout automatique de l'option 'Créer un nouvel animal'
+    animaux.append({
+        "id": "NEW_ANIMAL",
+        "nom": "➕ Ajouter un nouvel animal",
+        "espece": "",
+        "race": ""
+    })
+    
+    return JsonResponse({"animaux": animaux}, status=200)
 
 @csrf_exempt
 @require_http_methods(["POST", "PUT"])
