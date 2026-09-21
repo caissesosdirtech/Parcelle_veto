@@ -708,11 +708,22 @@ def ordonnance_detail(request, ordonnance_id):
     )
 
 
-@login_required
+import json
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+
+# Remplacez ces imports par les modèles issus de votre application
+from .models import Ordonnance, Medicament, LigneOrdonnance
+
+
+@csrf_exempt
 @require_POST
 def ajouter_ligne_ordonnance(request, ordonnance_id):
     ordonnance = get_object_or_404(Ordonnance, id=ordonnance_id)
 
+    # Vérification si la consultation liée est verrouillée
     if ordonnance.consultation.statut == "terminee":
         return JsonResponse(
             {"error": "Consultation terminée — ordonnance verrouillée."},
@@ -727,15 +738,23 @@ def ajouter_ligne_ordonnance(request, ordonnance_id):
         if quantite <= 0:
             return JsonResponse({"error": "Quantité invalide."}, status=400)
 
+        # Création de la ligne d'ordonnance
         ligne = LigneOrdonnance.objects.create(
             ordonnance=ordonnance,
             medicament=med,
             quantite=quantite,
             posologie=data.get('posologie', '').strip()
         )
-        return JsonResponse({"id": ligne.id})
+        
+        return JsonResponse({
+            "id": ligne.id,
+            "message": "Médicament ajouté avec succès à l'ordonnance."
+        }, status=201)
+
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Requête invalide."}, status=400)
+        return JsonResponse({"error": "Format JSON ou requête invalide."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @login_required

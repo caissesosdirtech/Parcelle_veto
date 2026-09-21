@@ -1,0 +1,12 @@
+{% extends "base_dashboard.html" %}
+{% block content %}
+<div class="login-container">
+    <h2>Connexion - Parcelles Vétérinaire</h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Se connecter</button>
+    </form>
+</div>
+{% endblock %}
