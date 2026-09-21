@@ -545,8 +545,9 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
         }
     }
 
+    // CORRECTION : Utiliser "existant" et "nouveau" (et "NEW_ANIMAL" pour le nouvel animal)
     const payload = {
-        mode: isExisting ? (isNewAnimalForClient ? "existing_new_animal" : "existing") : "new",
+        mode: isExisting ? "existant" : "nouveau",
         motif: document.getElementById("motif").value,
         observations: document.getElementById("observations").value,
         lieu: document.getElementById("lieu").value
@@ -554,6 +555,7 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
 
     if (isNewAnimalForClient) {
         payload.client_id = document.getElementById("clientSelect").value;
+        payload.animal_id = "NEW_ANIMAL"; // 👈 Informe Django qu'il s'agit d'un nouvel animal
         payload.animal_nom = document.getElementById("newAnimalForClientName").value.trim() || "Non renseigné";
         payload.animal_espece = document.getElementById("newAnimalForClientEspece").value;
         payload.animal_race = document.getElementById("newAnimalForClientRace").value;
@@ -564,7 +566,7 @@ document.getElementById("submitBtn").addEventListener("click", async function(){
         payload.animal_id = document.getElementById("animalSelect").value;
     } else {
         payload.client_nom = document.getElementById("newClientName").value;
-        payload.client_phone = document.getElementById("newClientPhone").value;
+        payload.client_tel = document.getElementById("newClientPhone").value; // 👈 Corriger key client_tel
         payload.client_adresse = document.getElementById("newClientAdresse").value;
 
         payload.animal_nom = document.getElementById("newAnimalName").value.trim() || "Non renseigné";
