@@ -31,6 +31,7 @@ urlpatterns = [
     path("rdv/nouveau/", views.nouveau_rendez_vous, name="nouveau_rendez_vous"),
     path("rendez-vous/<str:type_rdv>/<int:rdv_id>/statut/", views.changer_statut_rdv, name="changer_statut_rdv"),
     path("rendez-vous/<str:type_rdv>/<int:rdv_id>/supprimer/", views.supprimer_rdv, name="supprimer_rdv"),
+    path("api/nouvelle/save/", views.api_creer_consultation, name="api_creer_consultation"),
 
     # -------------------------------------------------------------------------
     # 📱 API FLUTTER — Consultations & Clients
