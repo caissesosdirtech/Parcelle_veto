@@ -600,28 +600,61 @@ def api_consultations_liste(request):
 
 def api_ordonnance_detail(request, consultation_id):
     try:
-        ordonnance = Ordonnance.objects.get(consultation_id=consultation_id)
-        lignes = LigneOrdonnance.objects.filter(ordonnance=ordonnance)
-        
-        medicaments = []
+        # 1. Récupération de l'ordonnance ou création si inexistante
+        consultation = get_object_or_404(Consultation, id=consultation_id)
+        ordonnance, _ = Ordonnance.objects.get_or_create(consultation=consultation)
+
+        # 2. Construction de l'objet "consultation" attendu par Flutter
+        consultation_data = {
+            "id": consultation.id,
+            "statut": consultation.statut,
+            "animal": consultation.animal.nom if consultation.animal else "—",
+            "espece": consultation.animal.espece if consultation.animal and hasattr(consultation.animal, 'espece') else "",
+            "client": consultation.client.nom if consultation.client else "—",
+            "motif": consultation.motif or "—",
+            "date": consultation.created_at.strftime("%d/%m/%Y") if hasattr(consultation, 'created_at') and consultation.created_at else "—",
+        }
+
+        # 3. Récupération des lignes de l'ordonnance
+        lignes = LigneOrdonnance.objects.filter(ordonnance=ordonnance).select_related('medicament')
+        lignes_data = []
         for l in lignes:
-            medicaments.append({
-                'nom': l.medicament.nom if hasattr(l.medicament, 'nom') else str(l.medicament),
-                'posologie': l.posologie,
+            # Adaptation du nom du médicament selon votre structure de modèle (avec ou sans Catalogue)
+            nom_med = l.medicament.catalogue.nom if hasattr(l.medicament, 'catalogue') and l.medicament.catalogue else str(l.medicament)
+            lignes_data.append({
+                'id': l.id,
+                'medicament_id': l.medicament.id,
+                'medicament_nom': nom_med,
+                'posologie': l.posologie or "",
                 'quantite': getattr(l, 'quantite', 1),
             })
 
+        # 4. Récupération des médicaments disponibles en stock
+        meds_dispo = Medicament.objects.filter(stock__gt=0).select_related('catalogue')
+        medicaments_disponibles = []
+        for m in meds_dispo:
+            nom_med_dispo = m.catalogue.nom if hasattr(m, 'catalogue') and m.catalogue else str(m)
+            medicaments_disponibles.append({
+                'id': m.id,
+                'nom': nom_med_dispo,
+                'stock': m.stock,
+                'prix': float(m.prix) if hasattr(m, 'prix') and m.prix else 0.0
+            })
+
+        # 5. Structure JSON complète pour le parsing Flutter
         data = {
-            'id': ordonnance.id,
-            'consultation_id': consultation_id,
-            'client_nom': str(ordonnance.consultation.client) if ordonnance.consultation and ordonnance.consultation.client else "Non renseigné",
-            'animal_nom': str(ordonnance.consultation.animal) if ordonnance.consultation and ordonnance.consultation.animal else "Non renseigné",
-            'motif': ordonnance.consultation.motif if ordonnance.consultation else "Consultation",
-            'medicaments': medicaments,
+            'ordonnance_id': ordonnance.id,
+            'consultation': consultation_data,
+            'lignes': lignes_data,
+            'medicaments_disponibles': medicaments_disponibles,
         }
         return JsonResponse(data)
-    except Ordonnance.DoesNotExist:
-        return JsonResponse({'error': 'Ordonnance introuvable'}, status=404)
+
+    except Consultation.DoesNotExist:
+        return JsonResponse({'error': 'Consultation introuvable'}, status=404)
+    except Exception as e:
+        logger.error(f"Erreur api_ordonnance_detail: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 @require_http_methods(["POST"])
