@@ -38,7 +38,7 @@ urlpatterns = [
     path("api/liste/", views.api_consultations_liste, name="api_consultations_liste"),
     path("api/ajouter/", views.api_ajouter_consultation, name="api_ajouter_consultation"),
     path("api/<int:consultation_id>/statut/", views.api_modifier_statut_consultation, name="api_modifier_statut_consultation"),
-    path("api/<int:consultation_id>/terminer/", views.api_terminer_consultation, name="api_terminer_consultation"),
+    path("api/<int:consultation_id>/terminer/", views.terminer_consultation, name="api_terminer_consultation"),
     path("api/clients/", views.api_clients_liste, name="api_clients_liste"),
     path("api/clients/<int:client_id>/animaux/", views.animaux_client, name="get_animaux_par_client"),
 
