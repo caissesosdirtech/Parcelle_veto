@@ -69,7 +69,9 @@ def liste_consultations(request):
     ).order_by("-date")
 
     search = request.GET.get("search", "").strip()
+    statut_filter = request.GET.get("statut", "").strip()
 
+    # 1. Filtre par recherche texte
     if search:
         consultations = consultations.filter(
             Q(animal__client__nom__icontains=search) |
@@ -78,22 +80,26 @@ def liste_consultations(request):
             Q(motif__icontains=search)
         )
 
+    # 2. Filtre par onglet (statut)
+    if statut_filter:
+        # __iexact permet de ne pas ignorer la différence majuscule/minuscule
+        consultations = consultations.filter(statut__iexact=statut_filter)
+
+    # Calcul des totaux pour les badges / onglets
     total = consultations.count()
-    en_cours = consultations.filter(statut="en_cours").count()
-    terminees = consultations.filter(statut="terminee").count()
-    consultations_jour = consultations.filter(
-        date__date=timezone.localdate()
-    ).count()
+    en_cours = Consultation.objects.filter(statut__iexact="en_cours").count()
+    terminees = Consultation.objects.filter(statut__iexact="terminee").count()
+    annulees = Consultation.objects.filter(statut__iexact="annulee").count()
 
     return render(request, "consultations/liste_consultation.html", {
         "consultations": consultations,
         "total": total,
         "en_cours": en_cours,
         "terminees": terminees,
-        "consultations_jour": consultations_jour,
+        "annulees": annulees,
         "search": search,
+        "current_statut": statut_filter,
     })
-
 
 class RDVManuelAdapter:
     def __init__(self, rdv_manuel):
