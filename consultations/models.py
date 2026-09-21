@@ -3,9 +3,7 @@ from animaux.models import Animal
 from clients.models import Client
 
 
-
 class RendezVous(models.Model):
-
     TYPE = (
         ('CABINET', 'Cabinet'),
         ('DOMICILE', 'Domicile'),
@@ -21,12 +19,22 @@ class RendezVous(models.Model):
     animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name='rendez_vous')
     date_rdv = models.DateTimeField()
     motif = models.TextField()
-    type_rdv = models.CharField(max_length=20, choices=TYPE)
+    type_rdv = models.CharField(max_length=20, choices=TYPE, default='CABINET')
     statut = models.CharField(max_length=20, choices=STATUT, default='EN_ATTENTE')
 
+    # AJOUT : Permet de lier le rendez-vous de suivi à la consultation parente
+    consultation_origine = models.ForeignKey(
+        'Consultation',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rendez_vous_suivants'
+    )
+
     def __str__(self):
-        return f"{self.animal} - {self.date_rdv}"
-    
+        return f"{self.animal} - {self.date_rdv.strftime('%d/%m/%Y %H:%M')}"
+
+
 class RendezVousManuel(models.Model):
     LIEU_CHOICES = [
         ("cabinet", "Au cabinet"),
@@ -46,14 +54,16 @@ class RendezVousManuel(models.Model):
     date_rdv = models.DateTimeField()
     motif = models.CharField(max_length=255)
     lieu = models.CharField(max_length=20, choices=LIEU_CHOICES, default="cabinet")
-    adresse = models.CharField(max_length=255)
+    adresse = models.CharField(max_length=255, blank=True, null=True) # Modifié en blank=True au cas où c'est au cabinet
     telephone = models.CharField(max_length=20, blank=True, null=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="EN_ATTENTE")
     date_creation = models.DateTimeField(auto_now_add=True)  
 
+    def __str__(self):
+        return f"RDV Appel: {self.nom_client} ({self.nom_animal}) - {self.date_rdv.strftime('%d/%m/%Y %H:%M')}"
+
 
 class Consultation(models.Model):
-
     STATUT_CHOICES = [
         ("en_cours", "En cours"),
         ("terminee", "Terminée"),
@@ -67,7 +77,6 @@ class Consultation(models.Model):
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
-
 
     poids = models.FloatField(null=True, blank=True)
     motif = models.CharField(max_length=255)
@@ -89,7 +98,7 @@ class Consultation(models.Model):
     )
 
     def __str__(self):
-        return f"{self.client} - {self.animal} ({self.date})"
+        return f"{self.client} - {self.animal} ({self.date.strftime('%d/%m/%Y')})"
 
 
 class Ordonnance(models.Model):
@@ -109,14 +118,13 @@ class Ordonnance(models.Model):
     def __str__(self):
         return f"Ordonnance - {self.consultation}"
 
-class LigneOrdonnance(models.Model):
 
+class LigneOrdonnance(models.Model):
     ordonnance = models.ForeignKey(
         Ordonnance,
         on_delete=models.CASCADE,
         related_name='lignes'
     )
-
     medicament = models.ForeignKey('pharmacie.Medicament', on_delete=models.PROTECT)
     quantite = models.PositiveIntegerField()
     posologie = models.CharField(max_length=255)

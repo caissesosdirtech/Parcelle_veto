@@ -39,9 +39,18 @@ urlpatterns = [
     path("api/<int:consultation_id>/statut/", views.api_modifier_statut_consultation, name="api_modifier_statut_consultation"),
 
     # ✅ API Flutter — RDV
+   # Consultation / Liste globale des rendez-vous
     path("api/rdv/", views.api_rdv_liste, name="api_rdv_liste"),
-    path("api/rdv/ajouter/", views.api_ajouter_rdv_manuel, name="api_ajouter_rdv_manuel"),
+
+    # Rendez-vous pour client existant / post-consultation
+    path("api/rdv/ajouter/", views.api_ajouter_rdv, name="api_ajouter_rdv"),
+
+    # Rendez-vous manuel (Appel téléphonique direct / nouveau client)
+    path("api/rdv/manuel/ajouter/", views.api_ajouter_rdv_manuel, name="api_ajouter_rdv_manuel"),
+
+    # Modification du statut d'un rendez-vous
     path("api/rdv/<int:rdv_id>/statut/", views.api_modifier_statut_rdv, name="api_modifier_statut_rdv"),
+
 
     # ✅ API Flutter — Ordonnance
     path("api/<int:consultation_id>/ordonnance/", views.api_ordonnance_detail, name="api_ordonnance_detail"),

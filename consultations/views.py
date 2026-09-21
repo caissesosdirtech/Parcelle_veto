@@ -1053,35 +1053,164 @@ def api_terminer_consultation(request, consultation_id):
 # ==========================================
 # Endpoints API — Rendez-vous (RDV)
 # ==========================================
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.utils.dateparse import parse_datetime
 
+from .models import RendezVous, RendezVousManuel, Consultation
+from animaux.models import Animal
+
+
+# ==========================================
+# 1. LISTE DE TOUS LES RENDEZ-VOUS (BDD + Manuels)
+# ==========================================
 def api_rdv_liste(request):
     """GET /consultations/api/rdv/"""
-    rdvs = RendezVous.objects.all().order_by("-id")
-    data = [
+    
+    # 1. Rendez-vous des clients enregistrés
+    rdvs_db = RendezVous.objects.select_related('animal__client', 'consultation_origine').all().order_by("-date_rdv")
+    data_db = [
         {
             "id": r.id,
-            "statut": getattr(r, "statut", ""),
-            "note": getattr(r, "note", ""),
+            "is_manuel": False,
+            "client_nom": r.animal.client.nom,
+            "animal_nom": r.animal.nom,
+            "espece": r.animal.espece,
+            "date_rdv": r.date_rdv.isoformat(),
+            "motif": r.motif,
+            "type_rdv": r.type_rdv,
+            "statut": r.statut,
+            "consultation_origine_id": r.consultation_origine.id if r.consultation_origine else None,
         }
-        for r in rdvs
+        for r in rdvs_db
     ]
-    return JsonResponse(data, safe=False)
+
+    # 2. Rendez-vous manuels (Prise par appel téléphonique direct)
+    rdvs_manuels = RendezVousManuel.objects.all().order_by("-date_rdv")
+    data_manuel = [
+        {
+            "id": r.id,
+            "is_manuel": True,
+            "client_nom": r.nom_client,
+            "animal_nom": r.nom_animal,
+            "espece": r.espece,
+            "race": r.race,
+            "telephone": r.telephone,
+            "date_rdv": r.date_rdv.isoformat(),
+            "motif": r.motif,
+            "type_rdv": r.lieu.upper(),  # 'cabinet' ou 'domicile'
+            "adresse": r.adresse,
+            "statut": r.statut,
+        }
+        for r in rdvs_manuels
+    ]
+
+    # Fusion des deux listes
+    return JsonResponse(data_db + data_manuel, safe=False)
 
 
+# ==========================================
+# 2. CRÉER UN RDV POUR CLIENT EXISTANT / POST-CONSULTATION
+# ==========================================
 @csrf_exempt
 @require_http_methods(["POST"])
-def api_ajouter_rdv_manuel(request):
-    """POST /consultations/api/rdv/ajouter/"""
+def api_ajouter_rdv(request):
+    """
+    POST /consultations/api/rdv/ajouter/
+    Payload JSON :
+    {
+        "animal_id": 5,
+        "date_rdv": "2026-09-25T10:30:00",
+        "motif": "Contrôle pansement",
+        "type_rdv": "CABINET",  // ou "DOMICILE"
+        "consultation_origine_id": 12  // optionnel (si post-consultation)
+    }
+    """
     try:
         data = json.loads(request.body)
+        
+        animal_id = data.get("animal_id")
+        date_rdv_str = data.get("date_rdv")
+        motif = data.get("motif")
+        type_rdv = data.get("type_rdv", "CABINET")
+        consultation_origine_id = data.get("consultation_origine_id")
+
+        if not animal_id or not date_rdv_str or not motif:
+            return JsonResponse({"error": "Champs requis manquants (animal_id, date_rdv, motif)"}, status=400)
+
+        animal = Animal.objects.get(id=animal_id)
+        
+        consultation = None
+        if consultation_origine_id:
+            consultation = Consultation.objects.filter(id=consultation_origine_id).first()
+
         rdv = RendezVous.objects.create(
-            note=data.get("note", ""),
-            # Ajoutez ici les autres champs de votre modèle RendezVous
+            animal=animal,
+            date_rdv=parse_datetime(date_rdv_str),
+            motif=motif,
+            type_rdv=type_rdv,
+            consultation_origine=consultation,
+            statut="EN_ATTENTE"
         )
-        return JsonResponse({"id": rdv.id, "message": "Rendez-vous créé"}, status=201)
+
+        return JsonResponse({
+            "id": rdv.id,
+            "message": "Rendez-vous créé avec succès",
+            "client": animal.client.nom,
+            "animal": animal.nom
+        }, status=201)
+
+    except Animal.DoesNotExist:
+        return JsonResponse({"error": "Animal non trouvé"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
+
+# ==========================================
+# 3. CRÉER UN RDV MANUEL (APPEL DIRECT / NOUVEAU CLIENT)
+# ==========================================
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_ajouter_rdv_manuel(request):
+    """
+    POST /consultations/api/rdv/manuel/ajouter/
+    Payload JSON :
+    {
+        "nom_client": "Mamadou Ba",
+        "nom_animal": "Rex",
+        "espece": "Chien",
+        "telephone": "+221 77 123 45 67",
+        "date_rdv": "2026-09-26T14:00:00",
+        "motif": "Première consultation / Vaccin",
+        "lieu": "cabinet",  // ou "domicile"
+        "adresse": "Thiès Quartier Ngoumsane"
+    }
+    """
+    try:
+        data = json.loads(request.body)
+
+        rdv_manuel = RendezVousManuel.objects.create(
+            nom_client=data.get("nom_client", ""),
+            nom_animal=data.get("nom_animal", ""),
+            espece=data.get("espece", ""),
+            race=data.get("race", ""),
+            telephone=data.get("telephone", ""),
+            date_rdv=parse_datetime(data.get("date_rdv")),
+            motif=data.get("motif", ""),
+            lieu=data.get("lieu", "cabinet"),
+            adresse=data.get("adresse", ""),
+            statut="EN_ATTENTE"
+        )
+
+        return JsonResponse({
+            "id": rdv_manuel.id,
+            "message": "Rendez-vous manuel enregistré avec succès"
+        }, status=201)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
 @csrf_exempt
 @require_http_methods(["POST", "PUT"])
