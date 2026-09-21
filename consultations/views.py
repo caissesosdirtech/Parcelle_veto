@@ -603,14 +603,57 @@ def api_consultations_liste(request):
         })
     return JsonResponse(data, safe=False)
 
+import json
+import logging
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
+from .models import Consultation, Ordonnance, LigneOrdonnance, Medicament
 
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+@api_view(['GET', 'POST'])  # 👈 On autorise GET et POST
 def api_ordonnance_detail(request, consultation_id):
     try:
         # 1. Récupération de l'ordonnance ou création si inexistante
         consultation = get_object_or_404(Consultation, id=consultation_id)
         ordonnance, _ = Ordonnance.objects.get_or_create(consultation=consultation)
 
-        # 2. Construction de l'objet "consultation" attendu par Flutter
+        # -------------------------------------------------------------
+        # 🟢 NOUVEAU : Traitement de la sauvegarde (Requête POST)
+        # -------------------------------------------------------------
+        if request.method == 'POST':
+            data = request.data if hasattr(request, 'data') else json.loads(request.body)
+            medicaments_list = data.get('medicaments', [])
+
+            # Supprime les anciennes lignes pour re-créer les nouvelles presrites
+            LigneOrdonnance.objects.filter(ordonnance=ordonnance).delete()
+
+            for item in medicaments_list:
+                med_id = item.get('medicament_id') or item.get('id')
+                posologie = item.get('posologie', '')
+                quantite = item.get('quantite', 1)
+
+                if med_id:
+                    medicament_obj = Medicament.objects.filter(id=med_id).first()
+                    if medicament_obj:
+                        LigneOrdonnance.objects.create(
+                            ordonnance=ordonnance,
+                            medicament=medicament_obj,
+                            posologie=posologie,
+                            quantite=quantite
+                        )
+
+            return JsonResponse({
+                "message": "Ordonnance sauvegardée avec succès",
+                "ordonnance_id": ordonnance.id
+            }, status=200)
+
+        # -------------------------------------------------------------
+        # 🔵 Consultation / Affichage des données (Requête GET)
+        # -------------------------------------------------------------
         consultation_data = {
             "id": consultation.id,
             "statut": consultation.statut,
@@ -621,11 +664,10 @@ def api_ordonnance_detail(request, consultation_id):
             "date": consultation.created_at.strftime("%d/%m/%Y") if hasattr(consultation, 'created_at') and consultation.created_at else "—",
         }
 
-        # 3. Récupération des lignes de l'ordonnance
+        # Récupération des lignes enregistrées
         lignes = LigneOrdonnance.objects.filter(ordonnance=ordonnance).select_related('medicament')
         lignes_data = []
         for l in lignes:
-            # Adaptation du nom du médicament selon votre structure de modèle (avec ou sans Catalogue)
             nom_med = l.medicament.catalogue.nom if hasattr(l.medicament, 'catalogue') and l.medicament.catalogue else str(l.medicament)
             lignes_data.append({
                 'id': l.id,
@@ -635,7 +677,7 @@ def api_ordonnance_detail(request, consultation_id):
                 'quantite': getattr(l, 'quantite', 1),
             })
 
-        # 4. Récupération des médicaments disponibles en stock
+        # Récupération du stock disponible
         meds_dispo = Medicament.objects.filter(stock__gt=0).select_related('catalogue')
         medicaments_disponibles = []
         for m in meds_dispo:
@@ -647,21 +689,19 @@ def api_ordonnance_detail(request, consultation_id):
                 'prix': float(m.prix) if hasattr(m, 'prix') and m.prix else 0.0
             })
 
-        # 5. Structure JSON complète pour le parsing Flutter
-        data = {
+        return JsonResponse({
             'ordonnance_id': ordonnance.id,
             'consultation': consultation_data,
             'lignes': lignes_data,
             'medicaments_disponibles': medicaments_disponibles,
-        }
-        return JsonResponse(data)
+        })
 
     except Consultation.DoesNotExist:
         return JsonResponse({'error': 'Consultation introuvable'}, status=404)
     except Exception as e:
         logger.error(f"Erreur api_ordonnance_detail: {e}")
         return JsonResponse({'error': str(e)}, status=500)
-
+    
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_consultation(request):
