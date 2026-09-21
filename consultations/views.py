@@ -1108,26 +1108,27 @@ def api_clients_liste(request):
 import json
 import logging
 from django.http import JsonResponse
-from django.db import transaction
-from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 
-# Importation de vos modèles (à adapter selon le chemin de votre application)
+# Remplacez ces imports par vos propres modèles s'ils se trouvent dans un autre fichier
 from .models import Client, Animal, Consultation, Ordonnance
 
 logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 @require_POST
 def create_consultation(request):
     """
     Création d'une consultation.
-    Si pour un client existant, l'animal choisi est 'NEW_ANIMAL', un nouvel animal est créé pour ce client.
+    Supporte les appels JSON (API Flutter/Mobile) et Form Data (Web HTML).
     """
     try:
-        # Extraction des données selon le format d'envoi (JSON ou Formulaire POST classique)
-        if request.content_type == 'application/json':
+        # 1. Extraction des données selon le format d'envoi
+        if request.content_type and 'application/json' in request.content_type:
             try:
                 data = json.loads(request.body.decode('utf-8'))
             except json.JSONDecodeError:
@@ -1135,7 +1136,7 @@ def create_consultation(request):
         else:
             data = request.POST.dict()
 
-        # Récupération du mode avec tolérance sur le nom de la clé
+        # 2. Récupération du mode avec tolérance sur la clé
         mode = data.get("mode") or data.get("mode_creation")
         
         client_nouveau = False
@@ -1143,6 +1144,7 @@ def create_consultation(request):
         animal = None
 
         with transaction.atomic():
+            # ── MODE 1 : NOUVEAU CLIENT ─────────────────────────────────────
             if mode == "nouveau":
                 client_nouveau = True
                 nom_client = str(data.get("client_nom", "")).strip()
@@ -1160,7 +1162,7 @@ def create_consultation(request):
 
                 nom_animal = str(data.get("animal_nom", "")).strip()
                 if not nom_animal:
-                    return JsonResponse({"error": "Le nom de l'animal est obligatoire."}, status=400)
+                    nom_animal = "Non renseigné"
 
                 animal = Animal.objects.create(
                     client=client,
@@ -1170,6 +1172,7 @@ def create_consultation(request):
                     sexe=data.get("animal_sexe", "M")
                 )
 
+            # ── MODE 2 : CLIENT EXISTANT ────────────────────────────────────
             elif mode == "existant":
                 client_id = data.get("client_id")
                 animal_id = data.get("animal_id")
@@ -1177,13 +1180,16 @@ def create_consultation(request):
                 if not client_id:
                     return JsonResponse({"error": "L'identifiant du client est requis."}, status=400)
 
-                client = get_object_or_404(Client, id=client_id)
+                try:
+                    client = Client.objects.get(id=client_id)
+                except Client.DoesNotExist:
+                    return JsonResponse({"error": f"Client introuvable (ID: {client_id})."}, status=404)
 
                 # Cas A : Création d'un NOUVEL animal pour ce client existant
-                if str(animal_id) in ["NEW_ANIMAL", "", "None"] or not animal_id:
+                if str(animal_id) in ["NEW_ANIMAL", "__new__", "", "None"] or not animal_id:
                     nom_animal = str(data.get("animal_nom", "")).strip()
                     if not nom_animal:
-                        return JsonResponse({"error": "Le nom du nouvel animal est requis."}, status=400)
+                        nom_animal = "Non renseigné"
 
                     animal = Animal.objects.create(
                         client=client,
@@ -1194,23 +1200,30 @@ def create_consultation(request):
                     )
                 # Cas B : Sélection d'un animal EXISTANT dans la liste
                 else:
-                    animal = get_object_or_404(Animal, id=animal_id, client=client)
+                    try:
+                        animal = Animal.objects.get(id=animal_id, client=client)
+                    except Animal.DoesNotExist:
+                        return JsonResponse({"error": f"Animal introuvable pour ce client (ID: {animal_id})."}, status=404)
 
+            # ── MODE INVALIDE ───────────────────────────────────────────────
             else:
-                # Log de l'erreur pour identifier ce que le frontend a réellement envoyé
                 logger.warning(f"Mode invalide ou manquant reçu dans le payload: {data}")
-                return JsonResponse({"error": "Mode de création non spécifié ou invalide."}, status=400)
+                return JsonResponse({"error": f"Mode de création non spécifié ou invalide ('{mode}')."}, status=400)
 
-            # Traitement du poids
+            # 3. Traitement du poids
             poids_raw = data.get("animal_poids")
             poids_val = None
             if poids_raw is not None and str(poids_raw).strip() != "":
                 try:
                     poids_val = float(poids_raw)
+                    # Mise à jour optionnelle du poids sur la fiche de l'animal
+                    if animal and poids_val > 0:
+                        animal.poids = poids_val
+                        animal.save(update_fields=['poids'])
                 except (ValueError, TypeError):
                     poids_val = None
 
-            # Création de la consultation
+            # 4. Création de la consultation
             consultation = Consultation.objects.create(
                 client=client,
                 animal=animal,
@@ -1223,9 +1236,10 @@ def create_consultation(request):
                 client_nouveau=client_nouveau,
             )
 
-            # Création automatique de l'ordonnance rattachée
+            # 5. Création automatique de l'ordonnance rattachée
             ordonnance = Ordonnance.objects.create(consultation=consultation)
 
+        # 6. Réponse JSON de succès
         return JsonResponse({
             "message": "Consultation créée avec succès.",
             "status": "success",
@@ -1240,7 +1254,8 @@ def create_consultation(request):
 
     except Exception as exc:
         logger.exception("Erreur lors de la création de la consultation")
-        return JsonResponse({"error": str(exc)}, status=500)
+        return JsonResponse({"error": f"Erreur serveur : {str(exc)}"}, status=500)
+
     
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
