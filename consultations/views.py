@@ -609,8 +609,8 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
-from .models import Consultation, Ordonnance, LigneOrdonnance, Medicament
-
+from .models import Consultation, Ordonnance, LigneOrdonnance
+from pharmacie.models import Medicament  # 👈 Remplacez 'pharmacie' par le nom exact de votre app contenant le modèle Medicament
 logger = logging.getLogger(__name__)
 
 @csrf_exempt
