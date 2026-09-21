@@ -715,7 +715,8 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 
 # Remplacez ces imports par les modèles issus de votre application
-from .models import Ordonnance, Medicament, LigneOrdonnance
+from .models import Ordonnance, LigneOrdonnance
+from pharmacie.models import Medicament  # Adaptez 'pharmacie' selon le nom exact de votre app
 
 
 @csrf_exempt
