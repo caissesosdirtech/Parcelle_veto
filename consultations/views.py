@@ -1105,6 +1105,19 @@ def api_clients_liste(request):
         return JsonResponse({"error": str(exc)}, status=500)
 
 
+import json
+import logging
+from django.http import JsonResponse
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+# Importation de vos modèles (à adapter selon le chemin de votre application)
+from .models import Client, Animal, Consultation, Ordonnance
+
+logger = logging.getLogger(__name__)
+
 @csrf_exempt
 @require_POST
 def create_consultation(request):
@@ -1113,8 +1126,18 @@ def create_consultation(request):
     Si pour un client existant, l'animal choisi est 'NEW_ANIMAL', un nouvel animal est créé pour ce client.
     """
     try:
-        data = json.loads(request.body.decode('utf-8'))
-        mode = data.get("mode")
+        # Extraction des données selon le format d'envoi (JSON ou Formulaire POST classique)
+        if request.content_type == 'application/json':
+            try:
+                data = json.loads(request.body.decode('utf-8'))
+            except json.JSONDecodeError:
+                return JsonResponse({"error": "Format JSON invalide."}, status=400)
+        else:
+            data = request.POST.dict()
+
+        # Récupération du mode avec tolérance sur le nom de la clé
+        mode = data.get("mode") or data.get("mode_creation")
+        
         client_nouveau = False
         client = None
         animal = None
@@ -1122,9 +1145,9 @@ def create_consultation(request):
         with transaction.atomic():
             if mode == "nouveau":
                 client_nouveau = True
-                nom_client = data.get("client_nom", "").strip()
-                tel_client = data.get("client_tel", "").strip()
-                adresse_client = data.get("client_adresse", "").strip()
+                nom_client = str(data.get("client_nom", "")).strip()
+                tel_client = str(data.get("client_tel", "")).strip()
+                adresse_client = str(data.get("client_adresse", "")).strip()
 
                 if not nom_client:
                     return JsonResponse({"error": "Le nom du client est obligatoire."}, status=400)
@@ -1135,7 +1158,7 @@ def create_consultation(request):
                     adresse=adresse_client
                 )
 
-                nom_animal = data.get("animal_nom", "").strip()
+                nom_animal = str(data.get("animal_nom", "")).strip()
                 if not nom_animal:
                     return JsonResponse({"error": "Le nom de l'animal est obligatoire."}, status=400)
 
@@ -1157,8 +1180,8 @@ def create_consultation(request):
                 client = get_object_or_404(Client, id=client_id)
 
                 # Cas A : Création d'un NOUVEL animal pour ce client existant
-                if str(animal_id) == "NEW_ANIMAL" or not animal_id:
-                    nom_animal = data.get("animal_nom", "").strip()
+                if str(animal_id) in ["NEW_ANIMAL", "", "None"] or not animal_id:
+                    nom_animal = str(data.get("animal_nom", "")).strip()
                     if not nom_animal:
                         return JsonResponse({"error": "Le nom du nouvel animal est requis."}, status=400)
 
@@ -1174,6 +1197,8 @@ def create_consultation(request):
                     animal = get_object_or_404(Animal, id=animal_id, client=client)
 
             else:
+                # Log de l'erreur pour identifier ce que le frontend a réellement envoyé
+                logger.warning(f"Mode invalide ou manquant reçu dans le payload: {data}")
                 return JsonResponse({"error": "Mode de création non spécifié ou invalide."}, status=400)
 
             # Traitement du poids
@@ -1190,8 +1215,8 @@ def create_consultation(request):
                 client=client,
                 animal=animal,
                 veterinaire=data.get("veterinaire", "Dr Ibrahima Pierre GUISSE"),
-                motif=data.get("motif", "").strip(),
-                observations=data.get("observations", "").strip(),
+                motif=str(data.get("motif", "")).strip(),
+                observations=str(data.get("observations", "")).strip(),
                 lieu=data.get("lieu", "cabinet"),
                 poids=poids_val,
                 statut="en_cours",
@@ -1213,12 +1238,10 @@ def create_consultation(request):
             "animal_nom": animal.nom
         }, status=201)
 
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Format JSON invalide."}, status=400)
     except Exception as exc:
         logger.exception("Erreur lors de la création de la consultation")
         return JsonResponse({"error": str(exc)}, status=500)
-
+    
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import Animal
