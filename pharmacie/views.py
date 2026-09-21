@@ -50,6 +50,11 @@ class MedicamentViewSet(viewsets.ModelViewSet):
 
 
 # ===================== API VIEWS =====================
+from django.http import JsonResponse
+from django.db.models import Q
+from django.views.decorators.http import require_http_methods
+from .models import Medicament
+
 def api_medicaments(request):
     search = request.GET.get("search", "")
     famille = request.GET.get("famille", "")
@@ -70,30 +75,69 @@ def api_medicaments(request):
         qs = qs.filter(catalogue__famille__nom=famille)
 
     data = []
-
     for m in qs:
+        # On sécurise pour éviter AttributeError si catalogue est None
+        nom = m.catalogue.nom if m.catalogue else "Médicament sans nom"
+        famille_nom = m.catalogue.famille.nom if (m.catalogue and m.catalogue.famille) else ""
+
         data.append({
             "id": m.id,
-            "nom": m.catalogue.nom,
-            "famille": m.catalogue.famille.nom if m.catalogue.famille else "",
+            "nom": nom,
+            "famille": famille_nom,
             "fournisseur": m.fournisseur.nom if m.fournisseur else "",
             "stock": m.stock,
-            "prix": float(m.prix),
+            "prix": float(m.prix or 0),
             "seuil_alerte": m.seuil_alerte,
             "statut": (
-                "Rupture"
-                if m.stock == 0
-                else "Alerte"
-                if m.stock <= m.seuil_alerte
+                "Rupture" if m.stock == 0
+                else "Alerte" if m.stock <= m.seuil_alerte
                 else "OK"
             )
         })
 
+    # Renvoie la liste sous 'results' pour la compatibilité Flutter
     return JsonResponse({
         "count": len(data),
         "results": data
     })
 
+
+@require_http_methods(["GET"])
+def api_medicaments_liste(request):
+    """
+    GET /pharmacie/api/liste/
+    """
+    qs = Medicament.objects.select_related(
+        "catalogue__famille", "fournisseur"
+    ).all().order_by("catalogue__nom")
+
+    search = request.GET.get("search", "")
+    if search:
+        qs = qs.filter(
+            Q(catalogue__nom__icontains=search) |
+            Q(catalogue__famille__nom__icontains=search)
+        )
+
+    data = []
+    for m in qs:
+        data.append({
+            "id": m.id,
+            "nom": m.catalogue.nom if m.catalogue else "Médicament sans nom",
+            "famille": m.catalogue.famille.nom if (m.catalogue and m.catalogue.famille) else "",
+            "fournisseur": m.fournisseur.nom if m.fournisseur else "",
+            "fournisseur_id": m.fournisseur.id if m.fournisseur else None,
+            "stock": m.stock,
+            "prix": float(m.prix or 0),
+            "seuil_alerte": m.seuil_alerte,
+            "statut": (
+                "Rupture" if m.stock == 0
+                else "Alerte" if m.stock <= m.seuil_alerte
+                else "OK"
+            ),
+        })
+
+    # Permet de retourner la liste directement OU un dictionnaire selon safe
+    return JsonResponse(data, safe=False)
 
 # ===================== DJANGO VIEWS =====================
 from django.shortcuts import render

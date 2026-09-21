@@ -1262,8 +1262,25 @@ from django.contrib.auth.decorators import login_required
 from .models import Animal
 
 @login_required
-def get_animaux_par_client(request, client_id):
-    animaux = Animal.objects.filter(client_id=client_id).values('id', 'nom', 'espece')
-    return JsonResponse(list(animaux), safe=False)    
-
+def get_animaux_client(request, client_id):
+    """
+    API renvoyant les animaux d'un client donné pour le dropdown Flutter.
+    """
+    client = get_object_or_404(Client, id=client_id)
+    animaux = Animal.objects.filter(client=client)
+    
+    animaux_data = [
+        {
+            "id": animal.id,
+            "nom": animal.nom or "Sans nom",
+            "espece": animal.espece or "",
+            "race": animal.race or "",
+            "sexe": animal.sexe or "M",
+            "poids": str(animal.poids) if animal.poids else ""
+        }
+        for animal in animaux
+    ]
+    
+    # On renvoie à la fois une liste directe et une structure dictionnaire
+    return JsonResponse(animaux_data, safe=False)
 
