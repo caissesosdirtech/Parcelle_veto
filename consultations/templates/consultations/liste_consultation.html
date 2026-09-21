@@ -43,6 +43,9 @@
     box-shadow:0 6px 20px rgba(0,0,0,0.06);
     position:relative;
     transition:.2s;
+    text-decoration:none;
+    color:inherit;
+    display:block;
 }
 
 /* effet hover */
@@ -122,6 +125,38 @@
 
 .btn-primary:hover{ opacity:.9; }
 
+/* ===== ONGLETS / TABS ===== */
+.tab-container{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+    border-bottom:2px solid var(--line);
+    padding-bottom:2px;
+    overflow-x:auto;
+}
+
+.tab-link{
+    padding:8px 16px;
+    border-radius:10px 10px 0 0;
+    text-decoration:none;
+    font-size:0.85rem;
+    font-weight:700;
+    color:var(--muted);
+    background:transparent;
+    transition:all 0.2s ease;
+}
+
+.tab-link:hover{
+    color:var(--primary);
+    background:rgba(13,148,136,0.05);
+}
+
+.tab-link.active{
+    color:var(--primary);
+    border-bottom:3px solid var(--primary);
+    background:#fff;
+}
+
 /* ===== CARD ===== */
 .card{
     background:#fff;
@@ -168,6 +203,7 @@
     border-radius:999px;
     font-size:.75rem;
     font-weight:800;
+    display:inline-block;
 }
 
 .badge.en-cours{
@@ -180,6 +216,11 @@
     color:var(--primary);
 }
 
+.badge.annulee{
+    background:#ffe4e6;
+    color:var(--danger);
+}
+
 /* ===== ACTION BUTTON ===== */
 .btn-view{
     background:var(--primary);
@@ -187,6 +228,7 @@
     padding:6px 10px;
     border-radius:10px;
     font-size:.78rem;
+    text-decoration:none;
 }
 
 .btn-view:hover{
@@ -212,41 +254,39 @@
 <!-- ================= KPI ================= -->
 <div class="kpi-grid">
 
-    <div class="kpi">
+    <a href="?" class="kpi">
         <div class="kpi-icon blue">
             <i class="fa-solid fa-stethoscope"></i>
         </div>
         <h4>Total consultations</h4>
         <div class="value">{{ total }}</div>
-    </div>
+    </a>
 
-    <div class="kpi">
+    <a href="?statut=en_cours" class="kpi">
         <div class="kpi-icon orange">
             <i class="fa-solid fa-clock"></i>
         </div>
         <h4>En cours</h4>
         <div class="value">{{ en_cours }}</div>
-    </div>
+    </a>
 
-    <div class="kpi">
+    <a href="?statut=terminee" class="kpi">
         <div class="kpi-icon green">
             <i class="fa-solid fa-check"></i>
         </div>
         <h4>Terminées</h4>
         <div class="value">{{ terminees }}</div>
-    </div>
+    </a>
 
-   <div class="kpi">
-    <div class="kpi-icon purple">
-        <i class="fa-solid fa-calendar-day"></i>
+    <div class="kpi">
+        <div class="kpi-icon purple">
+            <i class="fa-solid fa-calendar-day"></i>
+        </div>
+        <h4>Consultations du jour</h4>
+        <div class="value">
+            {{ consultations_jour|default:0 }}
+        </div>
     </div>
-
-    <h4>Consultations du jour</h4>
-
-    <div class="value">
-        {{ consultations_jour|default:0 }}
-    </div>
-</div>
 
 </div>
 
@@ -254,6 +294,10 @@
 <div class="top-bar">
 
     <form method="GET" style="flex:1; display:flex; gap:10px;">
+        <!-- Maintient le filtre par statut s'il est déjà sélectionné -->
+        {% if current_statut %}
+            <input type="hidden" name="statut" value="{{ current_statut }}">
+        {% endif %}
 
         <input
             type="text"
@@ -267,9 +311,9 @@
             🔍 Rechercher
         </button>
 
-        {% if search %}
+        {% if search or current_statut %}
         <a href="." class="btn" style="background:#eee; color:#333;">
-            ✕ Reset
+            ✕ Réinitialiser
         </a>
         {% endif %}
 
@@ -279,6 +323,26 @@
         ➕ Nouvelle consultation
     </a>
 
+</div>
+
+<!-- ================= ONGLETS DE FILTRAGE ================= -->
+<div class="tab-container">
+    <a href="?{% if search %}search={{ search }}{% endif %}" 
+       class="tab-link {% if not current_statut %}active{% endif %}">
+        Toutes ({{ total }})
+    </a>
+    <a href="?statut=en_cours{% if search %}&search={{ search }}{% endif %}" 
+       class="tab-link {% if current_statut == 'en_cours' %}active{% endif %}">
+        ⏳ En cours ({{ en_cours }})
+    </a>
+    <a href="?statut=terminee{% if search %}&search={{ search }}{% endif %}" 
+       class="tab-link {% if current_statut == 'terminee' %}active{% endif %}">
+        ✅ Terminées ({{ terminees }})
+    </a>
+    <a href="?statut=annulee{% if search %}&search={{ search }}{% endif %}" 
+       class="tab-link {% if current_statut == 'annulee' %}active{% endif %}">
+        ❌ Annulées ({{ annulees|default:0 }})
+    </a>
 </div>
 
 <!-- ================= TABLE ================= -->
@@ -309,20 +373,24 @@
                 <td>{{ c.animal.espece }}</td>
                 <td>{{ c.motif }}</td>
                 <td>
-    {% if c.statut == "terminee" %}
-        <span class="badge terminee">
-            ✅ Terminée
-        </span>
-    {% elif c.statut == "en_cours" %}
-        <span class="badge en-cours">
-            ⏳ En cours
-        </span>
-    {% else %}
-        <span class="badge en-cours">
-            {{ c.statut }}
-        </span>
-    {% endif %}
-</td>
+                    {% if c.statut == "terminee" %}
+                        <span class="badge terminee">
+                            ✅ Terminée
+                        </span>
+                    {% elif c.statut == "en_cours" %}
+                        <span class="badge en-cours">
+                            ⏳ En cours
+                        </span>
+                    {% elif c.statut == "annulee" %}
+                        <span class="badge annulee">
+                            ❌ Annulée
+                        </span>
+                    {% else %}
+                        <span class="badge en-cours">
+                            {{ c.statut }}
+                        </span>
+                    {% endif %}
+                </td>
                 <td>
                     <a href="/consultations/{{ c.id }}/" class="btn-view">Voir</a>
                 </td>
