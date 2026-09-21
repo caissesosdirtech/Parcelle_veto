@@ -785,7 +785,7 @@ def api_sauvegarder_ordonnance(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@csrf_exempt
+
 @require_http_methods(["POST"])
 def api_ajouter_consultation(request):
     try:
