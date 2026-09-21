@@ -41,6 +41,7 @@ urlpatterns = [
     path("api/<int:consultation_id>/terminer/", views.terminer_consultation, name="api_terminer_consultation"),
     path("api/clients/", views.api_clients_liste, name="api_clients_liste"),
     path("api/clients/<int:client_id>/animaux/", views.animaux_client, name="get_animaux_par_client"),
+    path("api/nouvelle/save/", views.api_ajouter_consultation, name="api_ajouter_consultation"),
 
     # -------------------------------------------------------------------------
     # 📱 API FLUTTER — Ordonnances (RÉSOUT L'ERREUR 404)
