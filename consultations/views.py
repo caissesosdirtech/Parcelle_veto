@@ -1160,39 +1160,38 @@ from animaux.models import Animal
 def api_rdv_liste(request):
     """GET /consultations/api/rdv/"""
     
-    # 1. Rendez-vous des clients enregistrés
+    # 1. Rendez-vous des clients enregistrés (liés aux consultations)
     rdvs_db = RendezVous.objects.select_related('animal__client', 'consultation_origine').all().order_by("-date_rdv")
     data_db = [
         {
             "id": r.id,
             "is_manuel": False,
-            "client_nom": r.animal.client.nom,
-            "telephone": r.animal.client.telephone if hasattr(r.animal.client, 'telephone') else "", # 📱 Ajouté
-            "adresse": r.animal.client.adresse if hasattr(r.animal.client, 'adresse') else "",     # 🏠 Ajouté
-            "animal_nom": r.animal.nom,
-            "espece": r.animal.espece,
-            "date_rdv": r.date_rdv.isoformat(),
-            "motif": r.motif,
-            "type_rdv": r.type_rdv,
-            "statut": r.statut,
-            "consultation_origine_id": r.consultation_origine.id if r.consultation_origine else None,
+            "client_nom": r.animal.client.nom if r.animal and r.animal.client else "Inconnu",
+            "telephone": getattr(r.animal.client, 'telephone', '') if r.animal and r.animal.client else "",
+            "adresse": getattr(r.animal.client, 'adresse', '') if r.animal and r.animal.client else "",
+            "animal_nom": r.animal.nom if r.animal else "",
+            "espece": r.animal.espece if r.animal else "",
+            "date_rdv": r.date_rdv.isoformat() if r.date_rdv else "",
+            "motif": r.motif or "",
+            "type_rdv": r.type_rdv or "",
+            "statut": r.statut or "EN_ATTENTE",
         }
         for r in rdvs_db
     ]
 
-    # 2. Rendez-vous manuels
+    # 2. Rendez-vous manuels (basés sur votre modèle RendezVousManuel)
     rdvs_manuels = RendezVousManuel.objects.all().order_by("-date_rdv")
     data_manuel = [
         {
             "id": r.id,
             "is_manuel": True,
             "client_nom": r.nom_client,
-            "telephone": r.telephone, # Déjà présent
-            "adresse": r.adresse,     # 🏠 Ajouté
+            "telephone": r.telephone or "",  # 👈 S'assure de renvoyer la chaîne (même vide au lieu de null)
+            "adresse": r.adresse or "",      # 👈 S'assure de renvoyer la chaîne
             "animal_nom": r.nom_animal,
             "espece": r.espece,
-            "race": r.race,
-            "date_rdv": r.date_rdv.isoformat(),
+            "race": r.race or "",
+            "date_rdv": r.date_rdv.isoformat() if r.date_rdv else "",
             "motif": r.motif,
             "type_rdv": r.lieu.upper(),
             "statut": r.statut,
