@@ -1159,21 +1159,6 @@ def api_consultations_liste(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
-def api_ajouter_consultation(request):
-    """POST /consultations/api/ajouter/"""
-    try:
-        data = json.loads(request.body)
-        consultation = Consultation.objects.create(
-            motif=data.get("motif", ""),
-            # Ajoutez ici les autres champs requis par votre modèle Consultation
-        )
-        return JsonResponse({"id": consultation.id, "message": "Consultation créée avec succès"}, status=201)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
-
-
-@csrf_exempt
 @require_http_methods(["POST", "PUT"])
 def api_modifier_statut_consultation(request, consultation_id):
     """POST/PUT /consultations/api/<id>/statut/"""
