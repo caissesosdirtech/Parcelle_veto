@@ -614,21 +614,24 @@ from pharmacie.models import Medicament  # 👈 Remplacez 'pharmacie' par le nom
 logger = logging.getLogger(__name__)
 
 @csrf_exempt
-@api_view(['GET', 'POST'])  # 👈 On autorise GET et POST
+@api_view(['GET', 'POST'])
 def api_ordonnance_detail(request, consultation_id):
     try:
-        # 1. Récupération de l'ordonnance ou création si inexistante
-        consultation = get_object_or_404(Consultation, id=consultation_id)
+        # 1. Récupération de la consultation et de l'ordonnance
+        consultation = get_object_or_404(
+            Consultation.objects.select_related('client', 'animal'), 
+            id=consultation_id
+        )
         ordonnance, _ = Ordonnance.objects.get_or_create(consultation=consultation)
 
         # -------------------------------------------------------------
-        # 🟢 NOUVEAU : Traitement de la sauvegarde (Requête POST)
+        # 🟢 SAUVEGARDE DE L'ORDONNANCE (POST)
         # -------------------------------------------------------------
         if request.method == 'POST':
             data = request.data if hasattr(request, 'data') else json.loads(request.body)
             medicaments_list = data.get('medicaments', [])
 
-            # Supprime les anciennes lignes pour re-créer les nouvelles presrites
+            # Supprime les anciennes lignes pour re-créer les nouvelles
             LigneOrdonnance.objects.filter(ordonnance=ordonnance).delete()
 
             for item in medicaments_list:
@@ -652,32 +655,70 @@ def api_ordonnance_detail(request, consultation_id):
             }, status=200)
 
         # -------------------------------------------------------------
-        # 🔵 Consultation / Affichage des données (Requête GET)
+        # 🔵 LECTURE ET AFFICHAGE DES DONNÉES (GET)
         # -------------------------------------------------------------
+        client = consultation.client
+        animal = consultation.animal
+
+        # Extraction sécurisée des informations du client et de l'animal
+        client_nom = client.nom if client else "Non renseigné"
+        client_tel = client.telephone if client and client.telephone else "Non renseigné"
+        client_adresse = client.adresse if client and client.adresse else ""
+
+        animal_nom = animal.nom if animal else "Non renseigné"
+        animal_espece = animal.espece if animal else "Non renseignée"
+        animal_race = animal.race if animal and animal.race else ""
+        animal_sexe = animal.sexe if animal and animal.sexe else ""
+        
+        # Priorité au poids de la consultation, sinon celui de l'animal
+        poids_val = consultation.poids if consultation.poids is not None else (animal.poids if animal else None)
+
         consultation_data = {
             "id": consultation.id,
             "statut": consultation.statut,
-            "animal": consultation.animal.nom if consultation.animal else "—",
-            "espece": consultation.animal.espece if consultation.animal and hasattr(consultation.animal, 'espece') else "",
-            "client": consultation.client.nom if consultation.client else "—",
             "motif": consultation.motif or "—",
-            "date": consultation.created_at.strftime("%d/%m/%Y") if hasattr(consultation, 'created_at') and consultation.created_at else "—",
+            "veterinaire": consultation.veterinaire or "Dr Ibrahima Pierre GUISSE",
+            "date": consultation.created_at.strftime("%d/%m/%Y à %H:%M") if hasattr(consultation, 'created_at') and consultation.created_at else "—",
+            
+            # Client
+            "client_nom": client_nom,
+            "client_tel": client_tel,
+            "client_adresse": client_adresse,
+            "client": client_nom,  # Alias de secours
+            "telephone": client_tel,  # Alias de secours
+            
+            # Animal
+            "animal_nom": animal_nom,
+            "animal_espece": animal_espece,
+            "animal_race": animal_race,
+            "animal_sexe": animal_sexe,
+            "animal_poids": poids_val,
+            "animal": animal_nom,  # Alias de secours
+            "espece": animal_espece,  # Alias de secours
+            "race": animal_race,  # Alias de secours
+            "sexe": animal_sexe,  # Alias de secours
+            "poids": poids_val,  # Alias de secours
         }
 
         # Récupération des lignes enregistrées
-        lignes = LigneOrdonnance.objects.filter(ordonnance=ordonnance).select_related('medicament')
+        lignes = LigneOrdonnance.objects.filter(ordonnance=ordonnance).select_related('medicament', 'medicament__catalogue')
         lignes_data = []
         for l in lignes:
             nom_med = l.medicament.catalogue.nom if hasattr(l.medicament, 'catalogue') and l.medicament.catalogue else str(l.medicament)
+            prix_unit = float(l.medicament.prix) if hasattr(l.medicament, 'prix') and l.medicament.prix else 0.0
+            qte = getattr(l, 'quantite', 1)
+            
             lignes_data.append({
                 'id': l.id,
                 'medicament_id': l.medicament.id,
                 'medicament_nom': nom_med,
                 'posologie': l.posologie or "",
-                'quantite': getattr(l, 'quantite', 1),
+                'quantite': qte,
+                'prix_unitaire': prix_unit,
+                'total': qte * prix_unit,
             })
 
-        # Récupération du stock disponible
+        # Catalogue médicaments disponibles
         meds_dispo = Medicament.objects.filter(stock__gt=0).select_related('catalogue')
         medicaments_disponibles = []
         for m in meds_dispo:
@@ -694,6 +735,15 @@ def api_ordonnance_detail(request, consultation_id):
             'consultation': consultation_data,
             'lignes': lignes_data,
             'medicaments_disponibles': medicaments_disponibles,
+            # Raccourcis directs au niveau racine si Flutter les lit directement
+            'client_nom': client_nom,
+            'client_tel': client_tel,
+            'animal_nom': animal_nom,
+            'animal_espece': animal_espece,
+            'animal_race': animal_race,
+            'animal_sexe': animal_sexe,
+            'animal_poids': poids_val,
+            'statut': consultation.statut,
         })
 
     except Consultation.DoesNotExist:
