@@ -749,18 +749,81 @@ def api_ordonnance_detail(request, consultation_id):
     except Exception as e:
         logger.error(f"Erreur api_ordonnance_detail: {e}")
         return JsonResponse({'error': str(e)}, status=500)
-    
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+import json
+from .models import Client, Animal, Consultation  # Ajustez selon le nom de vos modèles
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_consultation(request):
     """POST /consultations/api/ajouter/"""
     try:
         data = json.loads(request.body)
-        # Logique de création de consultation ici
-        return JsonResponse({"message": "Consultation créée avec succès"}, status=201)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+        mode = data.get('mode', 'existant')
+        
+        client = None
+        animal = None
 
+        if mode == 'nouveau':
+            # 1. Création du nouveau client
+            client = Client.objects.create(
+                nom=data.get('client_nom'),
+                telephone=data.get('client_tel', ''),
+                adresse=data.get('client_adresse', '')
+            )
+            
+            # 2. Création de l'animal associé au nouveau client
+            animal = Animal.objects.create(
+                client=client,
+                nom=data.get('animal_nom', 'Non renseigné'),
+                espece=data.get('animal_espece', 'Chien'),
+                race=data.get('animal_race', ''),
+                sexe=data.get('animal_sexe', 'M'),
+                poids=data.get('animal_poids') if data.get('animal_poids') else None
+            )
+            
+        else:
+            # Mode client existant
+            client_id = data.get('client_id')
+            animal_id = data.get('animal_id')
+            
+            if client_id:
+                client = Client.objects.get(id=client_id)
+                
+            # Si l'utilisateur a choisi d'ajouter un nouvel animal pour ce client existant
+            if animal_id == "NEW_ANIMAL" or not animal_id:
+                animal = Animal.objects.create(
+                    client=client,
+                    nom=data.get('animal_nom', 'Non renseigné'),
+                    espece=data.get('animal_espece', 'Chien'),
+                    race=data.get('animal_race', ''),
+                    sexe=data.get('animal_sexe', 'M'),
+                    poids=data.get('animal_poids') if data.get('animal_poids') else None
+                )
+            else:
+                animal = Animal.objects.get(id=animal_id)
+
+        # 3. Création de la consultation liée au client et à l'animal validés
+        consultation = Consultation.objects.create(
+            client=client,
+            animal=animal,
+            motif=data.get('motif', ''),
+            observations=data.get('observations', ''),
+            lieu=data.get('lieu', 'cabinet'),
+            statut='en_cours'
+        )
+
+        return JsonResponse({
+            "message": "Consultation créée avec succès",
+            "consultation_id": consultation.id
+        }, status=201)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=400)
 
 @csrf_exempt
 @require_http_methods(["POST", "PUT"])
