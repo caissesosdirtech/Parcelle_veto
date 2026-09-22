@@ -617,7 +617,7 @@ logger = logging.getLogger(__name__)
 @api_view(['GET', 'POST'])
 def api_ordonnance_detail(request, consultation_id):
     try:
-        # 1. Récupération de la consultation et de l'ordonnance
+        # 1. Récupération de la consultation et de l'ordonnance avec relations préchargées
         consultation = get_object_or_404(
             Consultation.objects.select_related('client', 'animal'), 
             id=consultation_id
@@ -631,7 +631,7 @@ def api_ordonnance_detail(request, consultation_id):
             data = request.data if hasattr(request, 'data') else json.loads(request.body)
             medicaments_list = data.get('medicaments', [])
 
-            # Supprime les anciennes lignes pour re-créer les nouvelles
+            # Réinitialise les lignes d'ordonnance
             LigneOrdonnance.objects.filter(ordonnance=ordonnance).delete()
 
             for item in medicaments_list:
@@ -655,22 +655,21 @@ def api_ordonnance_detail(request, consultation_id):
             }, status=200)
 
         # -------------------------------------------------------------
-        # 🔵 LECTURE ET AFFICHAGE DES DONNÉES (GET)
+        # 🔵 CONSULTATION & LECTURE (GET)
         # -------------------------------------------------------------
         client = consultation.client
         animal = consultation.animal
 
-        # Extraction sécurisée des informations du client et de l'animal
+        # Extraction sécurisée des informations
         client_nom = client.nom if client else "Non renseigné"
         client_tel = client.telephone if client and client.telephone else "Non renseigné"
-        client_adresse = client.adresse if client and client.adresse else ""
-
+        
         animal_nom = animal.nom if animal else "Non renseigné"
         animal_espece = animal.espece if animal else "Non renseignée"
         animal_race = animal.race if animal and animal.race else ""
         animal_sexe = animal.sexe if animal and animal.sexe else ""
         
-        # Priorité au poids de la consultation, sinon celui de l'animal
+        # Priorité au poids de la consultation, puis à celui de l'animal
         poids_val = consultation.poids if consultation.poids is not None else (animal.poids if animal else None)
 
         consultation_data = {
@@ -680,12 +679,11 @@ def api_ordonnance_detail(request, consultation_id):
             "veterinaire": consultation.veterinaire or "Dr Ibrahima Pierre GUISSE",
             "date": consultation.created_at.strftime("%d/%m/%Y à %H:%M") if hasattr(consultation, 'created_at') and consultation.created_at else "—",
             
-            # Client
+            # Client & Téléphone
             "client_nom": client_nom,
             "client_tel": client_tel,
-            "client_adresse": client_adresse,
-            "client": client_nom,  # Alias de secours
-            "telephone": client_tel,  # Alias de secours
+            "client": client_nom,
+            "telephone": client_tel,
             
             # Animal
             "animal_nom": animal_nom,
@@ -693,14 +691,14 @@ def api_ordonnance_detail(request, consultation_id):
             "animal_race": animal_race,
             "animal_sexe": animal_sexe,
             "animal_poids": poids_val,
-            "animal": animal_nom,  # Alias de secours
-            "espece": animal_espece,  # Alias de secours
-            "race": animal_race,  # Alias de secours
-            "sexe": animal_sexe,  # Alias de secours
-            "poids": poids_val,  # Alias de secours
+            "animal": animal_nom,
+            "espece": animal_espece,
+            "race": animal_race,
+            "sexe": animal_sexe,
+            "poids": poids_val,
         }
 
-        # Récupération des lignes enregistrées
+        # Récupération des lignes d'ordonnance avec les prix
         lignes = LigneOrdonnance.objects.filter(ordonnance=ordonnance).select_related('medicament', 'medicament__catalogue')
         lignes_data = []
         for l in lignes:
@@ -718,7 +716,7 @@ def api_ordonnance_detail(request, consultation_id):
                 'total': qte * prix_unit,
             })
 
-        # Catalogue médicaments disponibles
+        # Catalogue de médicaments
         meds_dispo = Medicament.objects.filter(stock__gt=0).select_related('catalogue')
         medicaments_disponibles = []
         for m in meds_dispo:
@@ -735,7 +733,7 @@ def api_ordonnance_detail(request, consultation_id):
             'consultation': consultation_data,
             'lignes': lignes_data,
             'medicaments_disponibles': medicaments_disponibles,
-            # Raccourcis directs au niveau racine si Flutter les lit directement
+            # Raccourcis directs
             'client_nom': client_nom,
             'client_tel': client_tel,
             'animal_nom': animal_nom,
