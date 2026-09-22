@@ -1154,6 +1154,9 @@ from animaux.models import Animal
 # ==========================================
 # 1. LISTE DE TOUS LES RENDEZ-VOUS (BDD + Manuels)
 # ==========================================
+
+@csrf_exempt
+@require_http_methods(["GET"])
 def api_rdv_liste(request):
     """GET /consultations/api/rdv/"""
     
@@ -1164,6 +1167,8 @@ def api_rdv_liste(request):
             "id": r.id,
             "is_manuel": False,
             "client_nom": r.animal.client.nom,
+            "telephone": r.animal.client.telephone if hasattr(r.animal.client, 'telephone') else "", # 📱 Ajouté
+            "adresse": r.animal.client.adresse if hasattr(r.animal.client, 'adresse') else "",     # 🏠 Ajouté
             "animal_nom": r.animal.nom,
             "espece": r.animal.espece,
             "date_rdv": r.date_rdv.isoformat(),
@@ -1175,29 +1180,55 @@ def api_rdv_liste(request):
         for r in rdvs_db
     ]
 
-    # 2. Rendez-vous manuels (Prise par appel téléphonique direct)
+    # 2. Rendez-vous manuels
     rdvs_manuels = RendezVousManuel.objects.all().order_by("-date_rdv")
     data_manuel = [
         {
             "id": r.id,
             "is_manuel": True,
             "client_nom": r.nom_client,
+            "telephone": r.telephone, # Déjà présent
+            "adresse": r.adresse,     # 🏠 Ajouté
             "animal_nom": r.nom_animal,
             "espece": r.espece,
             "race": r.race,
-            "telephone": r.telephone,
             "date_rdv": r.date_rdv.isoformat(),
             "motif": r.motif,
-            "type_rdv": r.lieu.upper(),  # 'cabinet' ou 'domicile'
-            "adresse": r.adresse,
+            "type_rdv": r.lieu.upper(),
             "statut": r.statut,
         }
         for r in rdvs_manuels
     ]
 
-    # Fusion des deux listes
     return JsonResponse(data_db + data_manuel, safe=False)
 
+
+@csrf_exempt
+@require_http_methods(["POST", "PUT"])
+def api_modifier_statut_rdv(request, rdv_id):
+    """
+    POST /consultations/api/rdv/<id>/statut/
+    Gère à la fois les RDV normaux et les RDV manuels grâce au paramètre ?is_manuel=true/false
+    """
+    try:
+        data = json.loads(request.body)
+        nouveau_statut = data.get("statut")
+        is_manuel = data.get("is_manuel", False) # 🔍 Permet de savoir quelle table cibler
+
+        if is_manuel:
+            rdv = RendezVousManuel.objects.get(pk=rdv_id)
+        else:
+            rdv = RendezVous.objects.get(pk=rdv_id)
+
+        rdv.statut = nouveau_statut
+        rdv.save()
+        
+        return JsonResponse({"id": rdv.id, "statut": rdv.statut, "message": "Statut mis à jour avec succès"})
+        
+    except (RendezVous.DoesNotExist, RendezVousManuel.DoesNotExist):
+        return JsonResponse({"error": "Rendez-vous introuvable"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
 # ==========================================
 # 2. CRÉER UN RDV POUR CLIENT EXISTANT / POST-CONSULTATION
@@ -1300,20 +1331,7 @@ def api_ajouter_rdv_manuel(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-@csrf_exempt
-@require_http_methods(["POST", "PUT"])
-def api_modifier_statut_rdv(request, rdv_id):
-    """POST/PUT /consultations/api/rdv/<id>/statut/"""
-    try:
-        rdv = RendezVous.objects.get(pk=rdv_id)
-        data = json.loads(request.body)
-        rdv.statut = data.get("statut", rdv.statut)
-        rdv.save()
-        return JsonResponse({"id": rdv.id, "statut": rdv.statut})
-    except RendezVous.DoesNotExist:
-        return JsonResponse({"error": "Rendez-vous introuvable"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+
 
 import json
 import logging
