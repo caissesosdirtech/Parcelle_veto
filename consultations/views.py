@@ -761,15 +761,22 @@ def api_ajouter_consultation(request):
     """POST /consultations/api/ajouter/"""
     try:
         data = json.loads(request.body)
-        mode = data.get('mode', 'existant')
         
+        # 🛡️ Détection automatique du mode si 'mode' est absent ou mal envoyé par Flutter
+        client_id = data.get('client_id')
+        animal_id = data.get('animal_id')
+        client_nom = data.get('client_nom', '').strip()
+        
+        # Si un nom de client est fourni sans ID, ou si le mode explicite est 'nouveau'
+        is_nouveau = data.get('mode') == 'nouveau' or (client_nom and not client_id)
+
         client = None
         animal = None
 
-        if mode == 'nouveau':
+        if is_nouveau:
             # 1. Création du nouveau client
             client = Client.objects.create(
-                nom=data.get('client_nom'),
+                nom=client_nom if client_nom else "Client Inconnu",
                 telephone=data.get('client_tel', ''),
                 adresse=data.get('client_adresse', '')
             )
@@ -786,14 +793,11 @@ def api_ajouter_consultation(request):
             
         else:
             # Mode client existant
-            client_id = data.get('client_id')
-            animal_id = data.get('animal_id')
-            
             if client_id:
                 client = Client.objects.get(id=client_id)
                 
-            # Si l'utilisateur a choisi d'ajouter un nouvel animal pour ce client existant
-            if animal_id == "NEW_ANIMAL" or not animal_id:
+            # Si l'animal n'existe pas ou demande de création d'un nouvel animal
+            if not animal_id or animal_id == "NEW_ANIMAL":
                 animal = Animal.objects.create(
                     client=client,
                     nom=data.get('animal_nom', 'Non renseigné'),
