@@ -1188,289 +1188,115 @@ from ventes.models import LigneVente, Vente
 # ═══════════════════════════════════════════════════════════════════════════
 # 🔴 CLÔTURE DE CONSULTATION (corrigée : plus de double déduction de stock)
 # ═══════════════════════════════════════════════════════════════════════════
+import json
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from .models import Consultation, Ordonnance
-from ventes.models import Vente, LigneVente  # Assurez-vous que les imports correspondent à votre projet
+from .models import Consultation, Ordonnance, LigneOrdonnance  # Ajustez selon vos noms de modèles de lignes
+from pharmacie.models import Medicament
+from ventes.models import Vente, LigneVente
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_terminer_consultation(request, consultation_id):
-    """
-    POST /consultations/api/<id>/terminer/
-
-    Workflow :
-
-    1. Récupérer la consultation
-    2. Récupérer son ordonnance
-    3. Vérifier qu'elle contient au moins un médicament
-    4. Vérifier le stock
-    5. Créer la vente
-    6. Déduire le stock UNE SEULE FOIS
-    7. Créer les lignes de vente
-    8. Calculer le total
-    9. Terminer la consultation
-
-    Tout est exécuté dans une transaction atomique.
-    En cas d'erreur, aucune modification n'est conservée.
-    """
-
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    # ---------------------------------------------------------
-    # 1. RÉCUPÉRER LA CONSULTATION
-    # ---------------------------------------------------------
-
     try:
-        consultation = Consultation.objects.select_related(
-            "client"
-        ).get(pk=consultation_id)
-
+        consultation = Consultation.objects.get(pk=consultation_id)
     except Consultation.DoesNotExist:
-        return JsonResponse(
-            {
-                "error": "Consultation introuvable."
-            },
-            status=404
-        )
+        return JsonResponse({"error": "Consultation introuvable"}, status=404)
 
-    # ---------------------------------------------------------
-    # 2. VÉRIFIER SI ELLE EST DÉJÀ TERMINÉE
-    # ---------------------------------------------------------
+    if consultation.statut.lower() == "terminee":
+        return JsonResponse({"status": "OK", "message": "Consultation déjà terminée."})
 
-    if consultation.statut.lower() in [
-        "terminee",
-        "terminée",
-        "termine"
-    ]:
-        return JsonResponse(
-            {
-                "status": "OK",
-                "message": "Consultation déjà terminée."
-            },
-            status=200
-        )
+    # Récupérer les données envoyées par Flutter (si le mobile envoie les médicaments directement)
+    try:
+        body_data = json.loads(request.body) if request.body else {}
+    except Exception:
+        body_data = {}
 
-    # ---------------------------------------------------------
-    # 3. RÉCUPÉRER L'ORDONNANCE
-    # ---------------------------------------------------------
+    medicaments_payload = body_data.get("medicaments", [])
 
-    ordonnance = (
-        Ordonnance.objects
-        .filter(consultation=consultation)
-        .prefetch_related("lignes__medicament")
-        .first()
-    )
+    # Récupérer ou créer l'ordonnance liée à la consultation
+    ordonnance, _ = Ordonnance.objects.get_or_create(consultation=consultation)
 
-    if ordonnance is None:
-        return JsonResponse(
-            {
-                "error": (
-                    "Aucune ordonnance n'a été trouvée "
-                    "pour cette consultation."
-                )
-            },
-            status=400
-        )
+    # Si le mobile envoie des médicaments dans la requête, on les synchronise en base
+    if medicaments_payload:
+        ordonnance.lignes.all().delete()  # Nettoyer les anciennes lignes pour éviter les doublons
+        for item in medicaments_payload:
+            med_id = item.get("medicament_id") or item.get("id")
+            posologie = item.get("posologie", "")
+            quantite = int(item.get("quantite", 1))
+            if med_id:
+                try:
+                    medicament = Medicament.objects.get(pk=med_id)
+                    LigneOrdonnance.objects.create(
+                        ordonnance=ordonnance,
+                        medicament=medicament,
+                        posologie=posologie,
+                        quantite=quantite
+                    )
+                except Medicament.DoesNotExist:
+                    pass
 
-    # ---------------------------------------------------------
-    # 4. RÉCUPÉRER LES LIGNES
-    # ---------------------------------------------------------
-
-    lignes = list(
-        ordonnance.lignes.select_related(
-            "medicament"
-        )
-    )
-
-    if not lignes:
-        return JsonResponse(
-            {
-                "error": (
-                    "Impossible de terminer la consultation : "
-                    "l'ordonnance doit contenir au moins "
-                    "un médicament."
-                )
-            },
-            status=400
-        )
-
-    logger.info(
-        "Clôture consultation #%s - ordonnance #%s - %s ligne(s)",
-        consultation.id,
-        ordonnance.id,
-        len(lignes)
-    )
-
-    # ---------------------------------------------------------
-    # 5. TRANSACTION
-    # ---------------------------------------------------------
+    # Vérification finale s'il y a des lignes
+    if not ordonnance.lignes.exists():
+        return JsonResponse({
+            "error": "Impossible de terminer la consultation : l'ordonnance doit contenir au moins un médicament."
+        }, status=400)
 
     try:
         with transaction.atomic():
+            # 1. Vérification du stock
+            for ligne in ordonnance.lignes.select_related("medicament").select_for_update():
+                med_nom = getattr(ligne.medicament, 'nom', None)
+                if not med_nom and hasattr(ligne.medicament, 'catalogue'):
+                    med_nom = getattr(ligne.medicament.catalogue, 'nom', f"Médicament #{ligne.medicament.id}")
+                if not med_nom:
+                    med_nom = f"Médicament #{ligne.medicament.id}"
 
-            # -------------------------------------------------
-            # 5.1 VERROUILLER LES MÉDICAMENTS
-            # -------------------------------------------------
+                if ligne.medicament.stock < ligne.quantite:
+                    return JsonResponse({
+                        "error": f"Stock insuffisant pour {med_nom}. Stock actuel : {ligne.medicament.stock}"
+                    }, status=400)
 
-            medicament_ids = [
-                ligne.medicament_id
-                for ligne in lignes
-            ]
-
-            medicaments = {
-                med.id: med
-                for med in Medicament.objects
-                .select_for_update()
-                .filter(id__in=medicament_ids)
-            }
-
-            # -------------------------------------------------
-            # 5.2 VÉRIFICATION DU STOCK
-            # -------------------------------------------------
-
-            for ligne in lignes:
-
-                med = medicaments.get(
-                    ligne.medicament_id
-                )
-
-                if med is None:
-                    raise ValueError(
-                        f"Médicament introuvable "
-                        f"(ID {ligne.medicament_id})."
-                    )
-
-                if med.stock < ligne.quantite:
-
-                    nom = getattr(
-                        med,
-                        "nom",
-                        f"Médicament #{med.id}"
-                    )
-
-                    return JsonResponse(
-                        {
-                            "error": (
-                                f"Stock insuffisant pour {nom}. "
-                                f"Stock actuel : {med.stock}, "
-                                f"quantité demandée : "
-                                f"{ligne.quantite}."
-                            )
-                        },
-                        status=400
-                    )
-
-            # -------------------------------------------------
-            # 5.3 CRÉER LA VENTE
-            # -------------------------------------------------
-
+            # 2. Création de la Vente
             vente = Vente.objects.create(
                 ordonnance=ordonnance,
                 client=consultation.client,
-                total=0
+                total=0,
             )
 
-            # -------------------------------------------------
-            # 5.4 DÉDUIRE LE STOCK UNE SEULE FOIS
-            # -------------------------------------------------
-
+            # 3. Création des LigneVente pour la facture
             total = 0
-
-            for ligne in lignes:
-
-                med = medicaments[ligne.medicament_id]
-
-                # Déduction unique
-                med.stock -= ligne.quantite
-
-                med.save(
-                    update_fields=["stock"]
-                )
-
-                # ---------------------------------------------
-                # CRÉER LA LIGNE DE VENTE
-                # ---------------------------------------------
-
+            for ligne in ordonnance.lignes.select_related("medicament").all():
+                prix_unit = getattr(ligne.medicament, 'prix', 0)
                 ligne_vente = LigneVente.objects.create(
                     vente=vente,
-                    medicament=med,
+                    medicament=ligne.medicament,
                     quantite=ligne.quantite,
-                    prix_unitaire=med.prix
+                    prix_unitaire=prix_unit,
                 )
-
-                total += ligne_vente.montant_total
-
-            # -------------------------------------------------
-            # 5.5 METTRE À JOUR LE TOTAL
-            # -------------------------------------------------
+                total += getattr(ligne_vente, 'montant_total', ligne.quantite * prix_unit)
 
             vente.total = total
-
-            vente.save(
-                update_fields=["total"]
-            )
-
-            # -------------------------------------------------
-            # 5.6 TERMINER LA CONSULTATION
-            # -------------------------------------------------
+            vente.save()
 
             consultation.statut = "terminee"
+            consultation.save()
 
-            consultation.save(
-                update_fields=["statut"]
-            )
-
-        # -----------------------------------------------------
-        # 6. SUCCÈS
-        # -----------------------------------------------------
-
-        logger.info(
-            "Consultation #%s terminée. Vente #%s créée. "
-            "Total=%s FCFA",
-            consultation.id,
-            vente.id,
-            total
-        )
-
-        return JsonResponse(
-            {
-                "status": "OK",
-                "message": (
-                    "Consultation terminée avec succès."
-                ),
-                "consultation_id": consultation.id,
-                "ordonnance_id": ordonnance.id,
-                "vente_id": vente.id,
-                "total": float(total),
-            },
-            status=200
-        )
-
-    # ---------------------------------------------------------
-    # 7. ERREUR
-    # ---------------------------------------------------------
+        return JsonResponse({
+            "status": "OK",
+            "message": "Consultation terminée avec succès.",
+            "vente_id": vente.id,
+            "total": float(total),
+        })
 
     except Exception as exc:
-
-        logger.exception(
-            "Erreur lors de la clôture de la consultation #%s",
-            consultation_id
-        )
-
-        return JsonResponse(
-            {
-                "error": (
-                    "Une erreur est survenue lors de "
-                    "la validation de la consultation."
-                ),
-                "details": str(exc),
-            },
-            status=500
-        )
+        import logging
+        logging.getLogger(__name__).error(f"Erreur api_terminer_consultation: {exc}")
+        return JsonResponse({
+            "error": f"Une erreur est survenue lors de la validation de la consultation : {exc}"
+        }, status=500)
 # ═══════════════════════════════════════════════════════════════════════════
 # 🧾 NOUVELLE VENTE DIRECTE (sans ordonnance — client existant ou anonyme)
 # ═══════════════════════════════════════════════════════════════════════════
