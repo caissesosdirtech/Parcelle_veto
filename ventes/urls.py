@@ -4,11 +4,14 @@ from . import views
 
 urlpatterns = [
     # Pages web existantes
-    path('',                     views.ventes_list,        name='ventes_list'),
-    path('create/',              views.vente_create,       name='vente_create'),
-    path('<int:vente_id>/',      views.vente_detail,       name='vente_detail'),
-    path('pdf/<int:vente_id>/', views.vente_pdf,           name='vente_pdf'),
-    path('directe/save/',        views.vente_directe_save, name='vente_directe_save'),
+    path('',                       views.ventes_list,        name='ventes_list'),
+    path('create/',                views.vente_create,       name='vente_create'),
+    path('<int:vente_id>/',        views.vente_detail,       name='vente_detail'),
+    path('pdf/<int:vente_id>/',    views.vente_pdf,          name='vente_pdf'),
+    path('directe/save/',          views.vente_directe_save, name='vente_directe_save'),
+
+    # ✅ API Flutter — Nouvelle vente directe (Ajouté ici)
+    path('api/nouvelle/',          views.vente_directe_save, name='vente_directe_save'),
 
     # ✅ API Flutter — Liste & stats (réparé, manquait)
     path('api/liste/', views.api_ventes_liste, name='api_ventes_liste'),
