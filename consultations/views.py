@@ -1173,43 +1173,40 @@ def api_modifier_statut_consultation(request, consultation_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+import json
 
 from .models import Consultation, Ordonnance
+from clients.models import Client
+from pharmacie.models import Medicament
 from ventes.models import LigneVente, Vente
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴 CLÔTURE DE CONSULTATION (corrigée : plus de double déduction de stock)
+# ═══════════════════════════════════════════════════════════════════════════
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_terminer_consultation(request, consultation_id):
     """
     POST /consultations/api/<id>/terminer/
 
-    Version API (mobile) de la clôture de consultation.
-    Reproduit EXACTEMENT la logique de la vue web `terminer_consultation` :
-    vérification du stock, création de la Vente + des LigneVente,
-    déduction du stock, puis passage du statut à "terminee".
-
-    ⚠️ Vente n'a PAS de champ 'consultation' ni 'statut' : le lien se fait
-    via 'ordonnance' (qui elle-même pointe vers la consultation).
-    ⚠️ 'montant_total' est un champ de LigneVente, pas de Vente
-    (Vente utilise 'total').
+    IMPORTANT : Vente.save() déduit DÉJÀ automatiquement le stock à la
+    création d'une Vente liée à une ordonnance (voir ventes/models.py).
+    Cette vue ne doit donc JAMAIS déduire le stock elle-même pour ce cas —
+    elle se contente de VÉRIFIER qu'il est suffisant avant de créer la Vente,
+    puis de créer les LigneVente pour la traçabilité de la facture.
     """
     try:
         consultation = Consultation.objects.get(pk=consultation_id)
     except Consultation.DoesNotExist:
         return JsonResponse({"error": "Consultation introuvable"}, status=404)
 
-    # Déjà terminée : idempotent, on ne refait rien
     if consultation.statut.lower() == "terminee":
-        return JsonResponse({
-            "status": "OK",
-            "message": "Consultation déjà terminée.",
-        })
+        return JsonResponse({"status": "OK", "message": "Consultation déjà terminée."})
 
     ordonnance = Ordonnance.objects.filter(consultation=consultation).first()
 
@@ -1225,7 +1222,7 @@ def api_terminer_consultation(request, consultation_id):
 
     try:
         with transaction.atomic():
-            # Vérification préalable des stocks (avec verrou anti-concurrence)
+            # 1. Vérification du stock (lecture + verrou, AUCUNE modification ici)
             for ligne in ordonnance.lignes.select_related("medicament").select_for_update():
                 if ligne.medicament.stock < ligne.quantite:
                     return JsonResponse({
@@ -1233,25 +1230,25 @@ def api_terminer_consultation(request, consultation_id):
                                  f"Stock actuel : {ligne.medicament.stock}"
                     }, status=400)
 
-            # Création de la vente — SEULEMENT 'ordonnance' et 'total'
-            vente = Vente.objects.create(ordonnance=ordonnance, total=0)
+            # 2. Création de la Vente : le save() du modèle déduit
+            #    automatiquement le stock car self.ordonnance est renseigné.
+            vente = Vente.objects.create(
+                ordonnance=ordonnance,
+                client=consultation.client,
+                total=0,
+            )
 
+            # 3. Création des LigneVente pour la facture (ne touche PAS au stock,
+            #    montant_total est calculé automatiquement par LigneVente.save()).
             total = 0
-            for ligne in ordonnance.lignes.all():
-                montant = ligne.quantite * ligne.medicament.prix
-                LigneVente.objects.create(
+            for ligne in ordonnance.lignes.select_related("medicament").all():
+                ligne_vente = LigneVente.objects.create(
                     vente=vente,
                     medicament=ligne.medicament,
                     quantite=ligne.quantite,
                     prix_unitaire=ligne.medicament.prix,
-                    montant_total=montant,  # ✅ montant_total va sur LigneVente, pas Vente
                 )
-                total += montant
-
-                # Déduction du stock
-                med = ligne.medicament
-                med.stock -= ligne.quantite
-                med.save()
+                total += ligne_vente.montant_total
 
             vente.total = total
             vente.save()
@@ -1271,6 +1268,104 @@ def api_terminer_consultation(request, consultation_id):
         logging.getLogger(__name__).error(f"Erreur api_terminer_consultation: {exc}")
         return JsonResponse({
             "error": f"Une erreur est survenue lors de la validation de la consultation : {exc}"
+        }, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🧾 NOUVELLE VENTE DIRECTE (sans ordonnance — client existant ou anonyme)
+# ═══════════════════════════════════════════════════════════════════════════
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_vente_directe_creer(request):
+    """
+    POST /ventes/api/directe/creer/
+
+    Payload attendu :
+    {
+        "client_id": <id> ou null,   // null = vente anonyme
+        "lignes": [
+            {"medicament_id": <id>, "quantite": <int>},
+            ...
+        ]
+    }
+
+    ⚠️ Ici Vente.ordonnance reste None, donc le save() du modèle NE déduit PAS
+    le stock automatiquement (voir la condition `if is_new and self.ordonnance`).
+    C'est donc CETTE vue qui doit déduire le stock elle-même.
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Format JSON invalide."}, status=400)
+
+    client_id = data.get("client_id")
+    lignes_payload = data.get("lignes", [])
+
+    if not lignes_payload:
+        return JsonResponse({"error": "Le panier est vide."}, status=400)
+
+    client = None
+    if client_id:
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            return JsonResponse({"error": f"Client introuvable (ID: {client_id})."}, status=404)
+
+    try:
+        with transaction.atomic():
+            # 1. Vérification du stock pour chaque ligne demandée
+            resolved = []
+            for item in lignes_payload:
+                med_id = item.get("medicament_id")
+                quantite = int(item.get("quantite", 1))
+
+                if quantite <= 0:
+                    return JsonResponse({"error": "Quantité invalide."}, status=400)
+
+                try:
+                    med = Medicament.objects.select_for_update().get(id=med_id)
+                except Medicament.DoesNotExist:
+                    return JsonResponse({"error": f"Médicament introuvable (ID: {med_id})."}, status=404)
+
+                if med.stock < quantite:
+                    nom = med.catalogue.nom if hasattr(med, 'catalogue') and med.catalogue else str(med)
+                    return JsonResponse({
+                        "error": f"Stock insuffisant pour {nom}. Stock actuel : {med.stock}"
+                    }, status=400)
+
+                resolved.append((med, quantite))
+
+            # 2. Création de la vente SANS ordonnance (pas de déduction auto)
+            vente = Vente.objects.create(ordonnance=None, client=client, total=0)
+
+            # 3. Création des lignes + déduction MANUELLE du stock
+            total = 0
+            for med, quantite in resolved:
+                ligne_vente = LigneVente.objects.create(
+                    vente=vente,
+                    medicament=med,
+                    quantite=quantite,
+                    prix_unitaire=med.prix,
+                )
+                total += ligne_vente.montant_total
+
+                med.stock -= quantite
+                med.save()
+
+            vente.total = total
+            vente.save()
+
+        return JsonResponse({
+            "message": "Vente enregistrée avec succès.",
+            "vente_id": vente.id,
+            "total": float(total),
+        }, status=201)
+
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(f"Erreur api_vente_directe_creer: {exc}")
+        return JsonResponse({
+            "error": f"Une erreur est survenue lors de l'enregistrement de la vente : {exc}"
         }, status=500)
 
 # ==========================================
