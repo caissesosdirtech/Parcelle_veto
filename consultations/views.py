@@ -1188,6 +1188,13 @@ from ventes.models import LigneVente, Vente
 # ═══════════════════════════════════════════════════════════════════════════
 # 🔴 CLÔTURE DE CONSULTATION (corrigée : plus de double déduction de stock)
 # ═══════════════════════════════════════════════════════════════════════════
+from django.db import transaction
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from .models import Consultation, Ordonnance
+from ventes.models import Vente, LigneVente  # Assurez-vous que les imports correspondent à votre projet
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_terminer_consultation(request, consultation_id):
@@ -1224,10 +1231,16 @@ def api_terminer_consultation(request, consultation_id):
         with transaction.atomic():
             # 1. Vérification du stock (lecture + verrou, AUCUNE modification ici)
             for ligne in ordonnance.lignes.select_related("medicament").select_for_update():
+                # Sécurité pour récupérer dynamiquement le nom du médicament
+                med_nom = getattr(ligne.medicament, 'nom', None)
+                if not med_nom and hasattr(ligne.medicament, 'catalogue'):
+                    med_nom = getattr(ligne.medicament.catalogue, 'nom', f"Médicament #{ligne.medicament.id}")
+                if not med_nom:
+                    med_nom = f"Médicament #{ligne.medicament.id}"
+
                 if ligne.medicament.stock < ligne.quantite:
                     return JsonResponse({
-                        "error": f"Stock insuffisant pour {ligne.medicament.catalogue.nom}. "
-                                 f"Stock actuel : {ligne.medicament.stock}"
+                        "error": f"Stock insuffisant pour {med_nom}. Stock actuel : {ligne.medicament.stock}"
                     }, status=400)
 
             # 2. Création de la Vente : le save() du modèle déduit
@@ -1269,7 +1282,6 @@ def api_terminer_consultation(request, consultation_id):
         return JsonResponse({
             "error": f"Une erreur est survenue lors de la validation de la consultation : {exc}"
         }, status=500)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 🧾 NOUVELLE VENTE DIRECTE (sans ordonnance — client existant ou anonyme)
