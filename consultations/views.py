@@ -1191,11 +1191,6 @@ from ventes.models import LigneVente, Vente
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_terminer_consultation(request, consultation_id):
-    # Dans votre vue api_terminer_consultation (ou similaire) :
-    print("--- DEBUG TERMINER ---")
-    print("Ordonnance ID:", ordonnance.id)
-    print("Nombre de lignes en base:", ordonnance.lignes.count())
-    print("Requête reçue data:", request.body)
     """
     POST /consultations/api/<id>/terminer/
 
