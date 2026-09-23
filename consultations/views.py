@@ -1174,16 +1174,92 @@ def api_modifier_statut_consultation(request, consultation_id):
         return JsonResponse({"error": str(e)}, status=400)
 
 
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.db import transaction
+# Assurez-vous d'importer vos modèles : Consultation, Vente, LigneVente, Ordonnance, Stock, etc.
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_terminer_consultation(request, consultation_id):
     """POST /consultations/api/<id>/terminer/"""
     try:
-        consultation = Consultation.objects.get(pk=consultation_id)
-        # Logique pour terminer la consultation, créer la vente et déduire du stock
-        setattr(consultation, "statut", "TERMINEE")
-        consultation.save()
-        return JsonResponse({"message": "Consultation terminée avec succès"})
+        with transaction.atomic():
+            consultation = Consultation.objects.select_for_update().get(pk=consultation_id)
+            
+            # Vérifier si elle n'est pas déjà terminée
+            if getattr(consultation, "statut", "").upper() in ["TERMINEE", "TERMINÉ"]:
+                return JsonResponse({"error": "Cette consultation est déjà terminée."}, status=400)
+
+            # 1. Récupérer ou trouver l'ordonnance et ses lignes/médicaments prescrits
+            # (Adaptez le nom du champ de relation selon votre modèle, ex: consultation.ordonnances.all() ou consultation.ordonnance)
+            ordonnance_lignes = []
+            if hasattr(consultation, 'ordonnances'):
+                ordonnance_lignes = consultation.ordonnances.all()
+            elif hasattr(consultation, 'ordonnance') and consultation.ordonnance:
+                ordonnance_lignes = consultation.ordonnance.lignes.all() # ou .medicaments.all()
+
+            # 2. Créer la Vente associée
+            # (Adaptez les champs selon votre modèle Vente : client, montant_total, etc.)
+            client = getattr(consultation, 'client', None)
+            vente = Vente.objects.create(
+                client=client,
+                consultation=consultation,
+                statut='VALIDEE', # ou 'PAYEE' selon votre logique
+                montant_total=0 # Sera calculé dynamiquement
+            )
+
+            montant_total = 0
+
+            # 3. Traiter chaque médicament prescrit : Créer les Lignes de Vente et déduire du stock
+            for ligne in ordonnance_lignes:
+                medicament = getattr(ligne, 'medicament', None)
+                quantite = getattr(ligne, 'quantite', 1)
+                posologie = getattr(ligne, 'posologie', '')
+
+                if not medicament:
+                    continue
+
+                # Vérification du stock disponible
+                stock_actuel = getattr(medicament, 'stock', 0)
+                if stock_actuel < quantite:
+                    raise Exception(f"Stock insuffisant pour le médicament : {medicament.nom} (Disponible: {stock_actuel}, Demandé: {quantite})")
+
+                # Déduction du stock
+                medicament.stock = stock_actuel - quantite
+                medicament.save()
+
+                # Calcul du sous-total
+                prix_unitaire = getattr(medicament, 'prix', 0)
+                sous_total = prix_unitaire * quantite
+                montant_total += sous_total
+
+                # Création de la ligne de vente (Adaptez le modèle LigneVente / LigneFacture)
+                # Si vous stockez aussi l'ordonnance liée à la vente, vous pouvez l'ajouter ici
+                LigneVente.objects.create(
+                    vente=vente,
+                    medicament=medicament,
+                    quantite=quantite,
+                    prix_unitaire=prix_unitaire,
+                    sous_total=sous_total
+                )
+
+            # Mettre à jour le montant total de la vente
+            vente.montant_total = montant_total
+            vente.save()
+
+            # 4. Marquer la consultation comme terminée
+            setattr(consultation, "statut", "TERMINEE")
+            consultation.save()
+
+            return JsonResponse({
+                "message": "Consultation terminée, vente générée et stock déduit avec succès !",
+                "vente_id": vente.id,
+                "montant_total": montant_total
+            }, status=200)
+
     except Consultation.DoesNotExist:
         return JsonResponse({"error": "Consultation introuvable"}, status=404)
     except Exception as e:
