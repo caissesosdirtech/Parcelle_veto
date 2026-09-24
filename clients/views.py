@@ -30,7 +30,7 @@ class ClientViewSet(viewsets.ModelViewSet):
 
 def _normaliser_telephone(value):
     """Normalise un numéro pour détecter les doublons malgré espaces/tirets/préfixes."""
-    if value is None:
+    if not value:
         return ""
     value = str(value).strip()
     digits = "".join(ch for ch in value if ch.isdigit())
@@ -45,9 +45,13 @@ def _verifier_telephone_unique(telephone, client_id=None):
     """Retourne un message d'erreur si le téléphone appartient déjà à un autre client."""
     normalized = _normaliser_telephone(telephone)
     if not normalized:
-        return None
+        return None  # Pas de numéro ou vide, on laisse passer (ou adapter selon besoin)
 
-    for autre in Client.objects.exclude(id=client_id).exclude(telephone__isnull=True):
+    qs = Client.objects.exclude(telephone__isnull=True).exclude(telephone="")
+    if client_id:
+        qs = qs.exclude(id=client_id)
+
+    for autre in qs:
         if _normaliser_telephone(autre.telephone) == normalized:
             return (
                 f"Ce numéro de téléphone est déjà utilisé par le client "
@@ -173,7 +177,7 @@ def api_clients_list(request):
 
     qs = Client.objects.prefetch_related("animaux").annotate(
         nb_animaux=Count("animaux")
-    )
+    ).order_by('-id')  # 🔑 Tri par ID décroissant pour voir les derniers ajoutés en premier
 
     if search:
         qs = qs.filter(
@@ -187,7 +191,7 @@ def api_clients_list(request):
     if espece:
         qs = qs.filter(animaux__espece=espece).distinct()
 
-    paginator = Paginator(qs, 10)
+    paginator = Paginator(qs, 20) # Augmenté à 20 pour éviter de rater des elements sur mobile
     page_obj = paginator.get_page(page)
 
     data = []
