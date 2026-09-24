@@ -603,35 +603,36 @@ def api_consultations_liste(request):
         })
     return JsonResponse(data, safe=False)
 
+
 import json
 import logging
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
-from .models import Consultation, Ordonnance, LigneOrdonnance
-from pharmacie.models import Medicament  # 👈 Remplacez 'pharmacie' par le nom exact de votre app contenant le modèle Medicament
+from .models import Consultation, Ordonnance, LigneOrdonnance, RendezVous
+from pharmacie.models import Medicament
+
 logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 @api_view(['GET', 'POST'])
 def api_ordonnance_detail(request, consultation_id):
     try:
-        # 1. Récupération de la consultation et de l'ordonnance avec relations préchargées
         consultation = get_object_or_404(
-            Consultation.objects.select_related('client', 'animal'), 
+            Consultation.objects.select_related('client', 'animal'),
             id=consultation_id
         )
         ordonnance, _ = Ordonnance.objects.get_or_create(consultation=consultation)
 
         # -------------------------------------------------------------
-        # 🟢 SAUVEGARDE DE L'ORDONNANCE (POST)
+        # 🟢 SAUVEGARDE DE L'ORDONNANCE (POST) — inchangé
         # -------------------------------------------------------------
         if request.method == 'POST':
             data = request.data if hasattr(request, 'data') else json.loads(request.body)
             medicaments_list = data.get('medicaments', [])
 
-            # Réinitialise les lignes d'ordonnance
             LigneOrdonnance.objects.filter(ordonnance=ordonnance).delete()
 
             for item in medicaments_list:
@@ -660,16 +661,14 @@ def api_ordonnance_detail(request, consultation_id):
         client = consultation.client
         animal = consultation.animal
 
-        # Extraction sécurisée des informations
         client_nom = client.nom if client else "Non renseigné"
         client_tel = client.telephone if client and client.telephone else "Non renseigné"
-        
+
         animal_nom = animal.nom if animal else "Non renseigné"
         animal_espece = animal.espece if animal else "Non renseignée"
         animal_race = animal.race if animal and animal.race else ""
         animal_sexe = animal.sexe if animal and animal.sexe else ""
-        
-        # Priorité au poids de la consultation, puis à celui de l'animal
+
         poids_val = consultation.poids if consultation.poids is not None else (animal.poids if animal else None)
 
         consultation_data = {
@@ -678,14 +677,18 @@ def api_ordonnance_detail(request, consultation_id):
             "motif": consultation.motif or "—",
             "veterinaire": consultation.veterinaire or "Dr Ibrahima Pierre GUISSE",
             "date": consultation.created_at.strftime("%d/%m/%Y à %H:%M") if hasattr(consultation, 'created_at') and consultation.created_at else "—",
-            
-            # Client & Téléphone
+
+            # ⚠️ NOUVEAU : ids bruts nécessaires pour créer un RendezVous
+            # correctement lié (FK animal + consultation_origine), au lieu
+            # de passer par un RendezVousManuel déconnecté.
+            "client_id": client.id if client else None,
+            "animal_id": animal.id if animal else None,
+
             "client_nom": client_nom,
             "client_tel": client_tel,
             "client": client_nom,
             "telephone": client_tel,
-            
-            # Animal
+
             "animal_nom": animal_nom,
             "animal_espece": animal_espece,
             "animal_race": animal_race,
@@ -705,7 +708,7 @@ def api_ordonnance_detail(request, consultation_id):
             nom_med = l.medicament.catalogue.nom if hasattr(l.medicament, 'catalogue') and l.medicament.catalogue else str(l.medicament)
             prix_unit = float(l.medicament.prix) if hasattr(l.medicament, 'prix') and l.medicament.prix else 0.0
             qte = getattr(l, 'quantite', 1)
-            
+
             lignes_data.append({
                 'id': l.id,
                 'medicament_id': l.medicament.id,
@@ -728,11 +731,25 @@ def api_ordonnance_detail(request, consultation_id):
                 'prix': float(m.prix) if hasattr(m, 'prix') and m.prix else 0.0
             })
 
+        # ⚠️ NOUVEAU : les rendez-vous réellement liés à CETTE consultation
+        # (via consultation_origine), pour qu'ils s'affichent enfin dans
+        # l'écran "Détails Consultation & Ordonnance" côté mobile.
+        rdvs = RendezVous.objects.filter(consultation_origine=consultation).order_by('-date_rdv')
+        rendez_vous_data = [{
+            'id': r.id,
+            'date_rdv': r.date_rdv.isoformat() if r.date_rdv else None,
+            'date_rdv_affichage': r.date_rdv.strftime("%d/%m/%Y à %H:%M") if r.date_rdv else "—",
+            'motif': r.motif or "",
+            'type_rdv': r.type_rdv or "",
+            'statut': r.statut or "EN_ATTENTE",
+        } for r in rdvs]
+
         return JsonResponse({
             'ordonnance_id': ordonnance.id,
             'consultation': consultation_data,
             'lignes': lignes_data,
             'medicaments_disponibles': medicaments_disponibles,
+            'rendez_vous': rendez_vous_data,
             # Raccourcis directs
             'client_nom': client_nom,
             'client_tel': client_tel,
@@ -749,6 +766,8 @@ def api_ordonnance_detail(request, consultation_id):
     except Exception as e:
         logger.error(f"Erreur api_ordonnance_detail: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -1588,70 +1607,81 @@ def api_ajouter_rdv_manuel(request):
 
 
 
-import json
-import logging
-from django.db import transaction
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST, require_GET
-from django.shortcuts import get_object_or_404, render, redirect
-
-# Importez vos modèles
-from .models import Client, Animal, Consultation, Ordonnance
-
-logger = logging.getLogger(__name__)
+from .models import Client
+from animaux.models import Animal
 
 
-@csrf_exempt
-@require_GET
-def api_clients_liste(request):
-    """
-    Endpoint API pour alimenter les listes déroulantes (Clients & Animaux) dans Flutter.
-    Ajoute automatiquement l'option 'Nouvel animal' dans la liste des animaux de chaque client.
-    """
-    try:
-        clients = Client.objects.prefetch_related('animaux').all().order_by('nom')
-        data = []
+def api_clients_list(request):
+    """Retourne la liste paginée et filtrée des clients pour l'application Flutter."""
+    search = request.GET.get("search", "")
+    espece = request.GET.get("espece", "")
+    page = int(request.GET.get("page", 1))
 
-        for c in clients:
-            # 1. Liste des animaux déjà enregistrés pour ce client
-            animaux_list = [
+    qs = Client.objects.prefetch_related("animaux").annotate(
+        nb_animaux=Count("animaux")
+    )
+
+    if search:
+        qs = qs.filter(
+            Q(nom__icontains=search) |
+            Q(telephone__icontains=search) |
+            Q(adresse__icontains=search) |
+            Q(animaux__nom__icontains=search) |
+            Q(animaux__espece__icontains=search)
+        ).distinct()
+
+    if espece:
+        qs = qs.filter(animaux__espece=espece).distinct()
+
+    # ⚠️ Correctif : sans ordre explicite, le Paginator de Django n'a AUCUNE
+    # garantie de stabilité entre deux requêtes — un client peut se retrouver
+    # "entre deux pages" et disparaître de la liste agrégée côté mobile
+    # (surtout les plus récents, ajoutés après le chargement initial du cache
+    # de requête). "-id" garantit un ordre stable et fait apparaître les
+    # clients les plus récents en premier.
+    qs = qs.order_by("-id")
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(page)
+
+    data = []
+    total_animaux_page = 0
+
+    for c in page_obj:
+        animaux = list(c.animaux.all())
+        total_animaux_page += len(animaux)
+
+        data.append({
+            "id": c.id,
+            "nom": c.nom,
+            "telephone": c.telephone or "",
+            "adresse": c.adresse or "",
+            "nb_animaux": len(animaux),
+            "animaux": [
                 {
                     "id": a.id,
                     "nom": a.nom,
-                    "espece": getattr(a, 'espece', ''),
-                    "race": getattr(a, 'race', ''),
-                    "sexe": getattr(a, 'sexe', ''),
-                    "poids": float(a.poids) if getattr(a, 'poids', None) else None,
-                    "is_new": False
+                    "espece": a.espece or "",
+                    "race": a.race or "",
+                    "sexe": a.sexe or "",
+                    "poids": a.poids or 0,
                 }
-                for a in c.animaux.all()
+                for a in animaux
             ]
+        })
 
-            # 2. Ajout systématique de l'option "Nouvel animal" à la fin de la liste
-            animaux_list.append({
-                "id": "NEW_ANIMAL",
-                "nom": "+ Nouvel animal pour ce client",
-                "espece": "",
-                "race": "",
-                "sexe": "",
-                "poids": None,
-                "is_new": True
-            })
-
-            data.append({
-                "id": c.id,
-                "nom": c.nom,
-                "label": f"{c.nom} ({c.telephone})" if getattr(c, 'telephone', None) else c.nom,
-                "telephone": getattr(c, 'telephone', '') or '',
-                "adresse": getattr(c, 'adresse', '') or '',
-                "animaux": animaux_list
-            })
-
-        return JsonResponse(data, safe=False, status=200)
-    except Exception as exc:
-        logger.exception("Erreur lors de la récupération des clients")
-        return JsonResponse({"error": str(exc)}, status=500)
+    return JsonResponse({
+        "results": data,
+        "page": page_obj.number,
+        "has_next": page_obj.has_next(),
+        "has_previous": page_obj.has_previous(),
+        "total_clients": Client.objects.count(),
+        "total_animaux": Animal.objects.count(),
+        "total_animaux_page": total_animaux_page,
+    })
 
 
 import json
