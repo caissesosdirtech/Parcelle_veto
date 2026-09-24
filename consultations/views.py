@@ -768,11 +768,17 @@ def api_ordonnance_detail(request, consultation_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+import json
+import logging
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-import json
-from .models import Client, Animal, Consultation  # Ajustez selon le nom de vos modèles
+from django.utils.dateparse import parse_datetime
+
+from .models import Client, Animal, Consultation, RendezVous
+
+logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -780,27 +786,24 @@ def api_ajouter_consultation(request):
     """POST /consultations/api/ajouter/"""
     try:
         data = json.loads(request.body)
-        
+
         # 🛡️ Détection automatique du mode si 'mode' est absent ou mal envoyé par Flutter
         client_id = data.get('client_id')
         animal_id = data.get('animal_id')
         client_nom = data.get('client_nom', '').strip()
-        
-        # Si un nom de client est fourni sans ID, ou si le mode explicite est 'nouveau'
+
         is_nouveau = data.get('mode') == 'nouveau' or (client_nom and not client_id)
 
         client = None
         animal = None
 
         if is_nouveau:
-            # 1. Création du nouveau client
             client = Client.objects.create(
                 nom=client_nom if client_nom else "Client Inconnu",
                 telephone=data.get('client_tel', ''),
                 adresse=data.get('client_adresse', '')
             )
-            
-            # 2. Création de l'animal associé au nouveau client
+
             animal = Animal.objects.create(
                 client=client,
                 nom=data.get('animal_nom', 'Non renseigné'),
@@ -809,13 +812,11 @@ def api_ajouter_consultation(request):
                 sexe=data.get('animal_sexe', 'M'),
                 poids=data.get('animal_poids') if data.get('animal_poids') else None
             )
-            
+
         else:
-            # Mode client existant
             if client_id:
                 client = Client.objects.get(id=client_id)
-                
-            # Si l'animal n'existe pas ou demande de création d'un nouvel animal
+
             if not animal_id or animal_id == "NEW_ANIMAL":
                 animal = Animal.objects.create(
                     client=client,
@@ -838,9 +839,33 @@ def api_ajouter_consultation(request):
             statut='en_cours'
         )
 
+        # ⚠️ NOUVEAU : création effective du RendezVous si une date a été
+        # choisie à l'écran "Nouvelle consultation". C'était envoyé par
+        # Flutter mais jamais lu ni sauvegardé ici — d'où le "Aucun" affiché
+        # ensuite dans le Résumé de la page détail.
+        date_rdv_str = data.get('date_rdv')
+        rendez_vous_cree = None
+        if date_rdv_str:
+            date_rdv_parsed = parse_datetime(date_rdv_str)
+            if date_rdv_parsed and animal is not None:
+                rendez_vous_cree = RendezVous.objects.create(
+                    animal=animal,
+                    date_rdv=date_rdv_parsed,
+                    motif=data.get('rdv_motif') or 'Suivi consultation',
+                    type_rdv=data.get('rdv_type', 'CABINET'),
+                    consultation_origine=consultation,
+                    statut='EN_ATTENTE',
+                )
+            else:
+                logger.warning(
+                    f"date_rdv reçu mais invalide ou animal manquant : "
+                    f"date_rdv={date_rdv_str!r}, animal={animal}"
+                )
+
         return JsonResponse({
             "message": "Consultation créée avec succès",
-            "consultation_id": consultation.id
+            "consultation_id": consultation.id,
+            "rendez_vous_id": rendez_vous_cree.id if rendez_vous_cree else None,
         }, status=201)
 
     except Exception as e:
