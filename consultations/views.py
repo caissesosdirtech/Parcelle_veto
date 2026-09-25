@@ -762,7 +762,6 @@ def api_ordonnance_detail(request, consultation_id):
         logger.error(f"Erreur api_ordonnance_detail: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
-
 import json
 import logging
 from django.http import JsonResponse
