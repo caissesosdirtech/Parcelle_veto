@@ -604,17 +604,17 @@ def api_consultations_liste(request):
     return JsonResponse(data, safe=False)
 
 
-import json
-import logging
-from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
+import json
+import logging
+
 from .models import Consultation, Ordonnance, LigneOrdonnance, RendezVous
 from pharmacie.models import Medicament
 
 logger = logging.getLogger(__name__)
-
 
 @csrf_exempt
 @api_view(['GET', 'POST'])
@@ -627,7 +627,7 @@ def api_ordonnance_detail(request, consultation_id):
         ordonnance, _ = Ordonnance.objects.get_or_create(consultation=consultation)
 
         # -------------------------------------------------------------
-        # 🟢 SAUVEGARDE DE L'ORDONNANCE (POST) — inchangé
+        # 🟢 SAUVEGARDE DE L'ORDONNANCE (POST)
         # -------------------------------------------------------------
         if request.method == 'POST':
             data = request.data if hasattr(request, 'data') else json.loads(request.body)
@@ -676,11 +676,9 @@ def api_ordonnance_detail(request, consultation_id):
             "statut": consultation.statut,
             "motif": consultation.motif or "—",
             "veterinaire": consultation.veterinaire or "Dr Ibrahima Pierre GUISSE",
-            "date": consultation.created_at.strftime("%d/%m/%Y à %H:%M") if hasattr(consultation, 'created_at') and consultation.created_at else "—",
+            # CORRECTION ICI : Utilisation de consultation.date au lieu de consultation.created_at
+            "date": consultation.date.strftime("%d/%m/%Y à %H:%M") if hasattr(consultation, 'date') and consultation.date else "—",
 
-            # ⚠️ NOUVEAU : ids bruts nécessaires pour créer un RendezVous
-            # correctement lié (FK animal + consultation_origine), au lieu
-            # de passer par un RendezVousManuel déconnecté.
             "client_id": client.id if client else None,
             "animal_id": animal.id if animal else None,
 
@@ -731,9 +729,7 @@ def api_ordonnance_detail(request, consultation_id):
                 'prix': float(m.prix) if hasattr(m, 'prix') and m.prix else 0.0
             })
 
-        # ⚠️ NOUVEAU : les rendez-vous réellement liés à CETTE consultation
-        # (via consultation_origine), pour qu'ils s'affichent enfin dans
-        # l'écran "Détails Consultation & Ordonnance" côté mobile.
+        # Rendez-vous liés à cette consultation
         rdvs = RendezVous.objects.filter(consultation_origine=consultation).order_by('-date_rdv')
         rendez_vous_data = [{
             'id': r.id,
@@ -750,7 +746,6 @@ def api_ordonnance_detail(request, consultation_id):
             'lignes': lignes_data,
             'medicaments_disponibles': medicaments_disponibles,
             'rendez_vous': rendez_vous_data,
-            # Raccourcis directs
             'client_nom': client_nom,
             'client_tel': client_tel,
             'animal_nom': animal_nom,
