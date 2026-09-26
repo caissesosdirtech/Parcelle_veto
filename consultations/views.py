@@ -26,6 +26,8 @@ from clients.models import Client
 from pharmacie.models import Medicament
 from ventes.models import LigneVente, Vente
 
+from notifications.firebase_utils import notify_all_docteurs
+
 
 from .models import Consultation, LigneOrdonnance, Ordonnance, RendezVous, RendezVousManuel
 from .serializers import (
@@ -773,7 +775,6 @@ from .models import Client, Animal, Consultation, RendezVous
 
 logger = logging.getLogger(__name__)
 
-
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_consultation(request):
@@ -833,10 +834,7 @@ def api_ajouter_consultation(request):
             statut='en_cours'
         )
 
-        # ⚠️ NOUVEAU : création effective du RendezVous si une date a été
-        # choisie à l'écran "Nouvelle consultation". C'était envoyé par
-        # Flutter mais jamais lu ni sauvegardé ici — d'où le "Aucun" affiché
-        # ensuite dans le Résumé de la page détail.
+        # ⚠️ NOUVEAU : création effective du RendezVous si une date a été choisie
         date_rdv_str = data.get('date_rdv')
         rendez_vous_cree = None
         if date_rdv_str:
@@ -855,6 +853,12 @@ def api_ajouter_consultation(request):
                     f"date_rdv reçu mais invalide ou animal manquant : "
                     f"date_rdv={date_rdv_str!r}, animal={animal}"
                 )
+    
+        notify_all_docteurs(
+            title="📋 Nouvelle Consultation",
+            body=f"Nouvelle consultation créée pour {animal.nom if animal else 'un patient'} ({client.nom if client else 'client inconnu'}).",
+            data={"type": "consultation", "consultation_id": str(consultation.id)},
+        )
 
         return JsonResponse({
             "message": "Consultation créée avec succès",
@@ -870,7 +874,7 @@ def api_ajouter_consultation(request):
 @csrf_exempt
 @require_http_methods(["POST", "PUT"])
 def api_modifier_statut_consultation(request, consultation_id):
-    """POST/PUT /consultations/api/<id>/statut/"""
+    """POST/PUT /consultations/api//statut/"""
     try:
         consultation = Consultation.objects.get(pk=consultation_id)
         data = json.loads(request.body)
@@ -1282,6 +1286,9 @@ def api_terminer_consultation(request, consultation_id):
             "error": "Impossible de terminer la consultation : l'ordonnance doit contenir au moins un médicament."
         }, status=400)
 
+    # Rempli pendant la transaction, utilisé après pour les notifications
+    alertes_stock = []
+
     try:
         with transaction.atomic():
             # 1. Vérification du stock
@@ -1304,7 +1311,7 @@ def api_terminer_consultation(request, consultation_id):
                 total=0,
             )
 
-            # 3. Création des LigneVente pour la facture
+            # 3. Création des LigneVente pour la facture + décrémentation du stock
             total = 0
             for ligne in ordonnance.lignes.select_related("medicament").all():
                 prix_unit = getattr(ligne.medicament, 'prix', 0)
@@ -1316,11 +1323,36 @@ def api_terminer_consultation(request, consultation_id):
                 )
                 total += getattr(ligne_vente, 'montant_total', ligne.quantite * prix_unit)
 
+                # ⚠️ Décrémentation du stock — absente jusqu'ici sur ce flux
+                # mobile, contrairement à la version web équivalente.
+                med = ligne.medicament
+                med.stock -= ligne.quantite
+                med.save()
+
+                if med.stock <= med.seuil_alerte:
+                    nom_med = med.catalogue.nom if getattr(med, 'catalogue', None) else med_nom
+                    alertes_stock.append((nom_med, med.stock, med.id))
+
             vente.total = total
             vente.save()
 
             consultation.statut = "terminee"
             consultation.save()
+
+        # Notifications envoyées seulement après le succès de la transaction
+        nom_animal = consultation.animal.nom if consultation.animal else "Patient"
+        notify_all_docteurs(
+            title="🩺 Consultation Clôturée",
+            body=f"La consultation pour {nom_animal} a été finalisée.",
+            data={"type": "consultation", "id": str(consultation.id)}
+        )
+
+        for nom_med, stock_restant, med_id in alertes_stock:
+            notify_all_docteurs(
+                title="⚠️ Alerte Stock Critique",
+                body=f"Stock bas pour '{nom_med}' (Restant: {stock_restant}).",
+                data={"type": "stock", "medicament_id": str(med_id)}
+            )
 
         return JsonResponse({
             "status": "OK",
@@ -1335,6 +1367,8 @@ def api_terminer_consultation(request, consultation_id):
         return JsonResponse({
             "error": f"Une erreur est survenue lors de la validation de la consultation : {exc}"
         }, status=500)
+
+    
 # ═══════════════════════════════════════════════════════════════════════════
 # 🧾 NOUVELLE VENTE DIRECTE (sans ordonnance — client existant ou anonyme)
 # ═══════════════════════════════════════════════════════════════════════════
