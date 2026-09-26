@@ -133,3 +133,5 @@ LOGIN_URL = '/accounts/login/'
 
 # URL après déconnexion
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+TIME_ZONE = "Africa/Dakar"

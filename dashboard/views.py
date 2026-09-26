@@ -17,7 +17,7 @@ from django.contrib.auth.decorators import login_required
 
 @login_required
 def dashboard_docteur(request):
-    today = timezone.now().date()
+    today = timezone.localdate()
     maintenant = timezone.now()
     dans_24h = maintenant + timedelta(hours=24)
 
@@ -78,7 +78,7 @@ def api_dashboard_stats(request):
       - animaux, consultations, ventes_jour, stock_alertes (existants)
       - medicaments, ruptures, valeur_stock               (nouveaux)
     """
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     # ── Stats générales ────────────────────────────────────────────────────
     nb_animaux = Animal.objects.count()
