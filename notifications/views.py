@@ -57,3 +57,22 @@ def marquer_comme_lues(request):
         return Response({"status": "succes", "message": "Notifications marquées comme lues."}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def enregistrer_fcm_token(request):
+    fcm_token = request.data.get('fcm_token')
+    if not fcm_token:
+        return Response({'error': 'Token FCM manquant.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Enregistrez ou mettez à jour le token pour l'utilisateur connecté
+    # Exemple : 
+    # UserDevice.objects.update_or_create(user=request.user, defaults={'fcm_token': fcm_token})
+    
+    return Response({'message': 'Token FCM enregistré avec succès.'}, status=status.HTTP_200_OK)
+    

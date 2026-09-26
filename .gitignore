@@ -22,5 +22,4 @@ staticfiles/
 # OS
 .DS_Store
 
-firebase/serviceAccountKey.json
-serviceAccountKey.json
+firebase-service-account.json
