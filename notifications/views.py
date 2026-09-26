@@ -1,9 +1,11 @@
 # Fichier : notifications/views.py
 
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Notification
+
 
 def creer_notification(titre, message, type_action):
     """
@@ -18,6 +20,7 @@ def creer_notification(titre, message, type_action):
         )
     except Exception as e:
         print(f"Erreur lors de la création de la notification : {e}")
+
 
 @api_view(['GET'])
 def lister_notifications(request):
@@ -47,6 +50,7 @@ def lister_notifications(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @api_view(['POST'])
 def marquer_comme_lues(request):
     """
@@ -58,21 +62,22 @@ def marquer_comme_lues(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def enregistrer_fcm_token(request):
+    """
+    Enregistre (ou met à jour) le token FCM de l'utilisateur connecté,
+    pour que le backend sache à quel appareil envoyer les notifications
+    push, y compris quand l'app est fermée.
+    """
     fcm_token = request.data.get('fcm_token')
     if not fcm_token:
         return Response({'error': 'Token FCM manquant.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Enregistrez ou mettez à jour le token pour l'utilisateur connecté
-    # Exemple : 
-    # UserDevice.objects.update_or_create(user=request.user, defaults={'fcm_token': fcm_token})
-    
+
+    # Sauvegarde réelle sur le compte connecté (champ fcm_token présent
+    # directement sur accounts.models.Utilisateur).
+    request.user.fcm_token = fcm_token
+    request.user.save(update_fields=['fcm_token'])
+
     return Response({'message': 'Token FCM enregistré avec succès.'}, status=status.HTTP_200_OK)
-    
