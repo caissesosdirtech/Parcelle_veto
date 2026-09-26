@@ -105,6 +105,18 @@ STORAGES = {
 
 AUTH_USER_MODEL = 'accounts.Utilisateur'
 
+# ============================
+# Django REST Framework
+# ============================
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
+    ),
+}
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
