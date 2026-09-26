@@ -9,6 +9,9 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ===================== EXPORTS (Excel / PDF) =====================
 from openpyxl import Workbook
@@ -19,23 +22,23 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from django.urls import reverse
+from django.db import transaction
 
 # ===================== MODELS IMPORTS =====================
 from .models import Medicament, CatalogueMedicament, FamilleMedicament
 from fournisseurs.models import Fournisseur
-from ventes.models import Vente
+from ventes.models import Vente, LigneVente
 from consultations.models import Consultation, RendezVous 
 from clients.models import Client
 from animaux.models import Animal
 
+# ===================== NOTIFICATIONS FCM =====================
+from notifications.firebase_utils import notify_all_docteurs
+
 # ===================== DRF =====================
 from rest_framework import viewsets
 from .serializers import MedicamentSerializer, FamilleMedicamentSerializer
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-
-
 
 
 # ===================== DRF VIEWSETS =====================
@@ -50,11 +53,6 @@ class MedicamentViewSet(viewsets.ModelViewSet):
 
 
 # ===================== API VIEWS =====================
-from django.http import JsonResponse
-from django.db.models import Q
-from django.views.decorators.http import require_http_methods
-from .models import Medicament
-
 def api_medicaments(request):
     search = request.GET.get("search", "")
     famille = request.GET.get("famille", "")
@@ -76,7 +74,6 @@ def api_medicaments(request):
 
     data = []
     for m in qs:
-        # On sécurise pour éviter AttributeError si catalogue est None
         nom = m.catalogue.nom if m.catalogue else "Médicament sans nom"
         famille_nom = m.catalogue.famille.nom if (m.catalogue and m.catalogue.famille) else ""
 
@@ -95,7 +92,6 @@ def api_medicaments(request):
             )
         })
 
-    # Renvoie la liste sous 'results' pour la compatibilité Flutter
     return JsonResponse({
         "count": len(data),
         "results": data
@@ -104,9 +100,6 @@ def api_medicaments(request):
 
 @require_http_methods(["GET"])
 def api_medicaments_liste(request):
-    """
-    GET /pharmacie/api/liste/
-    """
     qs = Medicament.objects.select_related(
         "catalogue__famille", "fournisseur"
     ).all().order_by("catalogue__nom")
@@ -122,8 +115,8 @@ def api_medicaments_liste(request):
     for m in qs:
         data.append({
             "id": m.id,
-            "nom": m.catalogue.nom if m.catalogue else "Médicament sans nom",
-            "famille": m.catalogue.famille.nom if (m.catalogue and m.catalogue.famille) else "",
+            "nom": m.catalogue.nom if m.catalogue else "",
+            "famille": m.catalogue.famille.nom if m.catalogue and m.catalogue.famille else "",
             "fournisseur": m.fournisseur.nom if m.fournisseur else "",
             "fournisseur_id": m.fournisseur.id if m.fournisseur else None,
             "stock": m.stock,
@@ -136,14 +129,10 @@ def api_medicaments_liste(request):
             ),
         })
 
-    # Permet de retourner la liste directement OU un dictionnaire selon safe
     return JsonResponse(data, safe=False)
 
+
 # ===================== DJANGO VIEWS =====================
-from django.shortcuts import render
-from django.utils import timezone
-from datetime import timedelta
-from django.db.models import Sum, F
 
 def pharmacie_dashboard(request):
     today = timezone.localdate()
@@ -167,7 +156,6 @@ def pharmacie_dashboard(request):
     total_consultations = Consultation.objects.count()
     total_rdv = RendezVous.objects.count()
 
-    # Recettes aujourd'hui
     recettes_aujourdhui = Vente.objects.filter(
         date__date=today
     ).aggregate(total=Sum("total"))["total"] or 0
@@ -175,21 +163,16 @@ def pharmacie_dashboard(request):
     total_medicaments = Medicament.objects.count()
     total_fournisseurs = Fournisseur.objects.count() if 'Fournisseur' in globals() else 0
     
-    # Stock critique
     stock_critique = Medicament.objects.filter(
         stock__lte=F('seuil_alerte')
     ).select_related('catalogue', 'catalogue__famille')
 
-    # Derniers ajouts de médicaments (nommé medicaments_recent pour correspondre au template)
     medicaments_recent = Medicament.objects.select_related('catalogue', 'catalogue__famille').order_by('-id')[:5]
-
-    # ✅ AJOUT : Récupération des dernières ventes réelles pour la table
     dernieres_ventes = Vente.objects.select_related(
         'ordonnance__consultation__client', 
         'client'
     ).order_by('-date')[:5]
 
-    # Données graphiques / 7 derniers jours
     jours_mois = []
     ventes_mois = []
     consultations_mois = []
@@ -212,12 +195,12 @@ def pharmacie_dashboard(request):
         "prochains_rdv": prochains_rdv,
         "total_consultations": total_consultations,
         "total_rdv": total_rdv,
-        "recettes_aujourdhui": recettes_aujourdhui,  # Fix 1 : Renommé
+        "recettes_aujourdhui": recettes_aujourdhui,
         "total_medicaments": total_medicaments,
         "total_fournisseurs": total_fournisseurs,
         "stock_critique": stock_critique,
-        "medicaments_recent": medicaments_recent,    # Fix 2 : Renommé
-        "dernieres_ventes": dernieres_ventes,        # Fix 3 : Ajouté
+        "medicaments_recent": medicaments_recent,
+        "dernieres_ventes": dernieres_ventes,
         "jours_mois": jours_mois,
         "ventes_mois": ventes_mois,
         "consultations_mois": consultations_mois,
@@ -226,11 +209,7 @@ def pharmacie_dashboard(request):
     return render(request, "pharmacie/dashboard.html", context)
 
 
-# ✅ VUE MANQUANTE : medicaments_list
 def medicaments_list(request):
-    """
-    Affiche la liste complète des médicaments pour la page web HTML.
-    """
     search = request.GET.get("search", "")
     famille_id = request.GET.get("famille", "")
 
@@ -366,7 +345,6 @@ def api_fournisseurs(request):
 
 
 def api_alertes(request):
-    """Alertes stock pour le dashboard Flutter."""
     alertes = (
         Medicament.objects
         .select_related("catalogue", "fournisseur")
@@ -387,7 +365,6 @@ def api_alertes(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_medicament(request):
-    """POST /pharmacie/api/ajouter/"""
     try:
         data = json.loads(request.body)
 
@@ -432,7 +409,6 @@ def api_ajouter_medicament(request):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def api_modifier_medicament(request, medicament_id):
-    """PUT /pharmacie/api/<id>/modifier/"""
     try:
         medicament = Medicament.objects.select_related(
             "catalogue__famille", "fournisseur"
@@ -480,7 +456,6 @@ def api_modifier_medicament(request, medicament_id):
 @csrf_exempt
 @require_http_methods(["DELETE"])
 def api_supprimer_medicament(request, medicament_id):
-    """DELETE /pharmacie/api/<id>/supprimer/"""
     try:
         medicament = Medicament.objects.get(pk=medicament_id)
         medicament.delete()
@@ -491,47 +466,183 @@ def api_supprimer_medicament(request, medicament_id):
         return JsonResponse({"error": str(e)}, status=400)
 
 
-@require_http_methods(["GET"])
-def api_medicaments_liste(request):
-    """
-    GET /pharmacie/api/liste/
-    """
-    qs = Medicament.objects.select_related(
-        "catalogue__famille", "fournisseur"
-    ).all().order_by("catalogue__nom")
+@csrf_exempt
+@require_POST
+def vente_directe_save(request):
+    try:
+        data = json.loads(request.body)
 
-    search = request.GET.get("search", "")
-    if search:
-        qs = qs.filter(
-            Q(catalogue__nom__icontains=search) |
-            Q(catalogue__famille__nom__icontains=search)
+        if "lignes" not in data:
+            return JsonResponse({"error": "Aucune ligne envoyée"}, status=400)
+
+        with transaction.atomic():
+            vente = Vente.objects.create(total=0)
+
+            if data.get('client_id'):
+                try:
+                    client = Client.objects.get(id=data['client_id'])
+                    vente.client = client
+                    vente.save()
+                except Client.DoesNotExist:
+                    return JsonResponse({"error": "Client introuvable"}, status=400)
+
+            total = 0
+
+            for ligne in data["lignes"]:
+                try:
+                    med = Medicament.objects.select_for_update().get(id=ligne["medicament_id"])
+                except Medicament.DoesNotExist:
+                    return JsonResponse({"error": "Médicament introuvable"}, status=400)
+
+                qte = int(ligne.get("quantite", 0))
+
+                if qte <= 0:
+                    return JsonResponse({"error": "Quantité invalide"}, status=400)
+
+                if med.stock < qte:
+                    return JsonResponse(
+                        {"error": f"Stock insuffisant pour {med.catalogue.nom}"},
+                        status=400
+                    )
+
+                montant = qte * med.prix
+
+                LigneVente.objects.create(
+                    vente=vente,
+                    medicament=med,
+                    quantite=qte,
+                    prix_unitaire=med.prix,
+                    montant_total=montant
+                )
+
+                med.stock -= qte
+                med.save()
+
+                # 💡 Notification automatique si le stock devient critique ou bas
+                if med.stock <= med.seuil_alerte:
+                    nom_med = med.catalogue.nom if med.catalogue else "Médicament"
+                    notify_all_docteurs(
+                        title="⚠️ Alerte Stock Critique",
+                        body=f"Stock bas pour '{nom_med}' (Restant: {med.stock}).",
+                        data={"type": "stock", "medicament_id": str(med.id)}
+                    )
+
+                total += montant
+
+            vente.total = total
+            vente.save()
+
+        # 💡 Notification globale pour la validation de la vente
+        notify_all_docteurs(
+            title="💰 Nouvelle Vente Validée",
+            body=f"Une vente d'un montant de {total} FCFA a été enregistrée.",
+            data={"type": "vente", "id": str(vente.id)}
         )
 
-    data = []
-    for m in qs:
-        data.append({
-            "id": m.id,
-            "nom": m.catalogue.nom if m.catalogue else "",
-            "famille": m.catalogue.famille.nom if m.catalogue and m.catalogue.famille else "",
-            "fournisseur": m.fournisseur.nom if m.fournisseur else "",
-            "fournisseur_id": m.fournisseur.id if m.fournisseur else None,
-            "stock": m.stock,
-            "prix": float(m.prix or 0),
-            "seuil_alerte": m.seuil_alerte,
-            "statut": (
-                "Rupture" if m.stock == 0
-                else "Alerte" if m.stock <= m.seuil_alerte
-                else "OK"
-            ),
+        return JsonResponse({
+            "success": True,
+            "id": vente.id,
+            "total": total
         })
 
-    return JsonResponse(data, safe=False)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON invalide"}, status=400)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
-# ===================== EXPORTS EXCEL / PDF =====================
+@login_required
+@require_POST
+def terminer_consultation(request, consultation_id):
+    consultation = get_object_or_404(Consultation, id=consultation_id)
+
+    if consultation.statut == "terminee":
+        return JsonResponse({
+            'status': 'OK',
+            'message': 'Consultation déjà terminée.',
+            'redirect_url': reverse("consultation_detail", kwargs={'consultation_id': consultation.id})
+        })
+
+    ordonnance = Ordonnance.objects.filter(consultation=consultation).first()
+
+    if not ordonnance:
+        return JsonResponse({
+            'error': "Aucune ordonnance n'a été trouvée pour cette consultation.",
+            'redirect_url': reverse("ordonnance_create", kwargs={'consultation_id': consultation.id})
+        }, status=400)
+
+    if not ordonnance.lignes.exists():
+        return JsonResponse({
+            'error': "Impossible de terminer la consultation : l'ordonnance doit contenir au moins un médicament."
+        }, status=400)
+
+    try:
+        with transaction.atomic():
+            for ligne in ordonnance.lignes.select_related("medicament").select_for_update():
+                if ligne.medicament.stock < ligne.quantite:
+                    return JsonResponse({
+                        'error': f"Stock insuffisant pour {ligne.medicament.catalogue.nom}. Stock actuel : {ligne.medicament.stock}"
+                    }, status=400)
+
+            vente = Vente.objects.create(
+                ordonnance=ordonnance,
+                total=0
+            )
+
+            total = 0
+            for ligne in ordonnance.lignes.all():
+                montant = ligne.quantite * ligne.medicament.prix
+                LigneVente.objects.create(
+                    vente=vente,
+                    medicament=ligne.medicament,
+                    quantite=ligne.quantite,
+                    prix_unitaire=ligne.medicament.prix,
+                    montant_total=montant
+                )
+                total += montant
+
+                med = ligne.medicament
+                med.stock -= ligne.quantite
+                med.save()
+
+                # 💡 Alerte stock critique si besoin après clôture de consultation
+                if med.stock <= med.seuil_alerte:
+                    nom_med = med.catalogue.nom if med.catalogue else "Médicament"
+                    notify_all_docteurs(
+                        title="⚠️ Alerte Stock Critique",
+                        body=f"Stock bas pour '{nom_med}' (Restant: {med.stock}).",
+                        data={"type": "stock", "medicament_id": str(med.id)}
+                    )
+
+            vente.total = total
+            vente.save()
+
+            consultation.statut = "terminee"
+            consultation.save()
+
+        # 💡 Notification de fin de consultation
+        nom_animal = consultation.animal.nom if consultation.animal else "Patient"
+        notify_all_docteurs(
+            title="🩺 Consultation Clôturée",
+            body=f"La consultation pour {nom_animal} a été finalisée.",
+            data={"type": "consultation", "id": str(consultation.id)}
+        )
+
+        return JsonResponse({
+            'status': 'OK',
+            'message': 'Consultation terminée avec succès.',
+            'redirect_url': reverse("vente_detail", kwargs={'vente_id': vente.id})
+        })
+
+    except Exception as exc:
+        logger.error(f"Erreur terminer_consultation: {exc}")
+        return JsonResponse({
+            'error': "Une erreur est survenue lors de la validation de la consultation."
+        }, status=500)
+
 
 def export_pharmacie_excel(request):
-    """GET /pharmacie/export/excel/"""
     wb = Workbook()
     ws = wb.active
     ws.title = "Pharmacie"
@@ -573,7 +684,6 @@ def export_pharmacie_excel(request):
 
 
 def export_pharmacie_pdf(request):
-    """GET /pharmacie/export/pdf/"""
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="pharmacie.pdf"'
 
@@ -588,9 +698,9 @@ def export_pharmacie_pdf(request):
 
     titre_style = styles["Heading2"]
     titre_style.alignment = TA_CENTER
-    elements.append(Paragraph("<b>ÉTAT DU STOCK - PHARMACIE PARCELLES VÉTO</b>", titre_style))
+    elements.append(Paragraph("**ÉTAT DU STOCK - PHARMACIE PARCELLES VÉTO**", titre_style))
     elements.append(Paragraph(
-        f"<para alignment='center'><font size='9'>Édité le {timezone.now().strftime('%d/%m/%Y %H:%M')}</font></para>",
+        f"Édité le {timezone.now().strftime('%d/%m/%Y %H:%M')}",
         styles["Normal"],
     ))
     elements.append(Spacer(1, 0.5 * cm))
@@ -670,16 +780,11 @@ def ajouter_catalogue_ajax(request):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    # pharmacie/views.py
-
 
 @csrf_exempt
 @login_required
 @require_POST
 def api_creer_medicament_express(request):
-    """
-    Création rapide d'un médicament directement depuis l'interface de vente.
-    """
     try:
         data = json.loads(request.body)
         nom = data.get("nom", "").strip()
@@ -691,16 +796,13 @@ def api_creer_medicament_express(request):
         if not nom:
             return JsonResponse({"success": False, "error": "Le nom du médicament est requis."}, status=400)
 
-        # 1. Création ou récupération de la famille
         famille, _ = FamilleMedicament.objects.get_or_create(nom=famille_nom)
 
-        # 2. Création ou récupération dans le catalogue
         catalogue, _ = CatalogueMedicament.objects.get_or_create(
             nom=nom,
             defaults={"famille": famille}
         )
 
-        # 3. Création de l'entrée dans le stock Pharmacie
         medicament, created = Medicament.objects.get_or_create(
             catalogue=catalogue,
             defaults={
@@ -710,7 +812,6 @@ def api_creer_medicament_express(request):
             }
         )
 
-        # Si le médicament existait déjà, on met à jour son stock/prix
         if not created:
             medicament.stock += stock
             medicament.prix = prix
@@ -729,20 +830,17 @@ def api_creer_medicament_express(request):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
 
-from django.http import JsonResponse
-from django.db.models import Q
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def recherche_rapide_medicament(request):
     query = request.GET.get('q', '').strip()
     resultats = []
     
-    if len(query) >= 2:  # Recherche à partir de 2 caractères
+    if len(query) >= 2: 
         medicaments = Medicament.objects.filter(
             Q(catalogue__nom__icontains=query) |
             Q(catalogue__famille__nom__icontains=query)
-        ).select_related('catalogue', 'catalogue__famille')[:8] # Limite à 8 résultats
+        ).select_related('catalogue', 'catalogue__famille')[:8]
         
         for med in medicaments:
             resultats.append({
@@ -755,12 +853,10 @@ def recherche_rapide_medicament(request):
                 'en_rupture': med.stock == 0,
             })
             
-    return JsonResponse({'medicaments': resultats})    
+    return JsonResponse({'medicaments': resultats}) 
 
-# pharmacie/views.py
 
 def recherche_medicament_page(request):
-    # Récupère le paramètre ?q= dans l'URL (ex: ?q=9)
     query = request.GET.get('q', '')
     familles = FamilleMedicament.objects.all()
     
@@ -769,9 +865,6 @@ def recherche_medicament_page(request):
         'query': query,
     })
 
-
-from django.shortcuts import render, get_object_or_404
-from .models import Medicament 
 
 def medicament_detail(request, pk):
     medicament = get_object_or_404(Medicament, pk=pk)
