@@ -8,9 +8,6 @@ from django.shortcuts import redirect
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-
-from django.shortcuts import redirect
-
 def home(request):
     """
     Redirige l'utilisateur en fonction de son état de connexion et de son rôle.
@@ -61,9 +58,12 @@ urlpatterns = [
     path("caisse/", include("caisse.urls")),
     path("fournisseurs/", include("fournisseurs.urls")),
     
+    # 🔔 Application notifications (Ajouté ici)
+    path("notifications/", include("notifications.urls")),
+    
     # 🩺 Action spécifique
     path(
-        "consultations/<int:consultation_id>/terminer/",
+        "consultations//terminer/",
         views.terminer_consultation,
         name="terminer_consultation",
     ),
