@@ -1,18 +1,18 @@
-# ventes/urls.py — VERSION COMPLÈTE
+# ventes/urls.py — VERSION CORRIGÉE
 from django.urls import path
 from . import views
 
 urlpatterns = [
     # Pages web existantes
-    path('',                        views.ventes_list,          name='ventes_list'),
-    path('create/',                 views.vente_create,         name='vente_create'),
-    path('/',         views.vente_detail,         name='vente_detail'),
-    path('pdf//',     views.vente_pdf,            name='vente_pdf'),
-    path('directe/save/',           views.vente_directe_save,   name='vente_directe_save'),
+    path('', views.ventes_list, name='ventes_list'),
+    path('create/', views.vente_create, name='vente_create'),
+    path('/', views.vente_detail, name='vente_detail'),      # ✅ Corrigé
+    path('/pdf/', views.vente_pdf, name='vente_pdf'),        # ✅ Corrigé
+    path('directe/save/', views.vente_directe_save, name='vente_directe_save'),
 
     # ✅ API Flutter — Nouvelle vente directe (liée à api_vente_directe_creer)
-    path('api/nouvelle/',           views.api_vente_directe_creer, name='api_vente_directe_creer'),
-    path('api/directe/creer/',      views.api_vente_directe_creer, name='api_vente_directe_creer_alt'),
+    path('api/nouvelle/', views.api_vente_directe_creer, name='api_vente_directe_creer'),
+    path('api/directe/creer/', views.api_vente_directe_creer, name='api_vente_directe_creer_alt'),
 
     # ✅ API Flutter — Liste & stats
     path('api/liste/', views.api_ventes_liste, name='api_ventes_liste'),
