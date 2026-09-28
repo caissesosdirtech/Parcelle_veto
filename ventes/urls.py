@@ -6,7 +6,7 @@ urlpatterns = [
     # Pages web existantes
     path('', views.ventes_list, name='ventes_list'),
     path('create/', views.vente_create, name='vente_create'),
-    path('/', views.vente_detail, name='vente_detail'),          # ✅ Corrigé
+    path('/', views.vente_detail, name='vente_detail'),
     path('/pdf/', views.vente_pdf, name='vente_pdf'),        # ✅ Corrigé
     path('directe/save/', views.vente_directe_save, name='vente_directe_save'),
 
