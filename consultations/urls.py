@@ -241,14 +241,5 @@ urlpatterns = [
     ),
 
 
-    # =========================================================
-    # API FLUTTER — VENTES DIRECTES
-    # =========================================================
-
-    path(
-        "api/vente/directe/creer/",
-        views.api_vente_directe_creer,
-        name="api_vente_directe_creer"
-    ),
 
 ]

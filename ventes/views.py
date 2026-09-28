@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.utils.timezone import now
 
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 
 from pharmacie.models import Medicament
 from clients.models import Client
@@ -168,65 +168,77 @@ def vente_create(request):
 
 
 @csrf_exempt
-@require_POST
-def vente_directe_save(request):
+@require_http_methods(["POST"])
+def api_vente_directe_creer(request):
+    """
+    POST /ventes/api/directe/creer/ (ou /ventes/api/nouvelle/)
+
+    Payload attendu :
+    {
+        "client_id":  ou null,   // null = vente anonyme
+        "lignes": [
+            {"medicament_id": , "quantite": },
+            ...
+        ]
+    }
+    """
     try:
         data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Format JSON invalide."}, status=400)
 
-        if "lignes" not in data:
-            return JsonResponse({"error": "Aucune ligne envoyée"}, status=400)
+    lignes_payload = data.get("lignes", [])
+    if not lignes_payload:
+        return JsonResponse({"error": "Le panier est vide."}, status=400)
 
-        # Rempli pendant la transaction, utilisé après pour les notifications
-        alertes_stock = []
+    client_id = data.get("client_id")
+    client = None
+    if client_id:
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            return JsonResponse({"error": f"Client introuvable (ID: {client_id})."}, status=404)
 
+    alertes_stock = []
+
+    try:
         with transaction.atomic():
-            vente = Vente.objects.create(total=0)
-
-            if data.get('client_id'):
-                try:
-                    client = Client.objects.get(id=data['client_id'])
-                    vente.client = client
-                    vente.save()
-                except Client.DoesNotExist:
-                    transaction.set_rollback(True)
-                    return JsonResponse({"error": "Client introuvable"}, status=400)
+            vente = Vente.objects.create(ordonnance=None, client=client, total=0)
 
             total = 0
+            for item in lignes_payload:
+                med_id = item.get("medicament_id")
+                quantite = int(item.get("quantite", 1))
 
-            for ligne in data["lignes"]:
+                if quantite <= 0:
+                    transaction.set_rollback(True)
+                    return JsonResponse({"error": "Quantité invalide."}, status=400)
+
                 try:
-                    med = Medicament.objects.select_for_update().get(id=ligne["medicament_id"])
+                    med = Medicament.objects.select_for_update().get(id=med_id)
                 except Medicament.DoesNotExist:
                     transaction.set_rollback(True)
-                    return JsonResponse({"error": "Médicament introuvable"}, status=400)
+                    return JsonResponse({"error": f"Médicament introuvable (ID: {med_id})."}, status=404)
 
-                qte = int(ligne.get("quantite", 0))
-
-                if qte <= 0:
+                if med.stock < quantite:
                     transaction.set_rollback(True)
-                    return JsonResponse({"error": "Quantité invalide"}, status=400)
+                    nom = med.catalogue.nom if hasattr(med, 'catalogue') and med.catalogue else str(med)
+                    return JsonResponse({
+                        "error": f"Stock insuffisant pour {nom}. Stock actuel : {med.stock}"
+                    }, status=400)
 
-                if med.stock < qte:
-                    transaction.set_rollback(True)
-                    return JsonResponse(
-                        {"error": f"Stock insuffisant pour {med.catalogue.nom}"},
-                        status=400
-                    )
-
-                montant = qte * med.prix
-
+                montant = quantite * med.prix
                 LigneVente.objects.create(
                     vente=vente,
                     medicament=med,
-                    quantite=qte,
+                    quantite=quantite,
                     prix_unitaire=med.prix,
                     montant_total=montant
                 )
 
-                med.stock -= qte
+                med.stock -= quantite
                 med.save()
 
-                # On note l'alerte ici, mais on l'enverra après la transaction
                 if med.stock <= med.seuil_alerte:
                     nom_med = med.catalogue.nom if med.catalogue else "Médicament"
                     alertes_stock.append((nom_med, med.stock, med.id))
@@ -236,7 +248,7 @@ def vente_directe_save(request):
             vente.total = total
             vente.save()
 
-        # ── Notifications, une fois la vente réellement enregistrée ──────────
+        # Notifications hors de la transaction atomique principale
         notify_all_docteurs(
             title="💰 Nouvelle Vente Validée",
             body=f"Une vente d'un montant de {total} FCFA a été enregistrée.",
@@ -252,15 +264,23 @@ def vente_directe_save(request):
 
         return JsonResponse({
             "success": True,
+            "message": "Vente enregistrée avec succès.",
             "id": vente.id,
-            "total": total
-        })
+            "vente_id": vente.id,
+            "total": float(total),
+        }, status=201)
 
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "JSON invalide"}, status=400)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(f"Erreur api_vente_directe_creer: {exc}")
+        return JsonResponse({
+            "error": f"Une erreur est survenue lors de l'enregistrement de la vente : {exc}"
+        }, status=500)
 
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+
+# Gardé pour rétrocompatibilité si utilisé ailleurs
+vente_directe_save = api_vente_directe_creer
+
 
 # ===================== API FLUTTER =====================
 
@@ -469,9 +489,9 @@ def export_vente_jour_pdf(request):
 
     titre_style = styles["Heading2"]
     titre_style.alignment = TA_CENTER
-    elements.append(Paragraph("<b>VENTE DU JOUR — PARCELLES VÉTO</b>", titre_style))
+    elements.append(Paragraph("**VENTE DU JOUR — PARCELLES VÉTO**", titre_style))
     elements.append(Paragraph(
-        f"<para alignment='center'><font size='10'>{jour_label}</font></para>",
+        f"{jour_label}",
         styles["Normal"],
     ))
     elements.append(Spacer(1, 0.5 * cm))
@@ -513,7 +533,7 @@ def export_vente_jour_pdf(request):
 
     resume_style = styles["Normal"]
     resume_style.alignment = TA_RIGHT
-    elements.append(Paragraph(f"<b>Nombre de ventes : {ventes.count()}</b>", resume_style))
+    elements.append(Paragraph(f"**Nombre de ventes : {ventes.count()}**", resume_style))
 
     doc.build(elements)
     return response
