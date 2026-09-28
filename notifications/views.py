@@ -1,39 +1,37 @@
-from rest_framework.decorators import api_view, permission_classes
+# Fichier : notifications/views.py
+
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Notification
 
 
 def creer_notification(titre, message, type_action):
     """
-    Fonction utilitaire pour créer une notification
-    dans la base PostgreSQL.
+    Fonction utilitaire à appeler dans vos autres vues (ventes, stocks, rdv)
+    pour enregistrer instantanément une notification en base PostgreSQL.
     """
     try:
         Notification.objects.create(
             titre=titre,
             message=message,
-            type_action=type_action,
+            type_action=type_action
         )
     except Exception as e:
-        print(
-            f"Erreur lors de la création de la notification : {e}"
-        )
+        print(f"Erreur lors de la création de la notification : {e}")
 
 
 @api_view(['GET'])
 def lister_notifications(request):
     """
-    Récupère les 30 dernières notifications.
+    API pour l'application Flutter : Récupère les 30 dernières notifications
+    et le compteur des messages non lus.
     """
     try:
         notifications = Notification.objects.all()[:30]
-
-        non_lues_count = Notification.objects.filter(
-            lue=False
-        ).count()
+        non_lues_count = Notification.objects.filter(lue=False).count()
 
         data = {
             "non_lues": non_lues_count,
@@ -44,97 +42,44 @@ def lister_notifications(request):
                     "message": n.message,
                     "type_action": n.type_action,
                     "lue": n.lue,
-                    "date": n.date_creation.strftime(
-                        "%d/%m/%Y à %H:%M"
-                    ),
+                    "date": n.date_creation.strftime("%d/%m/%Y à %H:%M"),
                 }
                 for n in notifications
-            ],
+            ]
         }
-
-        return Response(
-            data,
-            status=status.HTTP_200_OK,
-        )
-
+        return Response(data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
 def marquer_comme_lues(request):
     """
-    Marque toutes les notifications comme lues.
+    API pour marquer toutes les notifications comme lues lorsque le docteur clique sur la cloche.
     """
     try:
-        Notification.objects.filter(
-            lue=False
-        ).update(lue=True)
-
-        return Response(
-            {
-                "status": "succes",
-                "message": "Notifications marquées comme lues.",
-            },
-            status=status.HTTP_200_OK,
-        )
-
+        Notification.objects.filter(lue=False).update(lue=True)
+        return Response({"status": "succes", "message": "Notifications marquées comme lues."}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def enregistrer_fcm_token(request):
     """
-    Enregistre le token FCM de l'utilisateur actuellement connecté.
+    Enregistre (ou met à jour) le token FCM de l'utilisateur connecté,
+    pour que le backend sache à quel appareil envoyer les notifications
+    push, y compris quand l'app est fermée.
     """
-
-    # Vérification de sécurité
-    if not request.user or not request.user.is_authenticated:
-        return Response(
-            {
-                "error": "Utilisateur non authentifié."
-            },
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    fcm_token = request.data.get("fcm_token")
-
+    fcm_token = request.data.get('fcm_token')
     if not fcm_token:
-        return Response(
-            {
-                "error": "Token FCM manquant."
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        return Response({'error': 'Token FCM manquant.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        utilisateur = request.user
+    # Sauvegarde réelle sur le compte connecté (champ fcm_token présent
+    # directement sur accounts.models.Utilisateur).
+    request.user.fcm_token = fcm_token
+    request.user.save(update_fields=['fcm_token'])
 
-        utilisateur.fcm_token = fcm_token
-        utilisateur.save(
-            update_fields=["fcm_token"]
-        )
-
-        return Response(
-            {
-                "message": "Token FCM enregistré avec succès.",
-                "utilisateur": utilisateur.username,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    except Exception as e:
-        return Response(
-            {
-                "error": str(e)
-            },
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+    return Response({'message': 'Token FCM enregistré avec succès.'}, status=status.HTTP_200_OK)
