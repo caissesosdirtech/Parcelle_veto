@@ -608,20 +608,6 @@ from .models import Consultation  # Ajustez selon le nom exact de votre modèle
 from django.http import JsonResponse
 from .models import Consultation, Ordonnance, LigneOrdonnance
 
-def api_consultations_liste(request):
-    consultations = Consultation.objects.select_related('client', 'animal').all()
-    data = []
-    for c in consultations:
-        data.append({
-            'id': c.id,
-            'statut': c.statut,
-            'motif': c.motif,
-            'client_nom': str(c.client) if c.client else "Non renseigné",
-            'animal_nom': str(c.animal) if c.animal else "Non renseigné",
-        })
-    return JsonResponse(data, safe=False)
-
-
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -885,21 +871,6 @@ def api_ajouter_consultation(request):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return JsonResponse({"error": str(e)}, status=400)
-
-@csrf_exempt
-@require_http_methods(["POST", "PUT"])
-def api_modifier_statut_consultation(request, consultation_id):
-    """POST/PUT /consultations/api//statut/"""
-    try:
-        consultation = Consultation.objects.get(pk=consultation_id)
-        data = json.loads(request.body)
-        consultation.statut = data.get("statut", consultation.statut)
-        consultation.save()
-        return JsonResponse({"id": consultation.id, "statut": consultation.statut})
-    except Consultation.DoesNotExist:
-        return JsonResponse({"error": "Consultation introuvable"}, status=404)
-    except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
 
