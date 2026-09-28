@@ -1,27 +1,102 @@
-# ventes/urls.py — VERSION CORRIGÉE
+# ventes/urls.py
 from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Pages web existantes
-    path('', views.ventes_list, name='ventes_list'),
-    path('create/', views.vente_create, name='vente_create'),
-    path('/', views.vente_detail, name='vente_detail'),
-    path('/pdf/', views.vente_pdf, name='vente_pdf'),        # ✅ Corrigé
-    path('directe/save/', views.vente_directe_save, name='vente_directe_save'),
+    # ============================================================
+    # PAGES WEB
+    # ============================================================
 
-    # ✅ API Flutter — Nouvelle vente directe (liée à api_vente_directe_creer)
-    path('api/nouvelle/', views.api_vente_directe_creer, name='api_vente_directe_creer'),
-    path('api/directe/creer/', views.api_vente_directe_creer, name='api_vente_directe_creer_alt'),
+    # Liste des ventes
+    path(
+        "",
+        views.ventes_list,
+        name="ventes_list"
+    ),
 
-    # ✅ API Flutter — Liste & stats
-    path('api/liste/', views.api_ventes_liste, name='api_ventes_liste'),
-    path('api/stats/', views.api_ventes_stats, name='api_ventes_stats'),
+    # Création d'une vente
+    path(
+        "create/",
+        views.vente_create,
+        name="vente_create"
+    ),
 
-    # ✅ API Flutter — Vente du jour
-    path('api/vente-jour/', views.api_vente_jour, name='api_vente_jour'),
+    # Détail d'une vente
+    path(
+        "<int:vente_id>/",
+        views.vente_detail,
+        name="vente_detail"
+    ),
 
-    # ✅ Exports vente du jour
-    path('export/jour/pdf/', views.export_vente_jour_pdf, name='export_vente_jour_pdf'),
-    path('export/jour/excel/', views.export_vente_jour_excel, name='export_vente_jour_excel'),
+    # PDF d'une vente
+    path(
+        "<int:vente_id>/pdf/",
+        views.vente_pdf,
+        name="vente_pdf"
+    ),
+
+    # Vente directe
+    path(
+        "directe/save/",
+        views.vente_directe_save,
+        name="vente_directe_save"
+    ),
+
+    # ============================================================
+    # API FLUTTER — VENTE DIRECTE
+    # ============================================================
+
+    path(
+        "api/nouvelle/",
+        views.api_vente_directe_creer,
+        name="api_vente_directe_creer"
+    ),
+
+    path(
+        "api/directe/creer/",
+        views.api_vente_directe_creer,
+        name="api_vente_directe_creer_alt"
+    ),
+
+    # ============================================================
+    # API FLUTTER — LISTE & STATISTIQUES
+    # ============================================================
+
+    path(
+        "api/liste/",
+        views.api_ventes_liste,
+        name="api_ventes_liste"
+    ),
+
+    path(
+        "api/stats/",
+        views.api_ventes_stats,
+        name="api_ventes_stats"
+    ),
+
+    # ============================================================
+    # API FLUTTER — VENTE DU JOUR
+    # ============================================================
+
+    path(
+        "api/vente-jour/",
+        views.api_vente_jour,
+        name="api_vente_jour"
+    ),
+
+    # ============================================================
+    # EXPORTS
+    # ============================================================
+
+    path(
+        "export/jour/pdf/",
+        views.export_vente_jour_pdf,
+        name="export_vente_jour_pdf"
+    ),
+
+    path(
+        "export/jour/excel/",
+        views.export_vente_jour_excel,
+        name="export_vente_jour_excel"
+    ),
 ]
