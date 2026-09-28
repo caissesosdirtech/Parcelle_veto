@@ -1,3 +1,4 @@
+from notifications.firebase_utils import notify_all_docteurs
 from rest_framework import viewsets
 from django.shortcuts import render, redirect, get_object_or_404
 
@@ -175,6 +176,9 @@ def vente_directe_save(request):
         if "lignes" not in data:
             return JsonResponse({"error": "Aucune ligne envoyée"}, status=400)
 
+        # Rempli pendant la transaction, utilisé après pour les notifications
+        alertes_stock = []
+
         with transaction.atomic():
             vente = Vente.objects.create(total=0)
 
@@ -184,22 +188,26 @@ def vente_directe_save(request):
                     vente.client = client
                     vente.save()
                 except Client.DoesNotExist:
+                    transaction.set_rollback(True)
                     return JsonResponse({"error": "Client introuvable"}, status=400)
 
             total = 0
 
             for ligne in data["lignes"]:
                 try:
-                    med = Medicament.objects.get(id=ligne["medicament_id"])
+                    med = Medicament.objects.select_for_update().get(id=ligne["medicament_id"])
                 except Medicament.DoesNotExist:
+                    transaction.set_rollback(True)
                     return JsonResponse({"error": "Médicament introuvable"}, status=400)
 
                 qte = int(ligne.get("quantite", 0))
 
                 if qte <= 0:
+                    transaction.set_rollback(True)
                     return JsonResponse({"error": "Quantité invalide"}, status=400)
 
                 if med.stock < qte:
+                    transaction.set_rollback(True)
                     return JsonResponse(
                         {"error": f"Stock insuffisant pour {med.catalogue.nom}"},
                         status=400
@@ -218,10 +226,29 @@ def vente_directe_save(request):
                 med.stock -= qte
                 med.save()
 
+                # On note l'alerte ici, mais on l'enverra après la transaction
+                if med.stock <= med.seuil_alerte:
+                    nom_med = med.catalogue.nom if med.catalogue else "Médicament"
+                    alertes_stock.append((nom_med, med.stock, med.id))
+
                 total += montant
 
             vente.total = total
             vente.save()
+
+        # ── Notifications, une fois la vente réellement enregistrée ──────────
+        notify_all_docteurs(
+            title="💰 Nouvelle Vente Validée",
+            body=f"Une vente d'un montant de {total} FCFA a été enregistrée.",
+            data={"type": "vente", "id": str(vente.id)}
+        )
+
+        for nom_med, stock_restant, med_id in alertes_stock:
+            notify_all_docteurs(
+                title="⚠️ Alerte Stock Critique",
+                body=f"Stock bas pour '{nom_med}' (Restant: {stock_restant}).",
+                data={"type": "stock", "medicament_id": str(med_id)}
+            )
 
         return JsonResponse({
             "success": True,
@@ -234,7 +261,6 @@ def vente_directe_save(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 # ===================== API FLUTTER =====================
 

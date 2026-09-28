@@ -1,3 +1,4 @@
+from notifications.firebase_utils import notify_all_docteurs
 import json
 import logging
 from datetime import datetime
@@ -26,7 +27,6 @@ from clients.models import Client
 from pharmacie.models import Medicament
 from ventes.models import LigneVente, Vente
 
-from notifications.firebase_utils import notify_all_docteurs
 
 
 from .models import Consultation, LigneOrdonnance, Ordonnance, RendezVous, RendezVousManuel
@@ -426,6 +426,22 @@ def terminer_consultation(request, consultation_id):
             consultation.statut = "terminee"
             consultation.save()
 
+        # ── Notifications (après le commit de la transaction) ──
+        nom_animal = consultation.animal.nom if consultation.animal else "Patient"
+        notify_all_docteurs(
+            title="🩺 Consultation Clôturée",
+            body=f"La consultation pour {nom_animal} a été finalisée.",
+            data={"type": "consultation", "id": str(consultation.id)},
+        )
+        for ligne in ordonnance.lignes.all():
+            med = Medicament.objects.select_related("catalogue").get(pk=ligne.medicament_id)
+            if med.stock <= med.seuil_alerte:
+                notify_all_docteurs(
+                    title="⚠️ Alerte Stock Critique",
+                    body=f"Stock bas pour '{med.catalogue.nom}' (Restant: {med.stock}).",
+                    data={"type": "stock", "medicament_id": str(med.id)},
+                )
+
         # Succès : on renvoie le statut OK et l'URL vers la fiche de vente
         return JsonResponse({
             'status': 'OK',
@@ -433,7 +449,7 @@ def terminer_consultation(request, consultation_id):
             'redirect_url': reverse("vente_detail", kwargs={'vente_id': vente.id})
         })
 
-    except Exception as exc:
+    except Exception as exp:
         logger.error(f"Erreur terminer_consultation: {exc}")
         return JsonResponse({
             'error': "Une erreur est survenue lors de la validation de la consultation."
@@ -1286,9 +1302,6 @@ def api_terminer_consultation(request, consultation_id):
             "error": "Impossible de terminer la consultation : l'ordonnance doit contenir au moins un médicament."
         }, status=400)
 
-    # Rempli pendant la transaction, utilisé après pour les notifications
-    alertes_stock = []
-
     try:
         with transaction.atomic():
             # 1. Vérification du stock
@@ -1305,13 +1318,15 @@ def api_terminer_consultation(request, consultation_id):
                     }, status=400)
 
             # 2. Création de la Vente
+            # (le save() du modèle Vente s'occupe de la déduction du stock
+            # quand une ordonnance est rattachée : NE PAS la refaire ici)
             vente = Vente.objects.create(
                 ordonnance=ordonnance,
                 client=consultation.client,
                 total=0,
             )
 
-            # 3. Création des LigneVente pour la facture + décrémentation du stock
+            # 3. Création des LigneVente pour la facture
             total = 0
             for ligne in ordonnance.lignes.select_related("medicament").all():
                 prix_unit = getattr(ligne.medicament, 'prix', 0)
@@ -1323,23 +1338,13 @@ def api_terminer_consultation(request, consultation_id):
                 )
                 total += getattr(ligne_vente, 'montant_total', ligne.quantite * prix_unit)
 
-                # ⚠️ Décrémentation du stock — absente jusqu'ici sur ce flux
-                # mobile, contrairement à la version web équivalente.
-                med = ligne.medicament
-                med.stock -= ligne.quantite
-                med.save()
-
-                if med.stock <= med.seuil_alerte:
-                    nom_med = med.catalogue.nom if getattr(med, 'catalogue', None) else med_nom
-                    alertes_stock.append((nom_med, med.stock, med.id))
-
             vente.total = total
             vente.save()
 
             consultation.statut = "terminee"
             consultation.save()
 
-        # Notifications envoyées seulement après le succès de la transaction
+        # ── Notifications, une fois la transaction validée ───────────────────
         nom_animal = consultation.animal.nom if consultation.animal else "Patient"
         notify_all_docteurs(
             title="🩺 Consultation Clôturée",
@@ -1347,12 +1352,22 @@ def api_terminer_consultation(request, consultation_id):
             data={"type": "consultation", "id": str(consultation.id)}
         )
 
-        for nom_med, stock_restant, med_id in alertes_stock:
-            notify_all_docteurs(
-                title="⚠️ Alerte Stock Critique",
-                body=f"Stock bas pour '{nom_med}' (Restant: {stock_restant}).",
-                data={"type": "stock", "medicament_id": str(med_id)}
-            )
+        # Alertes de stock : on relit l'état réel en base, donc le résultat
+        # est correct quel que soit l'endroit où la déduction est faite.
+        ids_deja_notifies = set()
+        for ligne in ordonnance.lignes.all():
+            if ligne.medicament_id in ids_deja_notifies:
+                continue
+            ids_deja_notifies.add(ligne.medicament_id)
+
+            med = Medicament.objects.select_related("catalogue").get(pk=ligne.medicament_id)
+            if med.stock <= med.seuil_alerte:
+                nom_med = med.catalogue.nom if getattr(med, "catalogue", None) else f"Médicament #{med.id}"
+                notify_all_docteurs(
+                    title="⚠️ Alerte Stock Critique",
+                    body=f"Stock bas pour '{nom_med}' (Restant: {med.stock}).",
+                    data={"type": "stock", "medicament_id": str(med.id)}
+                )
 
         return JsonResponse({
             "status": "OK",
@@ -1362,8 +1377,7 @@ def api_terminer_consultation(request, consultation_id):
         })
 
     except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error(f"Erreur api_terminer_consultation: {exc}")
+        logger.error(f"Erreur api_terminer_consultation: {exc}")
         return JsonResponse({
             "error": f"Une erreur est survenue lors de la validation de la consultation : {exc}"
         }, status=500)
@@ -1601,6 +1615,13 @@ def api_ajouter_rdv(request):
             statut="EN_ATTENTE"
         )
 
+        # Notification des docteurs
+        notify_all_docteurs(
+            title="📅 Nouveau Rendez-vous",
+            body=f"RDV pour {animal.nom} ({animal.client.nom}) le {rdv.date_rdv:%d/%m/%Y à %H:%M}.",
+            data={"type": "rdv", "id": str(rdv.id)},
+        )
+
         return JsonResponse({
             "id": rdv.id,
             "message": "Rendez-vous créé avec succès",
@@ -1612,7 +1633,6 @@ def api_ajouter_rdv(request):
         return JsonResponse({"error": "Animal non trouvé"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
-
 
 # ==========================================
 # 3. CRÉER UN RDV MANUEL (APPEL DIRECT / NOUVEAU CLIENT)
@@ -1630,7 +1650,7 @@ def api_ajouter_rdv_manuel(request):
         "telephone": "+221 77 123 45 67",
         "date_rdv": "2026-09-26T14:00:00",
         "motif": "Première consultation / Vaccin",
-        "lieu": "cabinet",  // ou "domicile"
+        "lieu": "cabinet",
         "adresse": "Thiès Quartier Ngoumsane"
     }
     """
@@ -1650,15 +1670,25 @@ def api_ajouter_rdv_manuel(request):
             statut="EN_ATTENTE"
         )
 
+        # 🔔 Notification aux docteurs après création du RDV
+        notify_all_docteurs(
+            title="📅 Nouveau Rendez-vous",
+            body=f"RDV pour {rdv_manuel.nom_animal} ({rdv_manuel.nom_client}).",
+            data={
+                "type": "rdv",
+                "id": str(rdv_manuel.id),
+            },
+        )
+
         return JsonResponse({
             "id": rdv_manuel.id,
             "message": "Rendez-vous manuel enregistré avec succès"
         }, status=201)
 
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
-
-
+        return JsonResponse({
+            "error": str(e)
+        }, status=400)
 
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
@@ -1870,6 +1900,13 @@ def create_consultation(request):
 
             # 5. Création automatique de l'ordonnance rattachée
             ordonnance = Ordonnance.objects.create(consultation=consultation)
+
+        # ── Notification des docteurs (après le commit de la transaction) ──
+        notify_all_docteurs(
+            title="📋 Nouvelle Consultation",
+            body=f"Nouvelle consultation pour {animal.nom} ({client.nom}).",
+            data={"type": "consultation", "consultation_id": str(consultation.id)},
+        )
 
         # 6. Réponse JSON de succès
         return JsonResponse({
