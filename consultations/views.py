@@ -1,19 +1,22 @@
-from notifications.firebase_utils import notify_all_docteurs
 import json
 import logging
 from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import models, transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods, require_POST
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_POST
 
 from rest_framework import permissions, viewsets
+from rest_framework.decorators import api_view
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -24,10 +27,9 @@ from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer,
 
 from animaux.models import Animal
 from clients.models import Client
+from notifications.firebase_utils import notify_all_docteurs
 from pharmacie.models import Medicament
 from ventes.models import LigneVente, Vente
-
-
 
 from .models import Consultation, LigneOrdonnance, Ordonnance, RendezVous, RendezVousManuel
 from .serializers import (
@@ -39,6 +41,68 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
+
+# ===== OUTILS INTERNES (dates & notifications) =====
+
+def _aware(dt):
+    """Rend un datetime 'aware' (fuseau du projet) s'il est naïf.
+    Évite le RuntimeWarning 'naive datetime' dans les logs."""
+    if dt is not None and timezone.is_naive(dt):
+        return timezone.make_aware(dt)
+    return dt
+
+
+def _formater_date_rdv(date_rdv):
+    """Formate une date de RDV pour l'affichage dans une notification."""
+    if not date_rdv:
+        return "date non précisée"
+    try:
+        if timezone.is_aware(date_rdv):
+            date_rdv = timezone.localtime(date_rdv)
+        return date_rdv.strftime("%d/%m/%Y à %H:%M")
+    except Exception:
+        return str(date_rdv)
+
+
+def _notifier_nouveau_rdv(nom_animal, nom_client, date_rdv, rdv_id):
+    """Notifie le docteur d'un nouveau rendez-vous.
+    N'échoue jamais : une notification ratée ne doit pas casser la vue."""
+    try:
+        notify_all_docteurs(
+            title="📅 Nouveau Rendez-vous",
+            body=(
+                f"RDV pour {nom_animal or 'un animal'} "
+                f"({nom_client or 'client inconnu'}) "
+                f"le {_formater_date_rdv(date_rdv)}."
+            ),
+            data={"type": "rdv", "id": str(rdv_id)},
+        )
+    except Exception:
+        logger.exception("Échec de la notification de rendez-vous")
+
+
+def _notifier_alertes_stock(ordonnance):
+    """Après une clôture, relit le stock réel en base et notifie les
+    médicaments passés sous leur seuil d'alerte."""
+    try:
+        deja_traites = set()
+        for ligne in ordonnance.lignes.all():
+            if ligne.medicament_id in deja_traites:
+                continue
+            deja_traites.add(ligne.medicament_id)
+
+            med = Medicament.objects.select_related("catalogue").get(pk=ligne.medicament_id)
+            if med.stock <= med.seuil_alerte:
+                nom_med = med.catalogue.nom if getattr(med, "catalogue", None) else f"Médicament #{med.id}"
+                notify_all_docteurs(
+                    title="⚠️ Alerte Stock Critique",
+                    body=f"Stock bas pour '{nom_med}' (Restant: {med.stock}).",
+                    data={"type": "stock", "medicament_id": str(med.id)},
+                )
+    except Exception:
+        logger.exception("Échec des notifications d'alerte de stock")
+
+
 # ===== API VIEWSETS (REST Framework) =====
 
 class ConsultationViewSet(viewsets.ModelViewSet):
@@ -46,15 +110,29 @@ class ConsultationViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+
 class RendezVousViewSet(viewsets.ModelViewSet):
     queryset = RendezVous.objects.all().order_by('-date_rdv')
     serializer_class = RendezVousSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def perform_create(self, serializer):
+        rdv = serializer.save()
+        animal = getattr(rdv, "animal", None)
+        client = getattr(animal, "client", None) if animal else None
+        _notifier_nouveau_rdv(
+            animal.nom if animal else None,
+            client.nom if client else None,
+            rdv.date_rdv,
+            rdv.id,
+        )
+
+
 class OrdonnanceViewSet(viewsets.ModelViewSet):
     queryset = Ordonnance.objects.all()
     serializer_class = OrdonnanceSerializer
     permission_classes = [permissions.IsAuthenticated]
+
 
 class LigneOrdonnanceViewSet(viewsets.ModelViewSet):
     queryset = LigneOrdonnance.objects.all()
@@ -102,6 +180,7 @@ def liste_consultations(request):
         "search": search,
         "current_statut": statut_filter,
     })
+
 
 class RDVManuelAdapter:
     def __init__(self, rdv_manuel):
@@ -246,7 +325,7 @@ def enregistrer_rendez_vous(request, ordonnance_id):
 
     if date and heure:
         try:
-            date_rdv_dt = datetime.strptime(f"{date} {heure}", "%Y-%m-%d %H:%M")
+            date_rdv_dt = _aware(datetime.strptime(f"{date} {heure}", "%Y-%m-%d %H:%M"))
             rdv = RendezVous.objects.create(
                 animal=ordonnance.consultation.animal,
                 date_rdv=date_rdv_dt,
@@ -257,6 +336,15 @@ def enregistrer_rendez_vous(request, ordonnance_id):
             ordonnance.rendez_vous = rdv
             ordonnance.save()
             messages.success(request, "Rendez-vous enregistré.")
+
+            animal = ordonnance.consultation.animal
+            client = animal.client if animal else None
+            _notifier_nouveau_rdv(
+                animal.nom if animal else None,
+                client.nom if client else None,
+                rdv.date_rdv,
+                rdv.id,
+            )
         except ValueError:
             messages.error(request, "Format de date ou heure invalide.")
 
@@ -282,9 +370,9 @@ def nouveau_rendez_vous(request):
         try:
             date_str = request.POST.get('date')
             heure_str = request.POST.get('heure')
-            dt = datetime.strptime(f"{date_str} {heure_str}", "%Y-%m-%d %H:%M")
+            dt = _aware(datetime.strptime(f"{date_str} {heure_str}", "%Y-%m-%d %H:%M"))
 
-            RendezVousManuel.objects.create(
+            rdv_manuel = RendezVousManuel.objects.create(
                 nom_client=request.POST.get("nom_client", "").strip(),
                 telephone=request.POST.get("telephone", "").strip(),
                 nom_animal=request.POST.get("nom_animal", "").strip() or "Non précisé",
@@ -296,6 +384,13 @@ def nouveau_rendez_vous(request):
                 adresse=request.POST.get("adresse", "").strip(),
             )
             messages.success(request, "Rendez-vous enregistré avec succès.")
+
+            _notifier_nouveau_rdv(
+                rdv_manuel.nom_animal,
+                rdv_manuel.nom_client,
+                rdv_manuel.date_rdv,
+                rdv_manuel.id,
+            )
             return redirect("rendez_vous_list")
         except (ValueError, TypeError):
             messages.error(request, "Veuillez vérifier les informations et le format de la date.")
@@ -326,21 +421,6 @@ def nouvelle_consultation(request):
         "active_page": "nouvelle_consultation",
     })
 
-import json
-import logging
-from django.db import transaction
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST, require_GET
-from django.shortcuts import get_object_or_404, render, redirect
-
-# Remplacez ces imports par vos modèles exacts
-from .models import Client, Animal, Consultation, Ordonnance
-
-logger = logging.getLogger(__name__)
-
-
-
 
 @login_required
 def consultation_detail(request, consultation_id):
@@ -352,16 +432,6 @@ def consultation_detail(request, consultation_id):
         "all_consultations": all_consultations
     })
 
-
-import logging
-from django.db import transaction
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.urls import reverse
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
-
-logger = logging.getLogger(__name__)
 
 @login_required
 @require_POST
@@ -415,7 +485,8 @@ def terminer_consultation(request, consultation_id):
                 )
                 total += montant
 
-                # Déduction du stock
+                # ⚠️ À VÉRIFIER : si Vente.save() déduit déjà le stock quand une
+                # ordonnance est rattachée, cette déduction manuelle est un doublon.
                 med = ligne.medicament
                 med.stock -= ligne.quantite
                 med.save()
@@ -426,21 +497,14 @@ def terminer_consultation(request, consultation_id):
             consultation.statut = "terminee"
             consultation.save()
 
-        # ── Notifications (après le commit de la transaction) ──
+        # ── Notifications, une fois la transaction validée ───────────────────
         nom_animal = consultation.animal.nom if consultation.animal else "Patient"
         notify_all_docteurs(
             title="🩺 Consultation Clôturée",
             body=f"La consultation pour {nom_animal} a été finalisée.",
-            data={"type": "consultation", "id": str(consultation.id)},
+            data={"type": "consultation", "id": str(consultation.id)}
         )
-        for ligne in ordonnance.lignes.all():
-            med = Medicament.objects.select_related("catalogue").get(pk=ligne.medicament_id)
-            if med.stock <= med.seuil_alerte:
-                notify_all_docteurs(
-                    title="⚠️ Alerte Stock Critique",
-                    body=f"Stock bas pour '{med.catalogue.nom}' (Restant: {med.stock}).",
-                    data={"type": "stock", "medicament_id": str(med.id)},
-                )
+        _notifier_alertes_stock(ordonnance)
 
         # Succès : on renvoie le statut OK et l'URL vers la fiche de vente
         return JsonResponse({
@@ -449,12 +513,13 @@ def terminer_consultation(request, consultation_id):
             'redirect_url': reverse("vente_detail", kwargs={'vente_id': vente.id})
         })
 
-    except Exception as exp:
+    except Exception as exc:
         logger.error(f"Erreur terminer_consultation: {exc}")
         return JsonResponse({
             'error': "Une erreur est survenue lors de la validation de la consultation."
         }, status=500)
-    
+
+
 @login_required
 def edit_consultation(request, id):
     consultation = get_object_or_404(
@@ -595,30 +660,40 @@ def edit_consultation(request, id):
         "animal": animal,
     })
 
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from .models import Consultation  # Ajustez selon le nom exact de votre modèle
 
 # ==========================================
 # Endpoints API JSON pour Consultations
 # ==========================================
 
-from django.http import JsonResponse
-from .models import Consultation, Ordonnance, LigneOrdonnance
+def api_consultations_liste(request):
+    consultations = Consultation.objects.select_related('client', 'animal').all()
+    data = []
+    for c in consultations:
+        data.append({
+            'id': c.id,
+            'statut': c.statut,
+            'motif': c.motif,
+            'client_nom': str(c.client) if c.client else "Non renseigné",
+            'animal_nom': str(c.animal) if c.animal else "Non renseigné",
+        })
+    return JsonResponse(data, safe=False)
 
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view
-import json
-import logging
 
-from .models import Consultation, Ordonnance, LigneOrdonnance, RendezVous
-from pharmacie.models import Medicament
+@csrf_exempt
+@require_http_methods(["POST", "PUT"])
+def api_modifier_statut_consultation(request, consultation_id):
+    """POST/PUT /consultations/api/<id>/statut/"""
+    try:
+        consultation = Consultation.objects.get(pk=consultation_id)
+        data = json.loads(request.body)
+        consultation.statut = data.get("statut", consultation.statut)
+        consultation.save()
+        return JsonResponse({"id": consultation.id, "statut": consultation.statut})
+    except Consultation.DoesNotExist:
+        return JsonResponse({"error": "Consultation introuvable"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
-logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @api_view(['GET', 'POST'])
@@ -680,7 +755,6 @@ def api_ordonnance_detail(request, consultation_id):
             "statut": consultation.statut,
             "motif": consultation.motif or "—",
             "veterinaire": consultation.veterinaire or "Dr Ibrahima Pierre GUISSE",
-            # CORRECTION ICI : Utilisation de consultation.date au lieu de consultation.created_at
             "date": consultation.date.strftime("%d/%m/%Y à %H:%M") if hasattr(consultation, 'date') and consultation.date else "—",
 
             "client_id": client.id if client else None,
@@ -766,16 +840,6 @@ def api_ordonnance_detail(request, consultation_id):
         logger.error(f"Erreur api_ordonnance_detail: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
-import json
-import logging
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.utils.dateparse import parse_datetime
-
-from .models import Client, Animal, Consultation, RendezVous
-
-logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -836,11 +900,12 @@ def api_ajouter_consultation(request):
             statut='en_cours'
         )
 
-        # ⚠️ NOUVEAU : création effective du RendezVous si une date a été choisie
+        # Création effective du RendezVous si une date a été choisie
+        # à l'écran "Nouvelle consultation".
         date_rdv_str = data.get('date_rdv')
         rendez_vous_cree = None
         if date_rdv_str:
-            date_rdv_parsed = parse_datetime(date_rdv_str)
+            date_rdv_parsed = _aware(parse_datetime(date_rdv_str))
             if date_rdv_parsed and animal is not None:
                 rendez_vous_cree = RendezVous.objects.create(
                     animal=animal,
@@ -855,12 +920,21 @@ def api_ajouter_consultation(request):
                     f"date_rdv reçu mais invalide ou animal manquant : "
                     f"date_rdv={date_rdv_str!r}, animal={animal}"
                 )
-    
+
+        # ── Notifications ────────────────────────────────────────────────────
         notify_all_docteurs(
             title="📋 Nouvelle Consultation",
             body=f"Nouvelle consultation créée pour {animal.nom if animal else 'un patient'} ({client.nom if client else 'client inconnu'}).",
             data={"type": "consultation", "consultation_id": str(consultation.id)},
         )
+
+        if rendez_vous_cree:
+            _notifier_nouveau_rdv(
+                animal.nom if animal else None,
+                client.nom if client else None,
+                rendez_vous_cree.date_rdv,
+                rendez_vous_cree.id,
+            )
 
         return JsonResponse({
             "message": "Consultation créée avec succès",
@@ -898,17 +972,6 @@ def ordonnance_detail(request, ordonnance_id):
     )
 
 
-import json
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
-
-# Remplacez ces imports par les modèles issus de votre application
-from .models import Ordonnance, LigneOrdonnance
-from pharmacie.models import Medicament  # Adaptez 'pharmacie' selon le nom exact de votre app
-
-
 @csrf_exempt
 @require_POST
 def ajouter_ligne_ordonnance(request, ordonnance_id):
@@ -924,7 +987,7 @@ def ajouter_ligne_ordonnance(request, ordonnance_id):
     try:
         data = json.loads(request.body)
         med = get_object_or_404(Medicament, id=data.get('medicament_id'))
-        
+
         quantite = int(data.get('quantite', 1))
         if quantite <= 0:
             return JsonResponse({"error": "Quantité invalide."}, status=400)
@@ -936,7 +999,7 @@ def ajouter_ligne_ordonnance(request, ordonnance_id):
             quantite=quantite,
             posologie=data.get('posologie', '').strip()
         )
-        
+
         return JsonResponse({
             "id": ligne.id,
             "message": "Médicament ajouté avec succès à l'ordonnance."
@@ -1162,70 +1225,11 @@ def animaux_client(request, client_id):
     return JsonResponse(data, safe=False)
 
 
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from .models import Consultation, RendezVous, Ordonnance  # Ajustez selon vos modèles
-
-
-# ==========================================
-# Endpoints API — Consultations
-# ==========================================
-
-def api_consultations_liste(request):
-    consultations = Consultation.objects.select_related('client', 'animal').all()
-    data = []
-    for c in consultations:
-        data.append({
-            'id': c.id,
-            'statut': c.statut,
-            'motif': c.motif,
-            'client_nom': str(c.client) if c.client else "Non renseigné",
-            'animal_nom': str(c.animal) if c.animal else "Non renseigné",
-        })
-    return JsonResponse(data, safe=False)
-
-
-@csrf_exempt
-@require_http_methods(["POST", "PUT"])
-def api_modifier_statut_consultation(request, consultation_id):
-    """POST/PUT /consultations/api/<id>/statut/"""
-    try:
-        consultation = Consultation.objects.get(pk=consultation_id)
-        data = json.loads(request.body)
-        consultation.statut = data.get("statut", consultation.statut)
-        consultation.save()
-        return JsonResponse({"id": consultation.id, "statut": consultation.statut})
-    except Consultation.DoesNotExist:
-        return JsonResponse({"error": "Consultation introuvable"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
-
-from django.db import transaction
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-import json
-
-from .models import Consultation, Ordonnance
-from clients.models import Client
-from pharmacie.models import Medicament
-from ventes.models import LigneVente, Vente
-
-
 # ═══════════════════════════════════════════════════════════════════════════
-# 🔴 CLÔTURE DE CONSULTATION (corrigée : plus de double déduction de stock)
+# 🔴 CLÔTURE DE CONSULTATION (mobile)
+# Le save() du modèle Vente s'occupe de la déduction du stock quand une
+# ordonnance est rattachée : cette vue NE déduit donc PAS le stock elle-même.
 # ═══════════════════════════════════════════════════════════════════════════
-import json
-from django.db import transaction
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from .models import Consultation, Ordonnance, LigneOrdonnance  # Ajustez selon vos noms de modèles de lignes
-from pharmacie.models import Medicament
-from ventes.models import Vente, LigneVente
-
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_terminer_consultation(request, consultation_id):
@@ -1288,9 +1292,7 @@ def api_terminer_consultation(request, consultation_id):
                         "error": f"Stock insuffisant pour {med_nom}. Stock actuel : {ligne.medicament.stock}"
                     }, status=400)
 
-            # 2. Création de la Vente
-            # (le save() du modèle Vente s'occupe de la déduction du stock
-            # quand une ordonnance est rattachée : NE PAS la refaire ici)
+            # 2. Création de la Vente (déduction du stock gérée par le modèle)
             vente = Vente.objects.create(
                 ordonnance=ordonnance,
                 client=consultation.client,
@@ -1322,23 +1324,7 @@ def api_terminer_consultation(request, consultation_id):
             body=f"La consultation pour {nom_animal} a été finalisée.",
             data={"type": "consultation", "id": str(consultation.id)}
         )
-
-        # Alertes de stock : on relit l'état réel en base, donc le résultat
-        # est correct quel que soit l'endroit où la déduction est faite.
-        ids_deja_notifies = set()
-        for ligne in ordonnance.lignes.all():
-            if ligne.medicament_id in ids_deja_notifies:
-                continue
-            ids_deja_notifies.add(ligne.medicament_id)
-
-            med = Medicament.objects.select_related("catalogue").get(pk=ligne.medicament_id)
-            if med.stock <= med.seuil_alerte:
-                nom_med = med.catalogue.nom if getattr(med, "catalogue", None) else f"Médicament #{med.id}"
-                notify_all_docteurs(
-                    title="⚠️ Alerte Stock Critique",
-                    body=f"Stock bas pour '{nom_med}' (Restant: {med.stock}).",
-                    data={"type": "stock", "medicament_id": str(med.id)}
-                )
+        _notifier_alertes_stock(ordonnance)
 
         return JsonResponse({
             "status": "OK",
@@ -1353,126 +1339,16 @@ def api_terminer_consultation(request, consultation_id):
             "error": f"Une erreur est survenue lors de la validation de la consultation : {exc}"
         }, status=500)
 
-    
-# ═══════════════════════════════════════════════════════════════════════════
-# 🧾 NOUVELLE VENTE DIRECTE (sans ordonnance — client existant ou anonyme)
-# ═══════════════════════════════════════════════════════════════════════════
-@csrf_exempt
-@require_http_methods(["POST"])
-def api_vente_directe_creer(request):
-    """
-    POST /ventes/api/directe/creer/
-
-    Payload attendu :
-    {
-        "client_id": <id> ou null,   // null = vente anonyme
-        "lignes": [
-            {"medicament_id": <id>, "quantite": <int>},
-            ...
-        ]
-    }
-
-    ⚠️ Ici Vente.ordonnance reste None, donc le save() du modèle NE déduit PAS
-    le stock automatiquement (voir la condition `if is_new and self.ordonnance`).
-    C'est donc CETTE vue qui doit déduire le stock elle-même.
-    """
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Format JSON invalide."}, status=400)
-
-    client_id = data.get("client_id")
-    lignes_payload = data.get("lignes", [])
-
-    if not lignes_payload:
-        return JsonResponse({"error": "Le panier est vide."}, status=400)
-
-    client = None
-    if client_id:
-        try:
-            client = Client.objects.get(id=client_id)
-        except Client.DoesNotExist:
-            return JsonResponse({"error": f"Client introuvable (ID: {client_id})."}, status=404)
-
-    try:
-        with transaction.atomic():
-            # 1. Vérification du stock pour chaque ligne demandée
-            resolved = []
-            for item in lignes_payload:
-                med_id = item.get("medicament_id")
-                quantite = int(item.get("quantite", 1))
-
-                if quantite <= 0:
-                    return JsonResponse({"error": "Quantité invalide."}, status=400)
-
-                try:
-                    med = Medicament.objects.select_for_update().get(id=med_id)
-                except Medicament.DoesNotExist:
-                    return JsonResponse({"error": f"Médicament introuvable (ID: {med_id})."}, status=404)
-
-                if med.stock < quantite:
-                    nom = med.catalogue.nom if hasattr(med, 'catalogue') and med.catalogue else str(med)
-                    return JsonResponse({
-                        "error": f"Stock insuffisant pour {nom}. Stock actuel : {med.stock}"
-                    }, status=400)
-
-                resolved.append((med, quantite))
-
-            # 2. Création de la vente SANS ordonnance (pas de déduction auto)
-            vente = Vente.objects.create(ordonnance=None, client=client, total=0)
-
-            # 3. Création des lignes + déduction MANUELLE du stock
-            total = 0
-            for med, quantite in resolved:
-                ligne_vente = LigneVente.objects.create(
-                    vente=vente,
-                    medicament=med,
-                    quantite=quantite,
-                    prix_unitaire=med.prix,
-                )
-                total += ligne_vente.montant_total
-
-                med.stock -= quantite
-                med.save()
-
-            vente.total = total
-            vente.save()
-
-        return JsonResponse({
-            "message": "Vente enregistrée avec succès.",
-            "vente_id": vente.id,
-            "total": float(total),
-        }, status=201)
-
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error(f"Erreur api_vente_directe_creer: {exc}")
-        return JsonResponse({
-            "error": f"Une erreur est survenue lors de l'enregistrement de la vente : {exc}"
-        }, status=500)
 
 # ==========================================
 # Endpoints API — Rendez-vous (RDV)
-# ==========================================
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.utils.dateparse import parse_datetime
-
-from .models import RendezVous, RendezVousManuel, Consultation
-from animaux.models import Animal
-
-
-# ==========================================
-# 1. LISTE DE TOUS LES RENDEZ-VOUS (BDD + Manuels)
 # ==========================================
 
 @csrf_exempt
 @require_http_methods(["GET"])
 def api_rdv_liste(request):
     """GET /consultations/api/rdv/"""
-    
+
     # 1. Rendez-vous des clients enregistrés (liés aux consultations)
     rdvs_db = RendezVous.objects.select_related('animal__client', 'consultation_origine').all().order_by("-date_rdv")
     data_db = [
@@ -1492,15 +1368,15 @@ def api_rdv_liste(request):
         for r in rdvs_db
     ]
 
-    # 2. Rendez-vous manuels (basés sur votre modèle RendezVousManuel)
+    # 2. Rendez-vous manuels
     rdvs_manuels = RendezVousManuel.objects.all().order_by("-date_rdv")
     data_manuel = [
         {
             "id": r.id,
             "is_manuel": True,
             "client_nom": r.nom_client,
-            "telephone": r.telephone or "",  # 👈 S'assure de renvoyer la chaîne (même vide au lieu de null)
-            "adresse": r.adresse or "",      # 👈 S'assure de renvoyer la chaîne
+            "telephone": r.telephone or "",
+            "adresse": r.adresse or "",
             "animal_nom": r.nom_animal,
             "espece": r.espece,
             "race": r.race or "",
@@ -1520,12 +1396,12 @@ def api_rdv_liste(request):
 def api_modifier_statut_rdv(request, rdv_id):
     """
     POST /consultations/api/rdv/<id>/statut/
-    Gère à la fois les RDV normaux et les RDV manuels grâce au paramètre ?is_manuel=true/false
+    Gère à la fois les RDV normaux et les RDV manuels grâce au champ is_manuel.
     """
     try:
         data = json.loads(request.body)
         nouveau_statut = data.get("statut")
-        is_manuel = data.get("is_manuel", False) # 🔍 Permet de savoir quelle table cibler
+        is_manuel = data.get("is_manuel", False)
 
         if is_manuel:
             rdv = RendezVousManuel.objects.get(pk=rdv_id)
@@ -1534,17 +1410,15 @@ def api_modifier_statut_rdv(request, rdv_id):
 
         rdv.statut = nouveau_statut
         rdv.save()
-        
+
         return JsonResponse({"id": rdv.id, "statut": rdv.statut, "message": "Statut mis à jour avec succès"})
-        
+
     except (RendezVous.DoesNotExist, RendezVousManuel.DoesNotExist):
         return JsonResponse({"error": "Rendez-vous introuvable"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-# ==========================================
-# 2. CRÉER UN RDV POUR CLIENT EXISTANT / POST-CONSULTATION
-# ==========================================
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_rdv(request):
@@ -1561,7 +1435,7 @@ def api_ajouter_rdv(request):
     """
     try:
         data = json.loads(request.body)
-        
+
         animal_id = data.get("animal_id")
         date_rdv_str = data.get("date_rdv")
         motif = data.get("motif")
@@ -1571,26 +1445,30 @@ def api_ajouter_rdv(request):
         if not animal_id or not date_rdv_str or not motif:
             return JsonResponse({"error": "Champs requis manquants (animal_id, date_rdv, motif)"}, status=400)
 
+        date_rdv_parsed = _aware(parse_datetime(date_rdv_str))
+        if date_rdv_parsed is None:
+            return JsonResponse({"error": "Format de date invalide pour date_rdv"}, status=400)
+
         animal = Animal.objects.get(id=animal_id)
-        
+
         consultation = None
         if consultation_origine_id:
             consultation = Consultation.objects.filter(id=consultation_origine_id).first()
 
         rdv = RendezVous.objects.create(
             animal=animal,
-            date_rdv=parse_datetime(date_rdv_str),
+            date_rdv=date_rdv_parsed,
             motif=motif,
             type_rdv=type_rdv,
             consultation_origine=consultation,
             statut="EN_ATTENTE"
         )
 
-        # Notification des docteurs
-        notify_all_docteurs(
-            title="📅 Nouveau Rendez-vous",
-            body=f"RDV pour {animal.nom} ({animal.client.nom}) le {rdv.date_rdv:%d/%m/%Y à %H:%M}.",
-            data={"type": "rdv", "id": str(rdv.id)},
+        _notifier_nouveau_rdv(
+            animal.nom,
+            animal.client.nom if animal.client else None,
+            rdv.date_rdv,
+            rdv.id,
         )
 
         return JsonResponse({
@@ -1605,9 +1483,7 @@ def api_ajouter_rdv(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-# ==========================================
-# 3. CRÉER UN RDV MANUEL (APPEL DIRECT / NOUVEAU CLIENT)
-# ==========================================
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_rdv_manuel(request):
@@ -1621,12 +1497,17 @@ def api_ajouter_rdv_manuel(request):
         "telephone": "+221 77 123 45 67",
         "date_rdv": "2026-09-26T14:00:00",
         "motif": "Première consultation / Vaccin",
-        "lieu": "cabinet",
+        "lieu": "cabinet",  // ou "domicile"
         "adresse": "Thiès Quartier Ngoumsane"
     }
     """
     try:
         data = json.loads(request.body)
+
+        date_rdv_str = data.get("date_rdv")
+        date_rdv_parsed = _aware(parse_datetime(date_rdv_str)) if date_rdv_str else None
+        if date_rdv_parsed is None:
+            return JsonResponse({"error": "Date de rendez-vous manquante ou invalide"}, status=400)
 
         rdv_manuel = RendezVousManuel.objects.create(
             nom_client=data.get("nom_client", ""),
@@ -1634,21 +1515,18 @@ def api_ajouter_rdv_manuel(request):
             espece=data.get("espece", ""),
             race=data.get("race", ""),
             telephone=data.get("telephone", ""),
-            date_rdv=parse_datetime(data.get("date_rdv")),
+            date_rdv=date_rdv_parsed,
             motif=data.get("motif", ""),
             lieu=data.get("lieu", "cabinet"),
             adresse=data.get("adresse", ""),
             statut="EN_ATTENTE"
         )
 
-        # 🔔 Notification aux docteurs après création du RDV
-        notify_all_docteurs(
-            title="📅 Nouveau Rendez-vous",
-            body=f"RDV pour {rdv_manuel.nom_animal} ({rdv_manuel.nom_client}).",
-            data={
-                "type": "rdv",
-                "id": str(rdv_manuel.id),
-            },
+        _notifier_nouveau_rdv(
+            rdv_manuel.nom_animal,
+            rdv_manuel.nom_client,
+            rdv_manuel.date_rdv,
+            rdv_manuel.id,
         )
 
         return JsonResponse({
@@ -1657,15 +1535,7 @@ def api_ajouter_rdv_manuel(request):
         }, status=201)
 
     except Exception as e:
-        return JsonResponse({
-            "error": str(e)
-        }, status=400)
-
-from django.core.paginator import Paginator
-from django.db.models import Count, Q
-from django.http import JsonResponse
-from .models import Client
-from animaux.models import Animal
+        return JsonResponse({"error": str(e)}, status=400)
 
 
 def api_clients_list(request):
@@ -1690,12 +1560,8 @@ def api_clients_list(request):
     if espece:
         qs = qs.filter(animaux__espece=espece).distinct()
 
-    # ⚠️ Correctif : sans ordre explicite, le Paginator de Django n'a AUCUNE
-    # garantie de stabilité entre deux requêtes — un client peut se retrouver
-    # "entre deux pages" et disparaître de la liste agrégée côté mobile
-    # (surtout les plus récents, ajoutés après le chargement initial du cache
-    # de requête). "-id" garantit un ordre stable et fait apparaître les
-    # clients les plus récents en premier.
+    # Ordre explicite : garantit une pagination stable et fait apparaître
+    # les clients les plus récents en premier.
     qs = qs.order_by("-id")
 
     paginator = Paginator(qs, 10)
@@ -1738,20 +1604,6 @@ def api_clients_list(request):
     })
 
 
-import json
-import logging
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
-from django.db import transaction
-from django.shortcuts import get_object_or_404
-
-# Remplacez ces imports par vos propres modèles s'ils se trouvent dans un autre fichier
-from .models import Client, Animal, Consultation, Ordonnance
-
-logger = logging.getLogger(__name__)
-
-
 @csrf_exempt
 @require_POST
 def create_consultation(request):
@@ -1771,7 +1623,7 @@ def create_consultation(request):
 
         # 2. Récupération du mode avec tolérance sur la clé
         mode = data.get("mode") or data.get("mode_creation")
-        
+
         client_nouveau = False
         client = None
         animal = None
@@ -1872,7 +1724,7 @@ def create_consultation(request):
             # 5. Création automatique de l'ordonnance rattachée
             ordonnance = Ordonnance.objects.create(consultation=consultation)
 
-        # ── Notification des docteurs (après le commit de la transaction) ──
+        # ── Notification, une fois la transaction validée ────────────────────
         notify_all_docteurs(
             title="📋 Nouvelle Consultation",
             body=f"Nouvelle consultation pour {animal.nom} ({client.nom}).",
@@ -1896,10 +1748,6 @@ def create_consultation(request):
         logger.exception("Erreur lors de la création de la consultation")
         return JsonResponse({"error": f"Erreur serveur : {str(exc)}"}, status=500)
 
-    
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from .models import Animal
 
 @login_required
 def get_animaux_client(request, client_id):
@@ -1908,7 +1756,7 @@ def get_animaux_client(request, client_id):
     """
     client = get_object_or_404(Client, id=client_id)
     animaux = Animal.objects.filter(client=client)
-    
+
     animaux_data = [
         {
             "id": animal.id,
@@ -1920,6 +1768,6 @@ def get_animaux_client(request, client_id):
         }
         for animal in animaux
     ]
-    
-    # On renvoie à la fois une liste directe et une structure dictionnaire
+
+    # On renvoie une liste directe
     return JsonResponse(animaux_data, safe=False)
