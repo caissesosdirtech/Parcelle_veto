@@ -249,18 +249,21 @@ def api_vente_directe_creer(request):
             vente.save()
 
         # Notifications hors de la transaction atomique principale
+        # UNE SEULE notification par vente : envoyer plusieurs notifications
+        # à la même milliseconde (vente + alertes de stock) fait que certains
+        # téléphones (TECNO/HiOS…) rangent la vente dans « Silencieux ».
+        corps = f"Une vente d'un montant de {total} FCFA a été enregistrée."
+        if alertes_stock:
+            details = ", ".join(
+                f"{nom_med} ({stock_restant})"
+                for nom_med, stock_restant, _ in alertes_stock
+            )
+            corps += f"\n⚠️ Stock bas : {details}"
         notify_all_docteurs(
             title="💰 Nouvelle Vente Validée",
-            body=f"Une vente d'un montant de {total} FCFA a été enregistrée.",
+            body=corps,
             data={"type": "vente", "id": str(vente.id)}
         )
-
-        for nom_med, stock_restant, med_id in alertes_stock:
-            notify_all_docteurs(
-                title="⚠️ Alerte Stock Critique",
-                body=f"Stock bas pour '{nom_med}' (Restant: {stock_restant}).",
-                data={"type": "stock", "medicament_id": str(med_id)}
-            )
 
         return JsonResponse({
             "success": True,
