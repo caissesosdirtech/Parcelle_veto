@@ -260,7 +260,7 @@ def api_vente_directe_creer(request):
             )
             corps += f"\n⚠️ Stock bas : {details}"
         notify_all_docteurs(
-            title=""🧾 Vente directe enregistrée",
+            title="🧾 Vente directe enregistrée",
             body=corps,
             data={"type": "vente", "id": str(vente.id)}
         )
