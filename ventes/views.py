@@ -252,7 +252,7 @@ def api_vente_directe_creer(request):
         # UNE SEULE notification par vente : envoyer plusieurs notifications
         # à la même milliseconde (vente + alertes de stock) fait que certains
         # téléphones (TECNO/HiOS…) rangent la vente dans « Silencieux ».
-        corps = f"Une vente d'un montant de {total} FCFA a été enregistrée."
+        corps = f"Total : {total} F"
         if alertes_stock:
             details = ", ".join(
                 f"{nom_med} ({stock_restant})"
