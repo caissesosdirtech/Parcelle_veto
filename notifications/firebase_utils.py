@@ -74,6 +74,8 @@ def send_push_notification(fcm_token, title, body, data=None):
                 notification=messaging.AndroidNotification(
                     channel_id="parcelle_veto_v2",
                     sound="notification2",
+                    priority="max",
+                    visibility="public"
                 ),
             ),
             data={k: str(v) for k, v in (data or {}).items()},
