@@ -12,13 +12,24 @@ FIREBASE_SERVICE_ACCOUNT_PATH = os.path.join(BASE_DIR, "firebase-service-account
 # General Settings
 # ============================
 SECRET_KEY = os.getenv('SECRET_KEY', 'mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf')
-DEBUG = True
+# DEBUG : activé par défaut en local. En production (Railway), créez la
+# variable DEBUG=False pour ne jamais afficher le détail des erreurs.
+DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "parcelleveto-thies.up.railway.app,localhost,127.0.0.1").split(",")
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://parcelleveto-thies.up.railway.app',
+# Domaines autorisés : l'adresse Railway est conservée pour les anciennes
+# versions de l'app, le domaine personnalisé est ajouté.
+DOMAINES = [
+    "parcellesveto-thies.vet",
+    "www.parcellesveto-thies.vet",
+    "parcelleveto-thies.up.railway.app",
+    "parcelleveto-production.up.railway.app",
 ]
+
+ALLOWED_HOSTS = os.getenv(
+    "ALLOWED_HOSTS", ",".join(DOMAINES + ["localhost", "127.0.0.1"])
+).split(",")
+
+CSRF_TRUSTED_ORIGINS = [f"https://{d}" for d in DOMAINES]
 
 # ============================
 # Application definition
