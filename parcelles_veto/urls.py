@@ -3,6 +3,8 @@ from consultations import views
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
+from django.templatetags.static import static
+from django.views.generic import RedirectView
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -15,6 +17,8 @@ def home(request):
 
 urlpatterns = [
     path("", home, name="home"),
+    # Les navigateurs demandent /favicon.ico même sur les pages sans balise <link>
+    path("favicon.ico", RedirectView.as_view(url=static("images/favicon/favicon.ico"), permanent=True)),
     path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),
     path("accounts/", include("django.contrib.auth.urls")),
