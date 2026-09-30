@@ -92,6 +92,25 @@ def send_push_notification(fcm_token, title, body, data=None):
         return None
 
 
+def enregistrer_historique(title, body, type_action=None):
+    """
+    Enregistre la notification dans le modèle Notification.
+    N'échoue jamais : un problème d'historique ne doit pas bloquer l'envoi
+    push ni l'opération métier (vente, consultation...).
+    """
+    try:
+        from notifications.models import Notification
+
+        types_valides = {code for code, _ in Notification.TITRE_CHOICES}
+        Notification.objects.create(
+            titre=title,
+            message=body,
+            type_action=type_action if type_action in types_valides else "vente",
+        )
+    except Exception:
+        logger.exception("Échec de l'enregistrement de la notification en base")
+
+
 def notify_users_by_role(role, title, body, data=None):
     """
     Envoie une notification push à tous les utilisateurs ayant le rôle
@@ -101,6 +120,11 @@ def notify_users_by_role(role, title, body, data=None):
     l'envoi individuel sans bloquer les autres destinataires.
     """
     from django.contrib.auth import get_user_model
+
+    # Historique : chaque événement est aussi enregistré en base (une seule
+    # fois, quel que soit le nombre de destinataires) pour alimenter la
+    # liste des notifications de l'app (/notifications/api/notifications/).
+    enregistrer_historique(title, body, (data or {}).get("type"))
 
     Utilisateur = get_user_model()
     destinataires = Utilisateur.objects.filter(role=role).exclude(
