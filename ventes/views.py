@@ -254,12 +254,14 @@ def api_vente_directe_creer(request):
         #   téléphones TECNO / Infinix / itel classe les notifications
         #   contenant un montant comme publicité et les rend silencieuses.
         #   Le montant reste consultable dans l'application.
-        corps = "Une vente directe vient d'être enregistrée."
+        # Texte validé par test sur TECNO : le mot « vente » déclenche le
+        # filtre anti-harcèlement, « opération en pharmacie » passe.
+        corps = "Une nouvelle opération vient d'être enregistrée."
         if alertes_stock:
             noms = ", ".join(nom_med for nom_med, _, _ in alertes_stock)
             corps += f"\n⚠️ Stock bas : {noms}"
         notify_all_docteurs(
-            title="🧾 Vente directe enregistrée",
+            title="📋 Nouvelle opération en pharmacie",
             body=corps,
             data={"type": "vente", "id": str(vente.id)}
         )
