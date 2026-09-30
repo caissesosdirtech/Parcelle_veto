@@ -248,19 +248,18 @@ def api_vente_directe_creer(request):
             vente.total = total
             vente.save()
 
-        # Notifications hors de la transaction atomique principale
-        # UNE SEULE notification par vente : envoyer plusieurs notifications
-        # à la même milliseconde (vente + alertes de stock) fait que certains
-        # téléphones (TECNO/HiOS…) rangent la vente dans « Silencieux ».
-        corps = f"Total : {total} F"
+        # Notification push de la vente.
+        # - UNE SEULE notification par vente (alertes de stock incluses).
+        # - AUCUN montant dans le texte : le filtre anti-harcèlement des
+        #   téléphones TECNO / Infinix / itel classe les notifications
+        #   contenant un montant comme publicité et les rend silencieuses.
+        #   Le montant reste consultable dans l'application.
+        corps = "Une vente directe vient d'être enregistrée."
         if alertes_stock:
-            details = ", ".join(
-                f"{nom_med} ({stock_restant})"
-                for nom_med, stock_restant, _ in alertes_stock
-            )
-            corps += f"\n⚠️ Stock bas : {details}"
+            noms = ", ".join(nom_med for nom_med, _, _ in alertes_stock)
+            corps += f"\n⚠️ Stock bas : {noms}"
         notify_all_docteurs(
-            title="💰 Nouvelle Vente Validée",
+            title="🧾 Vente directe enregistrée",
             body=corps,
             data={"type": "vente", "id": str(vente.id)}
         )
