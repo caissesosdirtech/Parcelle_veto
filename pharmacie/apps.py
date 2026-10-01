@@ -5,11 +5,14 @@ from django.db.models.signals import post_migrate
 
 def load_pharmacie_fixtures(sender, **kwargs):
     from django.core.management import call_command
-    from pharmacie.models import Medicament
+    from pharmacie.models import CatalogueMedicament
 
     try:
-        # Si la table est vide, on charge le fichier JSON
-        if not Medicament.objects.exists():
+        # Chargement initial UNIQUEMENT sur une base neuve (catalogue vide).
+        # On ne se base plus sur les médicaments en stock : sinon, après une
+        # remise à zéro, les médicaments de démonstration reviendraient à
+        # chaque déploiement (Procfile lance migrate à chaque fois).
+        if not CatalogueMedicament.objects.exists():
             print("Importation automatique des médicaments...")
             call_command('loaddata', 'pharmacie_data.json')
             print("Importation réussie !")
