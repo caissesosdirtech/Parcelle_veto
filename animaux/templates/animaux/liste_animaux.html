@@ -1,8 +1,77 @@
 {% extends "base_dashboard.html" %}
-{% load static %}
+
+{% block title %}Animaux{% endblock %}
 
 {% block content %}
-<h1>Liste des animaux</h1>
+<div class="page-title">🐾 Liste des animaux</div>
 
+<style>
+.animaux-wrapper {
+    background:#fff;
+    border-radius:16px;
+    padding:22px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.06);
+}
+.animaux-wrapper input {
+    width:100%;
+    max-width:360px;
+    padding:11px 14px;
+    margin-bottom:16px;
+    border:1.5px solid #e7ecf2;
+    border-radius:10px;
+    font-size:.86rem;
+    background:#fafcff;
+}
+.animaux-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+.animaux-table th {
+    text-align:left; padding:10px 12px; color:#64748b; font-weight:600;
+    border-bottom:1.5px solid #e7ecf2;
+}
+.animaux-table td { padding:10px 12px; border-bottom:1px solid #f1f4f8; color:#1e2a3a; }
+.animaux-table a { color:#2E7D4F; font-weight:600; text-decoration:none; }
+.animaux-vide { padding:30px; text-align:center; color:#94a3b8; }
+</style>
 
+<div class="animaux-wrapper">
+    <input type="search" id="recherche-animal" placeholder="Rechercher un animal ou un client…">
+
+    <table class="animaux-table">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Espèce</th>
+                <th>Race</th>
+                <th>Sexe</th>
+                <th>Poids (kg)</th>
+                <th>Propriétaire</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="liste-animaux">
+            {% for animal in animaux %}
+            <tr>
+                <td>{{ animal.nom }}</td>
+                <td>{{ animal.espece }}</td>
+                <td>{{ animal.race|default:"—" }}</td>
+                <td>{{ animal.sexe|default:"—" }}</td>
+                <td>{{ animal.poids|default:"—" }}</td>
+                <td>{{ animal.client }}</td>
+                <td><a href="{% url 'historique_animal' animal.id %}">Historique</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="animaux-vide">Aucun animal enregistré pour le moment.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+// Filtre instantané sur le nom de l'animal et du propriétaire
+document.getElementById("recherche-animal").addEventListener("input", function () {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll("#liste-animaux tr").forEach(function (tr) {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+});
+</script>
 {% endblock %}

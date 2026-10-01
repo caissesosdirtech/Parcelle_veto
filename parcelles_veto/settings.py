@@ -11,10 +11,20 @@ FIREBASE_SERVICE_ACCOUNT_PATH = os.path.join(BASE_DIR, "firebase-service-account
 # ============================
 # General Settings
 # ============================
-SECRET_KEY = os.getenv('SECRET_KEY', 'mfc@ne*-pvr^sn8u-kd6&tva%x=+(a^og%7kjylq8zf-p%l&mf')
 # DEBUG : activé par défaut en local. En production (Railway), créez la
 # variable DEBUG=False pour ne jamais afficher le détail des erreurs.
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
+
+# Clé secrète : OBLIGATOIRE en production (variable SECRET_KEY sur Railway).
+# Plus aucune clé n'est écrite dans le code ; en local (DEBUG) une clé de
+# développement est utilisée.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "dev-uniquement-cle-locale-non-secrete"
+    else:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("La variable d'environnement SECRET_KEY est obligatoire.")
 
 # Domaines autorisés : l'adresse Railway est conservée pour les anciennes
 # versions de l'app, le domaine personnalisé est ajouté.
@@ -63,6 +73,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Connexion obligatoire partout (session web ou jeton JWT de l'app) ;
+    # bloque réellement quand la variable REQUIRE_LOGIN=True est définie.
+    'parcelles_veto.middleware.ConnexionObligatoireMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -126,6 +139,14 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
+}
+
+# Durée de vie des jetons de l'app mobile : 1 jour (rafraîchi automatiquement
+# au lancement de l'app), reconnexion obligatoire au bout de 30 jours.
+from datetime import timedelta
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
 TEMPLATES = [

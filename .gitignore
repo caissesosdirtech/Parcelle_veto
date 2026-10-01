@@ -23,3 +23,8 @@ staticfiles/
 .DS_Store
 
 firebase-service-account.json
+# Sauvegardes et fichiers de diagnostic (données privées)
+sauvegarde_*.json
+notifs.txt
+extrait.txt
+test_textes_notif.py

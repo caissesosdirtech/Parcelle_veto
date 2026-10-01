@@ -27,7 +27,7 @@ class AnimalViewSet(viewsets.ModelViewSet):
 def animaux_list(request):
     """Affiche la liste des animaux dans l'interface HTML."""
     animaux = Animal.objects.all().select_related("client").order_by('-id')
-    return render(request, "animaux/list.html", {
+    return render(request, "animaux/liste_animaux.html", {
         "animaux": animaux,
         "active_page": "animaux",
     })
