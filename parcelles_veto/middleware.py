@@ -72,8 +72,13 @@ class ConnexionObligatoireMiddleware:
             return self.get_response(request)
 
         if not self.actif:
-            logger.warning("[auth] accès sans connexion (non bloqué) : %s %s",
-                           request.method, chemin)
+            jeton = request.headers.get("Authorization", "").startswith("Bearer ")
+            logger.warning(
+                "[auth] accès sans connexion (non bloqué) : %s %s | jeton=%s | %s",
+                request.method, chemin,
+                "invalide" if jeton else "absent",
+                request.headers.get("User-Agent", "")[:40],
+            )
             return self.get_response(request)
 
         attend_html = "text/html" in request.headers.get("Accept", "")
