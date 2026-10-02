@@ -132,6 +132,44 @@
     background:rgba(31,111,235,.18); color:#7eb2ff;
 }
 
+/* ===== CLIENT EXISTANT ===== */
+.client-picker [hidden] { display:none !important; }
+.client-picker { margin-bottom:18px; padding-bottom:18px; border-bottom:1px dashed #e7ecf2; }
+.client-search-field { position:relative; }
+.client-results {
+    position:absolute; left:0; right:0; top:100%; z-index:20; margin-top:4px;
+    background:#fff; border:1.5px solid #e7ecf2; border-radius:12px;
+    box-shadow:0 12px 28px rgba(15,40,80,.12); max-height:260px; overflow-y:auto;
+}
+.client-result {
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 14px; cursor:pointer; font-size:.86rem; border-bottom:1px solid #f1f4f8;
+}
+.client-result:last-child { border-bottom:none; }
+.client-result:hover, .client-result.active { background:#e8f0fe; }
+.client-result .cr-nom { font-weight:700; color:#1e2a3a; }
+.client-result .cr-tel { color:#7c8a9e; font-size:.8rem; }
+.client-result .cr-nb { color:#1f6feb; font-size:.75rem; font-weight:600; white-space:nowrap; }
+.client-empty { padding:12px 14px; color:#94a3b8; font-size:.85rem; }
+.client-selected {
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+    padding:12px 16px; border-radius:12px; background:#e8f0fe; border:1.5px solid #c6dafc;
+}
+.client-selected .cs-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:#5a7bb5; font-weight:700; }
+.client-selected .cs-name { font-weight:700; color:#0d47a1; }
+.cs-clear {
+    border:none; background:#fff; color:#5a6a7e; font-weight:600; font-size:.8rem;
+    padding:7px 12px; border-radius:9px; cursor:pointer;
+}
+.cs-clear:hover { background:#f4f7fb; }
+.animal-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; align-items:center; }
+.animal-chips .chips-label { font-size:.75rem; font-weight:600; color:#4a5a6e; margin-right:4px; }
+.animal-chip {
+    border:1.5px solid #e7ecf2; background:#fafcff; color:#1e2a3a;
+    padding:7px 13px; border-radius:20px; font-size:.82rem; font-weight:600; cursor:pointer;
+}
+.animal-chip.active { border-color:#1f6feb; background:#1f6feb; color:#fff; }
+
 @media (max-width:900px) {
     .rdv-wrapper { grid-template-columns:1fr; }
     .rdv-row.cols-2, .rdv-row.cols-3 { grid-template-columns:1fr; }
@@ -157,6 +195,25 @@
                 <!-- CLIENT / ANIMAL -->
                 <div class="rdv-section">
                     <div class="rdv-section-label"><span class="num">1</span> Client &amp; animal</div>
+
+                    <!-- Recherche d'un client déjà enregistré -->
+                    <div class="client-picker">
+                        <div class="rdv-field client-search-field">
+                            <label>Client déjà enregistré ? <span class="optional">(sinon, saisissez-le ci-dessous)</span></label>
+                            <input type="search" id="client_search" autocomplete="off"
+                                   placeholder="🔍 Rechercher par nom ou téléphone…">
+                            <div class="client-results" id="client_results" hidden></div>
+                        </div>
+                        <div class="client-selected" id="client_selected" hidden>
+                            <div>
+                                <div class="cs-label">Client sélectionné</div>
+                                <div class="cs-name" id="cs_name"></div>
+                            </div>
+                            <button type="button" class="cs-clear" id="cs_clear">✕ Nouveau client</button>
+                        </div>
+                        <div class="animal-chips" id="animal_chips" hidden></div>
+                    </div>
+
                     <div class="rdv-row cols-2" style="margin-bottom:14px;">
                         <div class="rdv-field">
                             <label>Nom du client</label>
@@ -300,6 +357,7 @@
     </div>
 </form>
 
+{{ clients_data|json_script:"clients-data" }}
 <script>
 const RACES = {{ races_json|safe }};
 
@@ -409,6 +467,146 @@ function maj() {
 document.getElementById('rdvForm').addEventListener('input', maj);
 document.getElementById('rdvForm').addEventListener('change', maj);
 maj();
+
+// ===== CLIENT DÉJÀ ENREGISTRÉ =====
+const CLIENTS = JSON.parse(document.getElementById('clients-data').textContent);
+const searchInput = document.getElementById('client_search');
+const resultsBox  = document.getElementById('client_results');
+const selectedBox = document.getElementById('client_selected');
+const chipsBox    = document.getElementById('animal_chips');
+const searchField = searchInput.closest('.client-search-field');
+
+function normaliser(s) {
+    return (s || '').toString().toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '');
+}
+
+function setChamp(id, valeur) {
+    document.getElementById(id).value = valeur || '';
+}
+
+// Sélectionne une valeur dans un <select>, en l'ajoutant si elle n'existe pas
+function choisirOption(select, valeur) {
+    if (!valeur) { select.value = ''; return; }
+    const existante = Array.from(select.options)
+        .find(o => o.value.toLowerCase() === valeur.toLowerCase());
+    if (existante) { select.value = existante.value; return; }
+    const opt = document.createElement('option');
+    opt.value = valeur;
+    opt.textContent = valeur;
+    select.appendChild(opt);
+    select.value = valeur;
+}
+
+function afficherResultats() {
+    const q = normaliser(searchInput.value);
+    if (!q) { resultsBox.hidden = true; return; }
+
+    const trouves = CLIENTS.filter(c =>
+        normaliser(c.nom).includes(q) || normaliser(c.telephone).includes(q)
+    ).slice(0, 8);
+
+    resultsBox.innerHTML = '';
+    if (!trouves.length) {
+        resultsBox.innerHTML = '<div class="client-empty">Aucun client trouvé — saisissez-le ci-dessous.</div>';
+    }
+    trouves.forEach(c => {
+        const ligne = document.createElement('div');
+        ligne.className = 'client-result';
+        const gauche = document.createElement('div');
+        const nom = document.createElement('div');
+        nom.className = 'cr-nom';
+        nom.textContent = c.nom;
+        const tel = document.createElement('div');
+        tel.className = 'cr-tel';
+        tel.textContent = c.telephone || '—';
+        gauche.append(nom, tel);
+        const nb = document.createElement('div');
+        nb.className = 'cr-nb';
+        nb.textContent = c.animaux.length + ' animal' + (c.animaux.length > 1 ? 'x' : '');
+        ligne.append(gauche, nb);
+        ligne.addEventListener('mousedown', e => { e.preventDefault(); choisirClient(c); });
+        resultsBox.appendChild(ligne);
+    });
+    resultsBox.hidden = false;
+}
+
+function choisirAnimal(animal, bouton) {
+    chipsBox.querySelectorAll('.animal-chip').forEach(b => b.classList.remove('active'));
+    if (bouton) bouton.classList.add('active');
+    setChamp('nom_animal', animal ? animal.nom : 'Non précisé');
+    choisirOption(especeSelect, animal ? animal.espece : '');
+    majRaces();
+    if (animal && animal.race) choisirOption(raceSelect, animal.race);
+    maj();
+}
+
+function choisirClient(c) {
+    setChamp('nom_client', c.nom);
+    setChamp('telephone', c.telephone);
+    setChamp('adresse', c.adresse);
+
+    document.getElementById('cs_name').textContent =
+        c.nom + (c.telephone ? ' · ' + c.telephone : '');
+    searchField.hidden = true;
+    resultsBox.hidden = true;
+    selectedBox.hidden = false;
+
+    // Boutons des animaux du client
+    chipsBox.innerHTML = '';
+    if (c.animaux.length) {
+        const label = document.createElement('span');
+        label.className = 'chips-label';
+        label.textContent = 'Animal concerné :';
+        chipsBox.appendChild(label);
+        c.animaux.forEach(a => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'animal-chip';
+            b.textContent = (ESPECE_ICONS[a.espece] || '🐾') + ' ' + a.nom;
+            b.addEventListener('click', () => choisirAnimal(a, b));
+            chipsBox.appendChild(b);
+        });
+        const autre = document.createElement('button');
+        autre.type = 'button';
+        autre.className = 'animal-chip';
+        autre.textContent = '＋ Autre animal';
+        autre.addEventListener('click', () => choisirAnimal(null, autre));
+        chipsBox.appendChild(autre);
+        chipsBox.hidden = false;
+
+        // Un seul animal : on le sélectionne directement
+        if (c.animaux.length === 1) {
+            choisirAnimal(c.animaux[0], chipsBox.querySelector('.animal-chip'));
+        }
+    } else {
+        chipsBox.hidden = true;
+    }
+    maj();
+}
+
+document.getElementById('cs_clear').addEventListener('click', () => {
+    ['nom_client', 'telephone', 'adresse'].forEach(id => setChamp(id, ''));
+    choisirAnimal(null, null);
+    chipsBox.hidden = true;
+    selectedBox.hidden = true;
+    searchField.hidden = false;
+    searchInput.value = '';
+    searchInput.focus();
+    maj();
+});
+
+searchInput.addEventListener('input', afficherResultats);
+searchInput.addEventListener('focus', afficherResultats);
+searchInput.addEventListener('blur', () => setTimeout(() => { resultsBox.hidden = true; }, 150));
+// La recherche ne doit pas valider le formulaire avec Entrée
+searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const premier = resultsBox.querySelector('.client-result');
+        if (premier) premier.dispatchEvent(new MouseEvent('mousedown'));
+    }
+});
 </script>
 
 {% endblock %}

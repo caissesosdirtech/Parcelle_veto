@@ -395,8 +395,24 @@ def nouveau_rendez_vous(request):
         except (ValueError, TypeError):
             messages.error(request, "Veuillez vérifier les informations et le format de la date.")
 
+    # Clients de la base (avec leurs animaux) pour pré-remplir le formulaire
+    clients_data = [
+        {
+            "id": c.id,
+            "nom": c.nom,
+            "telephone": c.telephone or "",
+            "adresse": c.adresse or "",
+            "animaux": [
+                {"nom": a.nom, "espece": a.espece or "", "race": a.race or ""}
+                for a in c.animaux.all()
+            ],
+        }
+        for c in Client.objects.prefetch_related("animaux").order_by("nom")
+    ]
+
     return render(request, "consultations/nouveau_rdv.html", {
         "races_json": json.dumps(RACES, ensure_ascii=False),
+        "clients_data": clients_data,
     })
 
 
