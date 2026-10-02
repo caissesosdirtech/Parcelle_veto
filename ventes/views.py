@@ -328,6 +328,20 @@ def api_ventes_liste(request):
     return JsonResponse(data, safe=False)
 
 
+def api_vente_detail(request, vente_id):
+    """GET /ventes/api/<id>/ — détail d'une vente (ouverture depuis une notification)."""
+    vente = (
+        Vente.objects
+        .select_related("client", "ordonnance__consultation__client")
+        .prefetch_related("lignes__medicament__catalogue")
+        .filter(pk=vente_id)
+        .first()
+    )
+    if vente is None:
+        return JsonResponse({"error": "Vente introuvable"}, status=404)
+    return JsonResponse(_serialize_vente(vente))
+
+
 def api_ventes_stats(request):
     """GET /ventes/api/stats/"""
     today = now()

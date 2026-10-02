@@ -69,6 +69,12 @@ urlpatterns = [
     ),
 
     path(
+        "api/<int:vente_id>/",
+        views.api_vente_detail,
+        name="api_vente_detail"
+    ),
+
+    path(
         "api/stats/",
         views.api_ventes_stats,
         name="api_ventes_stats"
