@@ -919,6 +919,35 @@ def api_ordonnance_detail(request, consultation_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+def _client_nouveau_ou_existant(nom, telephone, adresse):
+    """
+    Mode « nouveau client » : si le numéro appartient déjà à un client,
+    on reprend ce client au lieu de bloquer (le numéro est unique).
+    Retourne (client, deja_enregistre).
+    """
+    telephone = (telephone or "").strip()
+    if telephone:
+        existant = Client.objects.filter(telephone=telephone).first()
+        if existant:
+            return existant, True
+    client = Client.objects.create(nom=nom, telephone=telephone, adresse=adresse)
+    return client, False
+
+
+def _animal_du_client(client, nom, **champs):
+    """Reprend l'animal du client portant ce nom, sinon le crée."""
+    if nom and nom != "Non renseigné":
+        existant = Animal.objects.filter(client=client, nom__iexact=nom).first()
+        if existant:
+            return existant
+    return Animal.objects.create(client=client, nom=nom, **champs)
+
+
+def _message_client_existant(client):
+    return (f"Ce numéro appartient déjà à {client.nom} : "
+            f"la consultation a été rattachée à sa fiche.")
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_ajouter_consultation(request):
@@ -936,16 +965,17 @@ def api_ajouter_consultation(request):
         client = None
         animal = None
 
+        client_deja_enregistre = False
         if is_nouveau:
-            client = Client.objects.create(
-                nom=client_nom if client_nom else "Client Inconnu",
-                telephone=data.get('client_tel', ''),
-                adresse=data.get('client_adresse', '')
+            client, client_deja_enregistre = _client_nouveau_ou_existant(
+                client_nom if client_nom else "Client Inconnu",
+                data.get('client_tel', ''),
+                data.get('client_adresse', ''),
             )
 
-            animal = Animal.objects.create(
-                client=client,
-                nom=data.get('animal_nom', 'Non renseigné'),
+            animal = _animal_du_client(
+                client,
+                data.get('animal_nom', 'Non renseigné'),
                 espece=data.get('animal_espece', 'Chien'),
                 race=data.get('animal_race', ''),
                 sexe=data.get('animal_sexe', 'M'),
@@ -1015,7 +1045,9 @@ def api_ajouter_consultation(request):
             )
 
         return JsonResponse({
-            "message": "Consultation créée avec succès",
+            "message": (_message_client_existant(client) if client_deja_enregistre
+                        else "Consultation créée avec succès"),
+            "client_existant": client_deja_enregistre,
             "consultation_id": consultation.id,
             "rendez_vous_id": rendez_vous_cree.id if rendez_vous_cree else None,
         }, status=201)
@@ -1706,6 +1738,7 @@ def create_consultation(request):
         mode = data.get("mode") or data.get("mode_creation")
 
         client_nouveau = False
+        client_deja_enregistre = False
         client = None
         animal = None
 
@@ -1720,19 +1753,18 @@ def create_consultation(request):
                 if not nom_client:
                     return JsonResponse({"error": "Le nom du client est obligatoire."}, status=400)
 
-                client = Client.objects.create(
-                    nom=nom_client,
-                    telephone=tel_client,
-                    adresse=adresse_client
+                client, client_deja_enregistre = _client_nouveau_ou_existant(
+                    nom_client, tel_client, adresse_client
                 )
+                client_nouveau = not client_deja_enregistre
 
                 nom_animal = str(data.get("animal_nom", "")).strip()
                 if not nom_animal:
                     nom_animal = "Non renseigné"
 
-                animal = Animal.objects.create(
-                    client=client,
-                    nom=nom_animal,
+                animal = _animal_du_client(
+                    client,
+                    nom_animal,
                     espece=data.get("animal_espece", "Chien"),
                     race=data.get("animal_race", ""),
                     sexe=data.get("animal_sexe", "M")
@@ -1813,8 +1845,13 @@ def create_consultation(request):
         )
 
         # 6. Réponse JSON de succès
+        if client_deja_enregistre:
+            # Affiché sur la fiche de la consultation après la redirection
+            messages.info(request, _message_client_existant(client))
         return JsonResponse({
-            "message": "Consultation créée avec succès.",
+            "message": (_message_client_existant(client) if client_deja_enregistre
+                        else "Consultation créée avec succès."),
+            "client_existant": client_deja_enregistre,
             "status": "success",
             "id": consultation.id,
             "consultation_id": consultation.id,

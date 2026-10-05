@@ -36,6 +36,48 @@
             {% block content %}{% endblock %}
         </div>
 
+        {% block messages_toast %}
+        {% if messages %}
+        <!-- Messages (succès, information, erreur) après une action -->
+        <div class="pv-toasts">
+            {% for message in messages %}
+            <div class="pv-toast pv-toast-{{ message.tags|default:'info' }}">
+                <span class="pv-toast-ic">{% if message.tags == 'success' %}✓{% elif message.tags == 'error' %}!{% else %}i{% endif %}</span>
+                <span class="pv-toast-txt">{{ message }}</span>
+                <button type="button" class="pv-toast-x" aria-label="Fermer" onclick="this.parentElement.remove()">×</button>
+            </div>
+            {% endfor %}
+        </div>
+        <style>
+        .pv-toasts { position:fixed; top:18px; right:18px; z-index:2000; display:flex; flex-direction:column; gap:10px; max-width:min(380px, calc(100vw - 32px)); }
+        .pv-toast { display:flex; align-items:flex-start; gap:10px; background:#fff; border-radius:14px; padding:12px 12px 12px 14px;
+                    box-shadow:0 12px 30px rgba(15,37,71,.16); border-left:4px solid #0A7BD6; font-size:.88rem; color:#0F2547;
+                    animation:pvToastIn .3s ease-out; }
+        .pv-toast-success { border-left-color:#08A87A; }
+        .pv-toast-error { border-left-color:#DC2626; }
+        .pv-toast-warning { border-left-color:#F59E0B; }
+        .pv-toast-ic { flex:none; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                       font-weight:800; font-size:.78rem; color:#fff; background:#0A7BD6; }
+        .pv-toast-success .pv-toast-ic { background:#08A87A; }
+        .pv-toast-error .pv-toast-ic { background:#DC2626; }
+        .pv-toast-warning .pv-toast-ic { background:#F59E0B; }
+        .pv-toast-txt { flex:1; line-height:1.45; padding-top:2px; }
+        .pv-toast-x { border:none; background:none; color:#94a3b8; font-size:1.2rem; line-height:1; cursor:pointer; padding:0 4px; }
+        .pv-toast.pv-sortie { opacity:0; transform:translateX(20px); transition:all .3s; }
+        @keyframes pvToastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+        </style>
+        <script>
+        // Disparition automatique après 6 secondes
+        setTimeout(function () {
+            document.querySelectorAll('.pv-toast').forEach(function (el) {
+                el.classList.add('pv-sortie');
+                setTimeout(function () { el.remove(); }, 300);
+            });
+        }, 6000);
+        </script>
+        {% endif %}
+        {% endblock %}
+
     </main>
 </div>
 
