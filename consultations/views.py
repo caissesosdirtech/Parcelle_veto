@@ -332,6 +332,9 @@ def enregistrer_rendez_vous(request, ordonnance_id):
                 motif=motif,
                 type_rdv="CABINET",
                 statut="EN_ATTENTE",
+                # Lien vers la consultation : le RDV apparaît ainsi dans le
+                # résumé (site et app).
+                consultation_origine=ordonnance.consultation,
             )
             ordonnance.rendez_vous = rdv
             ordonnance.save()
@@ -879,7 +882,11 @@ def api_ordonnance_detail(request, consultation_id):
             })
 
         # Rendez-vous liés à cette consultation
-        rdvs = RendezVous.objects.filter(consultation_origine=consultation).order_by('-date_rdv')
+        # RDV pris à la création de la consultation (consultation_origine) ou
+        # depuis la page de l'ordonnance sur le site (ordonnance.rendez_vous).
+        rdvs = RendezVous.objects.filter(
+            Q(consultation_origine=consultation) | Q(pk=ordonnance.rendez_vous_id)
+        ).distinct().order_by('-date_rdv')
         rendez_vous_data = [{
             'id': r.id,
             'date_rdv': r.date_rdv.isoformat() if r.date_rdv else None,
@@ -1039,6 +1046,9 @@ def ordonnance_detail(request, ordonnance_id):
             "ordonnance": ordonnance,
             "medicaments": medicaments,
             "rendez_vous": ordonnance.rendez_vous,
+            "rdv_prevu": ordonnance.rendez_vous or RendezVous.objects.filter(
+                consultation_origine=ordonnance.consultation
+            ).order_by("-date_rdv").first(),
         }
     )
 

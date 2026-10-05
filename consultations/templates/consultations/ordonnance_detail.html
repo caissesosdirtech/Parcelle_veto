@@ -320,6 +320,14 @@
                 <span class="sum-label">Total estimé</span>
                 <span class="sum-value sum-total" id="sumTotal">— FCFA</span>
             </div>
+            <div class="sum-row">
+                <span class="sum-label">Rendez-vous</span>
+                <span class="sum-value">
+                    {% if rdv_prevu %}
+                        {{ rdv_prevu.date_rdv|date:"d/m/Y à H:i" }}{% if rdv_prevu.motif %}<br><small>{{ rdv_prevu.motif }}</small>{% endif %}
+                    {% else %}Aucun{% endif %}
+                </span>
+            </div>
 
             <hr class="divider">
 
