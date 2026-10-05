@@ -63,6 +63,9 @@ class RendezVousManuel(models.Model):
         return f"RDV Appel: {self.nom_client} ({self.nom_animal}) - {self.date_rdv.strftime('%d/%m/%Y %H:%M')}"
 
 
+VETERINAIRE_PAR_DEFAUT = "Dr Ibrahima Pierre GUISSE"
+
+
 class Consultation(models.Model):
     STATUT_CHOICES = [
         ("en_cours", "En cours"),
@@ -96,6 +99,13 @@ class Consultation(models.Model):
         default=False,
         verbose_name="Client nouvellement créé"
     )
+
+    def save(self, *args, **kwargs):
+        # Quelle que soit l'origine (site, app, admin), une consultation
+        # sans vétérinaire indiqué est attribuée au vétérinaire de la clinique.
+        if not (self.veterinaire or "").strip():
+            self.veterinaire = VETERINAIRE_PAR_DEFAUT
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.client} - {self.animal} ({self.date.strftime('%d/%m/%Y')})"
