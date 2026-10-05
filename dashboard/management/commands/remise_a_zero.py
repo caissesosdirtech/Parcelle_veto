@@ -12,6 +12,7 @@ Exemples :
     python manage.py remise_a_zero --clients --confirmer
     python manage.py remise_a_zero --stock=restituer --confirmer
     python manage.py remise_a_zero --tout --confirmer    # repart de zéro complet
+    python manage.py remise_a_zero --caisse --notifications --stock=restituer --numeros --confirmer
 
 Options :
     --caisse          efface aussi les mouvements de caisse
@@ -20,6 +21,8 @@ Options :
     --stock=garder    (défaut) le stock reste tel quel
     --stock=restituer remet en stock les quantités des ventes supprimées
     --stock=zero      remet le stock de tous les médicaments à 0
+    --numeros         remet la numérotation (n° de consultation, RDV,
+                      vente…) à 1 pour les tables vidées
     --tout            TOUT effacer : activité + caisse + notifications +
                       clients/animaux + médicaments en stock + fournisseurs.
                       Sont conservés : les comptes utilisateurs et le
@@ -29,7 +32,8 @@ Tout se fait dans UNE transaction : en cas d'erreur, rien n'est effacé.
 """
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.core.management.color import no_style
+from django.db import connection, transaction
 from django.db.models import F, Sum
 
 from animaux.models import Animal
@@ -59,6 +63,8 @@ class Command(BaseCommand):
         parser.add_argument("--clients", action="store_true")
         parser.add_argument("--stock", choices=["garder", "restituer", "zero"],
                             default="garder")
+        parser.add_argument("--numeros", action="store_true",
+                            help="Remettre la numérotation à 1 (tables vidées).")
         parser.add_argument("--tout", action="store_true",
                             help="Tout effacer sauf comptes et catalogue.")
 
@@ -91,6 +97,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING("Éléments concernés :"))
         for nom, modele in cibles:
             self.stdout.write(f"  {nom:<32} {modele.objects.count():>6}")
+        if opts["numeros"]:
+            self.stdout.write(f"  {'Numérotation':<32} {'à 1':>6}")
         if not opts["tout"]:
             self.stdout.write(f"  {'Stock des médicaments':<32} {opts['stock']:>6}")
         else:
@@ -118,6 +126,17 @@ class Command(BaseCommand):
                 for nom, modele in cibles:
                     n, _ = modele.objects.all().delete()
                     self.stdout.write(f"  supprimé : {nom}")
+
+                if opts["numeros"]:
+                    # Remet chaque compteur à « plus grand numéro + 1 » :
+                    # 1 pour une table vide, sans risque pour les autres.
+                    requetes = connection.ops.sequence_reset_sql(
+                        no_style(), [modele for _, modele in cibles]
+                    )
+                    with connection.cursor() as curseur:
+                        for sql in requetes:
+                            curseur.execute(sql)
+                    self.stdout.write("  numérotation remise à 1")
         except Exception as exc:
             raise CommandError(f"Échec, rien n'a été effacé : {exc}")
 

@@ -109,6 +109,13 @@
         text-decoration: none;
 }
 
+.form-supprimer { display:inline; margin:0; }
+.btn-danger {
+    background:#fef2f2; color:#dc2626; border:1px solid #fecaca; cursor:pointer;
+    font-family:inherit;
+}
+.btn-danger:hover { background:#fee2e2; }
+
 .btn-success {
     background-color: #198754;
 }
@@ -210,6 +217,13 @@
     </a>
 {% endif %}
         
+        <form method="post" action="{% url 'supprimer_consultation' consultation.id %}"
+              class="form-supprimer"
+              onsubmit="return confirm('Supprimer définitivement cette consultation ?{% if consultation.statut == "terminee" %}\n\nLa vente liée sera supprimée et les médicaments remis en stock.{% endif %}');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">🗑 Supprimer la consultation</button>
+        </form>
+
         <!--{% if consultation.statut == "en_cours" %}
         <a href="{% url 'terminer_consultation' consultation.id %}" class="btn"> ✔ Terminer</a>
         {% endif %} -->

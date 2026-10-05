@@ -72,6 +72,12 @@ urlpatterns = [
     ),
 
     path(
+        "<int:consultation_id>/supprimer/",
+        views.supprimer_consultation,
+        name="supprimer_consultation"
+    ),
+
+    path(
         "consultations/<int:consultation_id>/terminer/",
         views.terminer_consultation,
         name="terminer_consultation"
@@ -216,6 +222,12 @@ urlpatterns = [
     # =========================================================
     # API FLUTTER — TERMINER CONSULTATION
     # =========================================================
+
+    path(
+        "api/<int:consultation_id>/supprimer/",
+        views.api_supprimer_consultation,
+        name="api_supprimer_consultation"
+    ),
 
     path(
         "api/<int:consultation_id>/terminer/",

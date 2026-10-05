@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import models, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -438,6 +438,65 @@ def nouvelle_consultation(request):
     })
 
 
+def _supprimer_consultation(consultation):
+    """
+    Supprime une consultation avec son ordonnance et la vente associée.
+    Les médicaments vendus avec l'ordonnance sont remis en stock.
+    Retourne le nombre d'unités remises en stock.
+    """
+    restitue = 0
+    with transaction.atomic():
+        ordonnance = Ordonnance.objects.filter(consultation=consultation).first()
+        if ordonnance:
+            for vente in Vente.objects.filter(ordonnance=ordonnance).prefetch_related("lignes"):
+                quantites = [(l.medicament_id, l.quantite) for l in vente.lignes.all()]
+                if not quantites:
+                    quantites = [(l.medicament_id, l.quantite) for l in ordonnance.lignes.all()]
+                for medicament_id, quantite in quantites:
+                    Medicament.objects.filter(pk=medicament_id).update(
+                        stock=F("stock") + quantite
+                    )
+                    restitue += quantite
+                vente.delete()
+        # Supprime aussi l'ordonnance et ses lignes (cascade)
+        consultation.delete()
+    return restitue
+
+
+@login_required
+@require_POST
+def supprimer_consultation(request, consultation_id):
+    consultation = get_object_or_404(Consultation, id=consultation_id)
+    nom_animal = consultation.animal.nom if consultation.animal else "l'animal"
+    restitue = _supprimer_consultation(consultation)
+    message = f"Consultation de {nom_animal} supprimée."
+    if restitue:
+        message += f" {restitue} unité(s) de médicaments remise(s) en stock."
+    messages.success(request, message)
+    return redirect("liste_consultations")
+
+
+@csrf_exempt
+@require_POST
+def api_supprimer_consultation(request, consultation_id):
+    """POST /consultations/api/<id>/supprimer/ — réservé à l'app (jeton JWT)."""
+    # Le jeton dans l'en-tête protège contre les requêtes envoyées à
+    # l'insu d'un utilisateur connecté au site (attaque CSRF).
+    if not request.headers.get("Authorization", "").startswith("Bearer ") \
+            or not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentification requise."}, status=401)
+
+    consultation = Consultation.objects.filter(pk=consultation_id).first()
+    if consultation is None:
+        return JsonResponse({"error": "Consultation introuvable."}, status=404)
+
+    restitue = _supprimer_consultation(consultation)
+    return JsonResponse({
+        "message": "Consultation supprimée.",
+        "stock_restitue": restitue,
+    })
+
+
 @login_required
 def consultation_detail(request, consultation_id):
     consultation = get_object_or_404(Consultation, id=consultation_id)
@@ -500,12 +559,8 @@ def terminer_consultation(request, consultation_id):
                     montant_total=montant
                 )
                 total += montant
-
-                # ⚠️ À VÉRIFIER : si Vente.save() déduit déjà le stock quand une
-                # ordonnance est rattachée, cette déduction manuelle est un doublon.
-                med = ligne.medicament
-                med.stock -= ligne.quantite
-                med.save()
+                # Pas de déduction ici : Vente.save() retire déjà du stock les
+                # quantités de l'ordonnance (sinon le stock baisse deux fois).
 
             vente.total = total
             vente.save()
