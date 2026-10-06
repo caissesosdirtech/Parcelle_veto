@@ -41,7 +41,7 @@ def rapport_caisse(request):
             "ordonnance__consultation__client",
             "ordonnance__consultation__animal",
         )
-        .prefetch_related("lignes__medicament")
+        .prefetch_related("lignes__medicament__catalogue")
         .order_by("-date", "-id")
     )
 
@@ -72,6 +72,7 @@ def rapport_caisse(request):
         "nombre_ventes": nombre_ventes,
         "ticket_moyen": ticket_moyen,
         "recettes": recettes,
+        "recap_medicaments": recap_medicaments(ventes),
         "date_debut": date_debut,
         "date_fin": date_fin,
         "active_page": "caisse",

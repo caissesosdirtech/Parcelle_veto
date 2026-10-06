@@ -45,7 +45,12 @@ class VenteViewSet(viewsets.ModelViewSet):
 
 def ventes_list(request):
     today = now()
-    ventes = Vente.objects.all().order_by('-date')
+    ventes = (
+        Vente.objects
+        .select_related("client", "ordonnance__consultation__client", "ordonnance__consultation__animal")
+        .prefetch_related("lignes__medicament__catalogue")
+        .order_by('-date')
+    )
 
     search = request.GET.get('search', '').strip()
     type_filtre = request.GET.get('type', '').strip()

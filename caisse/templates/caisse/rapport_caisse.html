@@ -124,6 +124,20 @@
 }
 
 /* ================= PRINT ================= */
+/* Médicaments vendus */
+.med-cell { max-width:320px; }
+.med-chip { display:inline-block; margin:2px 4px 2px 0; padding:3px 8px; border-radius:8px;
+            background:#eef4ff; color:#1e3a6e; font-size:.78rem; white-space:nowrap; }
+.med-chip b { color:#1f6feb; }
+.recap-card { margin-top:22px; }
+.recap-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+.recap-table th { text-align:left; padding:10px 14px; background:#f4f7fb; color:#5a6a7e; font-weight:700; border-bottom:1.5px solid #e7ecf2; }
+.recap-table td { padding:9px 14px; border-bottom:1px solid #f1f4f8; }
+.recap-table .num { text-align:right; }
+@media print {
+    .med-chip { background:none; padding:0; margin:0 6px 0 0; font-size:9pt; white-space:normal; }
+}
+
 @media print {
 
     .print-total {
@@ -418,6 +432,7 @@
     <th>Client</th>
     <th>Animal</th>
     <th>Type</th>
+    <th>Médicaments vendus</th>
     <th style="text-align:right;">Montant</th>
 </tr>
 </thead>
@@ -454,6 +469,10 @@
         {% endif %}
     </td>
 
+    <td class="med-cell">
+        {% for l in vente.lignes.all %}<span class="med-chip">{% if l.medicament.catalogue %}{{ l.medicament.catalogue.nom }}{% else %}{{ l.medicament }}{% endif %} <b>×{{ l.quantite }}</b></span>{% empty %}<span style="color:#b0bcc9;">—</span>{% endfor %}
+    </td>
+
     <td style="text-align:right;" class="montant-cell">
         {{ vente.total|floatformat:0 }} FCFA
     </td>
@@ -475,6 +494,23 @@
 </table>
 
 </div>
+
+{% if recap_medicaments %}
+<div class="table-card recap-card">
+    <div class="table-card-header">
+        <span>💊 Récapitulatif des médicaments vendus</span>
+        <span>{{ recap_medicaments|length }} médicament(s)</span>
+    </div>
+    <table class="recap-table">
+        <thead><tr><th>Médicament</th><th class="num">Quantité vendue</th><th class="num">Montant</th></tr></thead>
+        <tbody>
+        {% for nom, qte, montant in recap_medicaments %}
+            <tr><td>{{ nom }}</td><td class="num"><b>{{ qte }}</b></td><td class="num">{{ montant|floatformat:0 }} FCFA</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 
 </div>
 
