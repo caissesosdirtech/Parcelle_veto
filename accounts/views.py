@@ -15,6 +15,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         return token
 
+    def validate(self, attrs):
+        # Le rôle est aussi renvoyé en clair à la connexion : l'app mobile le
+        # lit pour afficher ou masquer les actions réservées au docteur.
+        data = super().validate(attrs)
+        role = self.user.role or ("DOCTEUR" if self.user.is_superuser else "")
+        data["role"] = role
+        data["username"] = self.user.username
+        return data
+
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer

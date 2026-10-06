@@ -466,10 +466,20 @@ def _supprimer_consultation(consultation):
     return restitue
 
 
+def _peut_supprimer_consultation(user):
+    """Seul le docteur (ou le super-administrateur) peut supprimer."""
+    return user.is_authenticated and (
+        user.is_superuser or getattr(user, "role", None) == "DOCTEUR"
+    )
+
+
 @login_required
 @require_POST
 def supprimer_consultation(request, consultation_id):
     consultation = get_object_or_404(Consultation, id=consultation_id)
+    if not _peut_supprimer_consultation(request.user):
+        messages.error(request, "Seul le docteur peut supprimer une consultation.")
+        return redirect("consultation_detail", consultation_id=consultation.id)
     nom_animal = consultation.animal.nom if consultation.animal else "l'animal"
     restitue = _supprimer_consultation(consultation)
     message = f"Consultation de {nom_animal} supprimée."
@@ -488,6 +498,11 @@ def api_supprimer_consultation(request, consultation_id):
     if not request.headers.get("Authorization", "").startswith("Bearer ") \
             or not request.user.is_authenticated:
         return JsonResponse({"error": "Authentification requise."}, status=401)
+
+    if not _peut_supprimer_consultation(request.user):
+        return JsonResponse(
+            {"error": "Seul le docteur peut supprimer une consultation."}, status=403
+        )
 
     consultation = Consultation.objects.filter(pk=consultation_id).first()
     if consultation is None:

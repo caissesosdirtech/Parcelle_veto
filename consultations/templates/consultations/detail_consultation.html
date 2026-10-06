@@ -217,7 +217,9 @@
     </a>
 {% endif %}
         
+        {% if request.user.is_superuser or request.user.role == 'DOCTEUR' %}
         <button type="button" class="btn btn-danger" onclick="ouvrirSuppression()">🗑 Supprimer la consultation</button>
+        {% endif %}
 
         <!--{% if consultation.statut == "en_cours" %}
         <a href="{% url 'terminer_consultation' consultation.id %}" class="btn"> ✔ Terminer</a>
