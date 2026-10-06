@@ -12,7 +12,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 # Dépendances OpenPyXL (Excel)
@@ -21,6 +21,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 # Modèles
 from ventes.models import Vente
+from ventes.medicaments_vendus import recap_medicaments, texte_medicaments
 
 
 # ── VUE WEB ───────────────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ def rapport_caisse_pdf(request):
             "ordonnance__consultation__client",
             "ordonnance__consultation__animal",
         )
+        .prefetch_related("lignes__medicament__catalogue")
         .order_by("-date", "-id")
     )
 
@@ -175,6 +177,7 @@ def rapport_caisse_pdf(request):
     )
 
     styles = getSampleStyleSheet()
+    cellule = ParagraphStyle("cellule", parent=styles["Normal"], fontSize=8, leading=10)
     elements = []
 
     # En-tête
@@ -206,7 +209,8 @@ def rapport_caisse_pdf(request):
     elements.append(Spacer(1, 0.5 * cm))
 
     # Tableau des ventes
-    data = [["N°", "Date", "Client", "Animal", "Type", "Montant (FCFA)"]]
+    ventes = list(ventes)
+    data = [["N°", "Date", "Client", "Animal", "Type", "Médicaments vendus", "Montant (FCFA)"]]
     total_general = 0
 
     for vente in ventes:
@@ -229,24 +233,30 @@ def rapport_caisse_pdf(request):
         data.append([
             str(vente.id),
             vente.date.strftime("%d/%m/%Y"),
-            client, animal, type_vente,
+            Paragraph(client, cellule), Paragraph(animal, cellule), type_vente,
+            Paragraph(texte_medicaments(vente), cellule),
             f"{montant:,.0f}",
         ])
 
-    data.append(["", "", "", "", "TOTAL", f"{total_general:,.0f} FCFA"])
+    data.append(["", "", "", "", "", "TOTAL", f"{total_general:,.0f} FCFA"])
 
-    table = Table(data, colWidths=[1.2 * cm, 3 * cm, 5 * cm, 4 * cm, 3 * cm, 3 * cm])
+    table = Table(
+        data,
+        colWidths=[1.1 * cm, 2 * cm, 3.2 * cm, 2.4 * cm, 2 * cm, 5.2 * cm, 2.7 * cm],
+        repeatRows=1,
+    )
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1565C0")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, 0), 8.5),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
         ("BACKGROUND", (0, 1), (-1, -2), colors.whitesmoke),
         ("FONTNAME", (0, 1), (-1, -2), "Helvetica"),
-        ("FONTSIZE", (0, 1), (-1, -2), 9),
+        ("FONTSIZE", (0, 1), (-1, -2), 8),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8F5E9")),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("TEXTCOLOR", (0, -1), (-1, -1), colors.darkgreen),
@@ -255,8 +265,33 @@ def rapport_caisse_pdf(request):
     elements.append(table)
     elements.append(Spacer(1, 0.6 * cm))
 
-    resume_style = styles["Normal"]
-    resume_style.alignment = TA_RIGHT
+    # Récapitulatif : quantité vendue par médicament sur la période
+    recap = recap_medicaments(ventes)
+    if recap:
+        elements.append(Paragraph("<b>Récapitulatif des médicaments vendus</b>", styles["Heading3"]))
+        data_recap = [["Médicament", "Quantité vendue", "Montant (FCFA)"]]
+        for nom, qte, montant_med in recap:
+            data_recap.append([Paragraph(nom, cellule), str(qte), f"{montant_med:,.0f}"])
+        data_recap.append(["TOTAL", str(sum(q for _, q, _ in recap)),
+                           f"{sum(m for _, _, m in recap):,.0f}"])
+        table_recap = Table(data_recap, colWidths=[10 * cm, 4 * cm, 4.6 * cm], repeatRows=1)
+        table_recap.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1565C0")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("BACKGROUND", (0, 1), (-1, -2), colors.whitesmoke),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8F5E9")),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, -1), (-1, -1), colors.darkgreen),
+        ]))
+        elements.append(table_recap)
+        elements.append(Spacer(1, 0.6 * cm))
+
+    resume_style = ParagraphStyle("resume", parent=styles["Normal"], alignment=TA_RIGHT)
     elements.append(Paragraph(f"<b>Total général : {total_general:,.0f} FCFA</b>", resume_style))
     elements.append(Spacer(1, 1 * cm))
     elements.append(Paragraph(
@@ -281,6 +316,7 @@ def export_caisse_excel(request):
             "ordonnance__consultation__client",
             "ordonnance__consultation__animal",
         )
+        .prefetch_related("lignes__medicament__catalogue")
         .order_by("-date", "-id")
     )
 
@@ -293,7 +329,8 @@ def export_caisse_excel(request):
     ws = wb.active
     ws.title = "Rapport Caisse"
 
-    headers = ["N°", "Date", "Client", "Animal", "Type", "Montant (FCFA)"]
+    ventes = list(ventes)
+    headers = ["N°", "Date", "Client", "Animal", "Type", "Médicaments vendus", "Montant (FCFA)"]
     ws.append(headers)
 
     header_font = Font(bold=True, color="FFFFFF")
@@ -327,17 +364,32 @@ def export_caisse_excel(request):
             vente.id,
             vente.date.strftime("%d/%m/%Y"),
             client, animal, type_vente,
+            texte_medicaments(vente),
             montant,
         ])
+        ws.cell(row=ws.max_row, column=6).alignment = Alignment(wrap_text=True, vertical="top")
 
     # Ligne de total
-    ws.append(["", "", "", "", "TOTAL", float(total_general)])
+    ws.append(["", "", "", "", "", "TOTAL", float(total_general)])
     last_row = ws.max_row
-    for col in range(1, 7):
+    for col in range(1, 8):
         ws.cell(row=last_row, column=col).font = Font(bold=True)
 
-    for col_letter in ["A", "B", "C", "D", "E", "F"]:
-        ws.column_dimensions[col_letter].width = 18
+    for col_letter, largeur in zip("ABCDEFG", [8, 12, 22, 16, 12, 50, 16]):
+        ws.column_dimensions[col_letter].width = largeur
+
+    # Deuxième feuille : quantité vendue par médicament
+    ws2 = wb.create_sheet("Médicaments vendus")
+    ws2.append(["Médicament", "Quantité vendue", "Montant (FCFA)"])
+    for col in range(1, 4):
+        cell = ws2.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+    for nom, qte, montant_med in recap_medicaments(ventes):
+        ws2.append([nom, qte, montant_med])
+    for col_letter, largeur in zip("ABC", [36, 18, 18]):
+        ws2.column_dimensions[col_letter].width = largeur
 
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

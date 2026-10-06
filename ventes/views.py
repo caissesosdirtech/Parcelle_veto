@@ -3,6 +3,7 @@ from rest_framework import viewsets
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .models import Vente, LigneVente
+from .medicaments_vendus import recap_medicaments, texte_medicaments
 from .serializers import VenteSerializer
 
 from django.http import HttpResponse, JsonResponse
@@ -29,7 +30,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 
@@ -411,60 +412,80 @@ def api_vente_jour(request):
 
 # ===================== EXPORTS VENTE DU JOUR =====================
 
-def export_vente_jour_excel(request):
-    """GET /ventes/export/jour/excel/?date=YYYY-MM-DD"""
+def _ventes_du_jour(request):
+    """Ventes de la date demandée (?date=YYYY-MM-DD) ou du jour, + libellé."""
     date_str = request.GET.get("date")
     if date_str:
-        jour_label = date_str
         ventes = Vente.objects.filter(date__date=date_str)
+        libelle = date_str
     else:
         today = now()
-        jour_label = today.strftime("%Y-%m-%d")
         ventes = Vente.objects.filter(
             date__year=today.year, date__month=today.month, date__day=today.day,
         )
-
+        libelle = today.strftime("%Y-%m-%d")
     ventes = (
         ventes
         .select_related("client", "ordonnance__consultation__client")
+        .prefetch_related("lignes__medicament__catalogue")
         .order_by("-date")
     )
+    return list(ventes), libelle
+
+
+def _client_de_la_vente(v):
+    try:
+        if v.ordonnance and v.ordonnance.consultation:
+            return v.ordonnance.consultation.client.nom
+        return v.client.nom if v.client else "Anonyme"
+    except Exception:
+        return "Anonyme"
+
+
+def export_vente_jour_excel(request):
+    """GET /ventes/export/jour/excel/?date=YYYY-MM-DD"""
+    ventes, jour_label = _ventes_du_jour(request)
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Vente du jour"
 
-    headers = ["N°", "Heure", "Client", "Montant (FCFA)"]
-    ws.append(headers)
-
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="2E7D4F", end_color="2E7D4F", fill_type="solid")
-    for col in range(1, len(headers) + 1):
-        cell = ws.cell(row=1, column=col)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
+
+    def entete(feuille, titres):
+        feuille.append(titres)
+        for col in range(1, len(titres) + 1):
+            cell = feuille.cell(row=feuille.max_row, column=col)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+
+    entete(ws, ["N°", "Heure", "Client", "Médicaments vendus", "Montant (FCFA)"])
 
     total = 0
     for v in ventes:
-        try:
-            if v.ordonnance and v.ordonnance.consultation:
-                client = v.ordonnance.consultation.client.nom
-            else:
-                client = v.client.nom if v.client else "Anonyme"
-        except Exception:
-            client = "Anonyme"
-
         total += v.total or 0
-        ws.append([v.id, v.date.strftime("%H:%M"), client, float(v.total or 0)])
+        ws.append([
+            v.id, v.date.strftime("%H:%M"), _client_de_la_vente(v),
+            texte_medicaments(v), float(v.total or 0),
+        ])
+        ws.cell(row=ws.max_row, column=4).alignment = Alignment(wrap_text=True, vertical="top")
 
-    ws.append(["", "", "TOTAL", float(total)])
-    last_row = ws.max_row
-    for col in range(1, 5):
-        ws.cell(row=last_row, column=col).font = Font(bold=True)
+    ws.append(["", "", "", "TOTAL", float(total)])
+    for col in range(1, 6):
+        ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
 
-    for col_letter in ["A", "B", "C", "D"]:
-        ws.column_dimensions[col_letter].width = 20
+    for col_letter, largeur in zip("ABCDE", [8, 10, 24, 50, 18]):
+        ws.column_dimensions[col_letter].width = largeur
+
+    # Récapitulatif par médicament
+    ws2 = wb.create_sheet("Médicaments vendus")
+    entete(ws2, ["Médicament", "Quantité vendue", "Montant (FCFA)"])
+    for nom, qte, montant in recap_medicaments(ventes):
+        ws2.append([nom, qte, montant])
+    for col_letter, largeur in zip("ABC", [36, 18, 18]):
+        ws2.column_dimensions[col_letter].width = largeur
 
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -476,22 +497,7 @@ def export_vente_jour_excel(request):
 
 def export_vente_jour_pdf(request):
     """GET /ventes/export/jour/pdf/?date=YYYY-MM-DD"""
-    date_str = request.GET.get("date")
-    if date_str:
-        jour_label = date_str
-        ventes = Vente.objects.filter(date__date=date_str)
-    else:
-        today = now()
-        jour_label = today.strftime("%d/%m/%Y")
-        ventes = Vente.objects.filter(
-            date__year=today.year, date__month=today.month, date__day=today.day,
-        )
-
-    ventes = (
-        ventes
-        .select_related("client", "ordonnance__consultation__client")
-        .order_by("-date")
-    )
+    ventes, jour_label = _ventes_du_jour(request)
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="vente_du_jour.pdf"'
@@ -503,55 +509,73 @@ def export_vente_jour_pdf(request):
     )
 
     styles = getSampleStyleSheet()
+    cellule = ParagraphStyle("cellule", parent=styles["Normal"], fontSize=8.5, leading=10.5)
     elements = []
 
     titre_style = styles["Heading2"]
     titre_style.alignment = TA_CENTER
-    elements.append(Paragraph("**VENTE DU JOUR — PARCELLES VÉTO**", titre_style))
-    elements.append(Paragraph(
-        f"{jour_label}",
-        styles["Normal"],
-    ))
+    elements.append(Paragraph("<b>VENTE DU JOUR — PARCELLES VÉTO</b>", titre_style))
+    elements.append(Paragraph(jour_label, ParagraphStyle("sous", parent=styles["Normal"], alignment=TA_CENTER)))
     elements.append(Spacer(1, 0.5 * cm))
 
-    data = [["N°", "Heure", "Client", "Montant (FCFA)"]]
+    data = [["N°", "Heure", "Client", "Médicaments vendus", "Montant (FCFA)"]]
     total = 0
     for v in ventes:
-        try:
-            if v.ordonnance and v.ordonnance.consultation:
-                client = v.ordonnance.consultation.client.nom
-            else:
-                client = v.client.nom if v.client else "Anonyme"
-        except Exception:
-            client = "Anonyme"
-
         total += v.total or 0
-        data.append([str(v.id), v.date.strftime("%H:%M"), client, f"{v.total:,.0f}"])
+        data.append([
+            str(v.id), v.date.strftime("%H:%M"),
+            Paragraph(_client_de_la_vente(v), cellule),
+            Paragraph(texte_medicaments(v), cellule),
+            f"{v.total:,.0f}",
+        ])
+    data.append(["", "", "", "TOTAL", f"{total:,.0f} FCFA"])
 
-    data.append(["", "", "TOTAL", f"{total:,.0f} FCFA"])
-
-    table = Table(data, colWidths=[2*cm, 3*cm, 7*cm, 4*cm])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E7D4F")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-        ("BACKGROUND", (0, 1), (-1, -2), colors.whitesmoke),
-        ("FONTNAME", (0, 1), (-1, -2), "Helvetica"),
-        ("FONTSIZE", (0, 1), (-1, -2), 9),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8F5E9")),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("TEXTCOLOR", (0, -1), (-1, -1), colors.darkgreen),
-    ]))
+    table = Table(data, colWidths=[1.4*cm, 1.8*cm, 4.2*cm, 7.6*cm, 3.6*cm], repeatRows=1)
+    table.setStyle(TableStyle(_STYLE_TABLEAU_EXPORT))
     elements.append(table)
     elements.append(Spacer(1, 0.6 * cm))
 
-    resume_style = styles["Normal"]
-    resume_style.alignment = TA_RIGHT
-    elements.append(Paragraph(f"**Nombre de ventes : {ventes.count()}**", resume_style))
+    _ajouter_recap_pdf(elements, styles, recap_medicaments(ventes))
+
+    resume_style = ParagraphStyle("resume", parent=styles["Normal"], alignment=TA_RIGHT)
+    elements.append(Paragraph(f"<b>Nombre de ventes : {len(ventes)}</b>", resume_style))
 
     doc.build(elements)
     return response
+
+
+_STYLE_TABLEAU_EXPORT = [
+    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E7D4F")),
+    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+    ("FONTSIZE", (0, 0), (-1, 0), 9.5),
+    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ("ALIGN", (2, 1), (3, -2), "LEFT"),
+    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+    ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+    ("BACKGROUND", (0, 1), (-1, -2), colors.whitesmoke),
+    ("FONTNAME", (0, 1), (-1, -2), "Helvetica"),
+    ("FONTSIZE", (0, 1), (-1, -2), 8.5),
+    ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8F5E9")),
+    ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+    ("TEXTCOLOR", (0, -1), (-1, -1), colors.darkgreen),
+]
+
+
+def _ajouter_recap_pdf(elements, styles, recap):
+    """Tableau « Médicaments vendus » : quantité totale par médicament."""
+    if not recap:
+        return
+    sous_titre = ParagraphStyle("recap", parent=styles["Heading3"], spaceBefore=4, spaceAfter=6)
+    elements.append(Paragraph("Récapitulatif des médicaments vendus", sous_titre))
+    cellule = ParagraphStyle("cellule_recap", parent=styles["Normal"], fontSize=9, leading=11)
+    data = [["Médicament", "Quantité vendue", "Montant (FCFA)"]]
+    for nom, qte, montant in recap:
+        data.append([Paragraph(nom, cellule), str(qte), f"{montant:,.0f}"])
+    data.append(["TOTAL", str(sum(q for _, q, _ in recap)),
+                 f"{sum(m for _, _, m in recap):,.0f}"])
+    table = Table(data, colWidths=[10 * cm, 4 * cm, 4.6 * cm], repeatRows=1)
+    table.setStyle(TableStyle(_STYLE_TABLEAU_EXPORT + [("ALIGN", (0, 1), (0, -1), "LEFT")]))
+    elements.append(table)
+    elements.append(Spacer(1, 0.6 * cm))
