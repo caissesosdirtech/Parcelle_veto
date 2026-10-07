@@ -502,3 +502,18 @@ canvas {
     margin-top: 4px;
     display: inline-flex !important;
 }
+/* ================= PIED DE PAGE À CÔTÉ DU MENU ================= */
+/* Le pied de page couvrait le bas du menu (et le bouton Déconnexion) :
+   il commence maintenant après la barre latérale. */
+@media (min-width: 769px) {
+    .dashboard-footer {
+        left: 260px !important;
+        width: calc(100vw - 260px) !important;
+    }
+}
+@media (max-width: 768px) {
+    .dashboard-footer {
+        left: 220px !important;
+        width: calc(100vw - 220px) !important;
+    }
+}

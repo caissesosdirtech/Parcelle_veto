@@ -382,3 +382,15 @@
     opacity: 0.75;
     font-size: 12.5px;
 }
+
+/* ================= DÉCONNEXION FIXÉE EN BAS ================= */
+/* Reste visible même quand le menu est long (il défile au-dessus). */
+.sidebar-logout {
+    position: sticky;
+    bottom: 0;
+    padding: 8px 0 4px;
+    background: #1e293b;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 -8px 16px rgba(15,23,42,0.35);
+}
+.sidebar-logout .btn-account { margin-top: 4px; margin-bottom: 8px; }

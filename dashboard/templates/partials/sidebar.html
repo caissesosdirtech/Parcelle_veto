@@ -109,8 +109,8 @@
         </a>
     {% endif %}
 
-    <!-- ================= PARAMÈTRES ================= -->
-    <div class="nav-section-label">Paramètres</div>
+    <!-- ================= COMPTE ================= -->
+    <div class="nav-section-label">Compte</div>
 
     {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
     <a class="nav-item {% if active_page == 'parametres' %}active{% endif %}"
@@ -124,33 +124,30 @@
         👤 Mon compte
     </a>
 
-    <!-- ================= COMPTE ================= -->
-    <div class="nav-section-label">Compte</div>
-
-    {% if request.user.is_authenticated %}
-        <form method="post" action="{% url 'logout' %}" style="display: block;">
-            {% csrf_token %}
-            <button type="submit" class="btn-account btn-logout">
-                <span class="btn-account-icon">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                </span>
-                <span>
-                    Déconnexion
-                    <br><span class="btn-account-user">{{ request.user.username }}</span>
-                </span>
-            </button>
-        </form>
-    {% else %}
-        <a class="btn-account btn-login {% if active_page == 'login' %}active{% endif %}"
-           href="{% url 'login' %}">
-            <span class="btn-account-icon">
-                <i class="fa-solid fa-right-to-bracket"></i>
-            </span>
-            <span>Connexion</span>
-        </a>
-    {% endif %}
-
 </nav>
+
+<!-- ================= DÉCONNEXION (toujours visible en bas) ================= -->
+<div class="sidebar-logout">
+{% if request.user.is_authenticated %}
+    <form method="post" action="{% url 'logout' %}" style="display: block; margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-account btn-logout">
+            <span class="btn-account-icon">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            </span>
+            <span>
+                Déconnexion
+                <br><span class="btn-account-user">{{ request.user.username }}</span>
+            </span>
+        </button>
+    </form>
+{% else %}
+    <a class="btn-account btn-login" href="{% url 'login' %}">
+        <span class="btn-account-icon"><i class="fa-solid fa-right-to-bracket"></i></span>
+        <span>Connexion</span>
+    </a>
+{% endif %}
+</div>
 </aside>
 
 ```
