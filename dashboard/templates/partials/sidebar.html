@@ -26,6 +26,21 @@
 <span class="user-role-badge">
     {{ request.user.libelle_role }}
 </span>
+
+    <!-- Actions du compte : toujours visibles en haut du menu -->
+    {% if request.user.is_authenticated %}
+    <div class="user-card-actions">
+        <a href="{% url 'mon_compte' %}" class="uca-btn {% if active_page == 'mon_compte' %}on{% endif %}" title="Mon compte">
+            <i class="fa-solid fa-user"></i> Mon compte
+        </a>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="uca-btn uca-logout" title="Se déconnecter">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Déconnexion
+            </button>
+        </form>
+    </div>
+    {% endif %}
 </div>
 
 <nav class="sidebar-nav">
@@ -109,45 +124,15 @@
         </a>
     {% endif %}
 
-    <!-- ================= COMPTE ================= -->
-    <div class="nav-section-label">Compte</div>
-
+    <!-- ================= PARAMÈTRES (docteur) ================= -->
     {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
+    <div class="nav-section-label">Administration</div>
     <a class="nav-item {% if active_page == 'parametres' %}active{% endif %}"
        href="{% url 'utilisateurs_liste' %}">
         ⚙️ Paramètres
     </a>
     {% endif %}
 
-    <a class="nav-item {% if active_page == 'mon_compte' %}active{% endif %}"
-       href="{% url 'mon_compte' %}">
-        👤 Mon compte
-    </a>
-
 </nav>
 
-<!-- ================= DÉCONNEXION (toujours visible en bas) ================= -->
-<div class="sidebar-logout">
-{% if request.user.is_authenticated %}
-    <form method="post" action="{% url 'logout' %}" style="display: block; margin:0;">
-        {% csrf_token %}
-        <button type="submit" class="btn-account btn-logout">
-            <span class="btn-account-icon">
-                <i class="fa-solid fa-arrow-right-from-bracket"></i>
-            </span>
-            <span>
-                Déconnexion
-                <br><span class="btn-account-user">{{ request.user.username }}</span>
-            </span>
-        </button>
-    </form>
-{% else %}
-    <a class="btn-account btn-login" href="{% url 'login' %}">
-        <span class="btn-account-icon"><i class="fa-solid fa-right-to-bracket"></i></span>
-        <span>Connexion</span>
-    </a>
-{% endif %}
-</div>
 </aside>
-
-```

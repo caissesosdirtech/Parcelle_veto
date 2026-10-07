@@ -383,14 +383,34 @@
     font-size: 12.5px;
 }
 
-/* ================= DÉCONNEXION FIXÉE EN BAS ================= */
-/* Reste visible même quand le menu est long (il défile au-dessus). */
-.sidebar-logout {
-    position: sticky;
-    bottom: 0;
-    padding: 8px 0 4px;
-    background: #1e293b;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 -8px 16px rgba(15,23,42,0.35);
+/* ================= ACTIONS DU COMPTE (carte utilisateur) ================= */
+.user-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
 }
-.sidebar-logout .btn-account { margin-top: 4px; margin-bottom: 8px; }
+.user-card-actions form { flex: 1; margin: 0; }
+.uca-btn {
+    flex: 1;
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 6px;
+    border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: #e2e8f0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    white-space: nowrap;
+}
+.uca-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.uca-btn.on { border-color: #38bdf8; color: #38bdf8; }
+.uca-logout { color: #fca5a5; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
+.uca-logout:hover { background: rgba(248,113,113,0.2); color: #fff; }
