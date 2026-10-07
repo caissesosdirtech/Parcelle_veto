@@ -29,8 +29,9 @@ from ventes.medicaments_vendus import recap_medicaments, texte_medicaments
 @login_required
 def rapport_caisse(request):
     """Affiche le rapport de caisse avec statistiques et historique filtrable."""
-    if hasattr(request.user, 'role') and request.user.role == 'EMPLOYE' and not request.user.is_superuser:
-        raise PermissionDenied("Accès refusé : Le rapport de caisse est strictly réservé aux docteurs.")
+    # Réservé au docteur (le rôle « EMPLOYE » testé avant n'existe pas)
+    if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'DOCTEUR'):
+        raise PermissionDenied("Accès refusé : le rapport de caisse est réservé au docteur.")
 
     date_debut = request.GET.get("date_debut")
     date_fin = request.GET.get("date_fin")

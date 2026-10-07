@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'caisse',
     'dashboard',
     'notifications',
+    'parametres',
 ]
 
 MIDDLEWARE = [
@@ -145,6 +146,8 @@ REST_FRAMEWORK = {
 # au lancement de l'app), reconnexion obligatoire au bout de 30 jours.
 from datetime import timedelta
 SIMPLE_JWT = {
+    # Date de dernière connexion à jour aussi pour les connexions depuis l'app
+    "UPDATE_LAST_LOGIN": True,
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }

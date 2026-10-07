@@ -1,0 +1,113 @@
+{% extends "base_dashboard.html" %}
+{% block title %}Paramètres — Utilisateurs{% endblock %}
+{% block content %}
+{% include "parametres/_style.html" %}
+
+<div class="pm-head">
+    <div>
+        <div class="pm-title">⚙️ Paramètres</div>
+        <div class="pm-sub">Comptes de l'équipe et rôles · {{ nb_actifs }} compte{{ nb_actifs|pluralize }} actif{{ nb_actifs|pluralize }}</div>
+    </div>
+    <a href="{% url 'utilisateur_ajouter' %}" class="pm-btn pm-primary">＋ Ajouter un utilisateur</a>
+</div>
+
+{% include "parametres/_onglets.html" %}
+
+<div class="pm-card">
+    <table class="pm-table">
+        <thead>
+            <tr><th>Utilisateur</th><th>Rôle</th><th>Téléphone</th><th>Dernière connexion</th><th>Statut</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for u in utilisateurs %}
+            <tr class="{% if not u.is_active %}pm-row-off{% endif %}">
+                <td>
+                    <div class="pm-user">
+                        <div class="pm-av">{{ u.get_full_name|default:u.username|first|upper }}</div>
+                        <div>
+                            <div class="pm-name">{{ u.get_full_name|default:u.username }}{% if u.pk == request.user.pk %} <span class="pm-login">(vous)</span>{% endif %}</div>
+                            <div class="pm-login">@{{ u.username }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="pm-role {% if u.role %}pm-role-{{ u.role }}{% else %}pm-role-x{% endif %}">{{ u.libelle_role }}</span></td>
+                <td>{{ u.telephone|default:"—" }}</td>
+                <td>{% if u.last_login %}{{ u.last_login|date:"d/m/Y à H:i" }}{% else %}<span class="pm-login">Jamais</span>{% endif %}</td>
+                <td><span class="pm-state {% if u.is_active %}on{% else %}off{% endif %}">{% if u.is_active %}● Actif{% else %}● Désactivé{% endif %}</span></td>
+                <td>
+                    {% if request.user.is_superuser or not u.is_superuser %}
+                    <div class="pm-actions">
+                        <a class="pm-btn pm-ghost pm-small" href="{% url 'utilisateur_modifier' u.pk %}">✏️ Modifier</a>
+                        <button type="button" class="pm-btn pm-ghost pm-small"
+                                onclick="ouvrirMdp('{% url 'utilisateur_mot_de_passe' u.pk %}', '{{ u.get_full_name|default:u.username|escapejs }}')">🔑 Mot de passe</button>
+                        {% if u.pk != request.user.pk %}
+                        <button type="button" class="pm-btn {% if u.is_active %}pm-danger{% else %}pm-success{% endif %} pm-small"
+                                onclick="ouvrirActif('{% url 'utilisateur_activer' u.pk %}', '{{ u.get_full_name|default:u.username|escapejs }}', {{ u.is_active|yesno:'true,false' }})">
+                            {% if u.is_active %}⏸ Désactiver{% else %}▶ Réactiver{% endif %}</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Réinitialiser le mot de passe -->
+<div class="pm-ov" id="ovMdp" onclick="if(event.target===this)fermer(this)">
+    <form class="pm-modal" method="post" id="formMdp">
+        {% csrf_token %}
+        <h3>🔑 Nouveau mot de passe</h3>
+        <p>Pour <b id="mdpNom"></b>. Communiquez-le-lui : il pourra le changer ensuite dans « Mon compte ».</p>
+        <div class="pm-field"><label>Nouveau mot de passe</label><input type="password" name="password" minlength="{{ longueur_min }}" required></div>
+        <div class="pm-field" style="margin-top:12px;"><label>Confirmer</label><input type="password" name="password2" minlength="{{ longueur_min }}" required></div>
+        <div class="pm-hint">{{ longueur_min }} caractères minimum, pas uniquement des chiffres.</div>
+        <div class="pm-foot">
+            <button type="button" class="pm-btn pm-ghost" onclick="fermer(document.getElementById('ovMdp'))">Annuler</button>
+            <button type="submit" class="pm-btn pm-primary">Enregistrer</button>
+        </div>
+    </form>
+</div>
+
+<!-- Activer / désactiver -->
+<div class="pm-ov" id="ovActif" onclick="if(event.target===this)fermer(this)">
+    <form class="pm-modal" method="post" id="formActif">
+        {% csrf_token %}
+        <h3 id="actifTitre"></h3>
+        <p id="actifTexte"></p>
+        <div class="pm-foot">
+            <button type="button" class="pm-btn pm-ghost" onclick="fermer(document.getElementById('ovActif'))">Annuler</button>
+            <button type="submit" class="pm-btn" id="actifBtn"></button>
+        </div>
+    </form>
+</div>
+
+<script>
+function fermer(el) { el.classList.remove('show'); }
+function ouvrirMdp(url, nom) {
+    var f = document.getElementById('formMdp'); f.action = url; f.reset();
+    document.getElementById('mdpNom').textContent = nom;
+    document.getElementById('ovMdp').classList.add('show');
+    f.querySelector('input[name=password]').focus();
+}
+function ouvrirActif(url, nom, actif) {
+    document.getElementById('formActif').action = url;
+    document.getElementById('actifTitre').textContent = actif ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?';
+    document.getElementById('actifTexte').textContent = actif
+        ? nom + ' ne pourra plus se connecter, ni sur le site ni dans l’app. Son historique est conservé.'
+        : nom + ' pourra de nouveau se connecter avec son mot de passe.';
+    var b = document.getElementById('actifBtn');
+    b.textContent = actif ? 'Désactiver' : 'Réactiver';
+    b.className = 'pm-btn ' + (actif ? 'pm-danger' : 'pm-success');
+    document.getElementById('ovActif').classList.add('show');
+}
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') document.querySelectorAll('.pm-ov.show').forEach(fermer);
+});
+document.getElementById('formMdp').addEventListener('submit', function (e) {
+    var p = this.password.value, c = this.password2.value;
+    if (p !== c) { e.preventDefault(); alert('Les deux mots de passe ne correspondent pas.'); }
+});
+</script>
+{% endblock %}

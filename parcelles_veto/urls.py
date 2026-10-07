@@ -32,6 +32,7 @@ urlpatterns = [
     path("caisse/", include("caisse.urls")),
     path("fournisseurs/", include("fournisseurs.urls")),
     path("notifications/", include("notifications.urls")),
+    path("parametres/", include("parametres.urls")),
     path("consultations/<int:consultation_id>/terminer/", views.terminer_consultation, name="terminer_consultation"),
     path("api/token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

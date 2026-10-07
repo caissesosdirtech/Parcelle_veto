@@ -63,7 +63,7 @@ def role_required(*roles):
 
 # Raccourcis
 docteur_required = role_required('DOCTEUR')
-employe_or_docteur = role_required('DOCTEUR', 'EMPLOYE')
+employe_or_docteur = role_required('DOCTEUR', 'ASSISTANT', 'PHARMACIEN')
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect

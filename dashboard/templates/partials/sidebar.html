@@ -109,6 +109,21 @@
         </a>
     {% endif %}
 
+    <!-- ================= PARAMÈTRES ================= -->
+    <div class="nav-section-label">Paramètres</div>
+
+    {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
+    <a class="nav-item {% if active_page == 'parametres' %}active{% endif %}"
+       href="{% url 'utilisateurs_liste' %}">
+        ⚙️ Paramètres
+    </a>
+    {% endif %}
+
+    <a class="nav-item {% if active_page == 'mon_compte' %}active{% endif %}"
+       href="{% url 'mon_compte' %}">
+        👤 Mon compte
+    </a>
+
     <!-- ================= COMPTE ================= -->
     <div class="nav-section-label">Compte</div>
 

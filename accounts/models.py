@@ -10,6 +10,7 @@ class Utilisateur(AbstractUser):
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, blank=True, null=True)
     fcm_token = models.CharField(max_length=255, blank=True, null=True)  # 👈 ce champ
+    telephone = models.CharField(max_length=30, blank=True, default="")
 
     @property
     def libelle_role(self):

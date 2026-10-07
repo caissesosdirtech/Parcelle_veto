@@ -1,0 +1,51 @@
+{% extends "base_dashboard.html" %}
+{% block title %}Mon compte{% endblock %}
+{% block content %}
+{% include "parametres/_style.html" %}
+
+<div class="pm-head">
+    <div>
+        <div class="pm-title">⚙️ Paramètres</div>
+        <div class="pm-sub">Vos informations et votre mot de passe</div>
+    </div>
+</div>
+
+{% include "parametres/_onglets.html" %}
+
+<div class="pm-grid" style="align-items:start;">
+    <form method="post" class="pm-card">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="profil">
+        <div class="pm-card-h"><h3>👤 Mes informations</h3>
+            <span class="pm-role {% if request.user.role %}pm-role-{{ request.user.role }}{% else %}pm-role-x{% endif %}">{{ request.user.libelle_role }}</span></div>
+        <div class="pm-card-b">
+            <div class="pm-field"><label>Identifiant</label><input value="{{ request.user.username }}" disabled></div>
+            <div class="pm-field" style="margin-top:12px;"><label>Prénom</label><input name="first_name" value="{{ request.user.first_name }}"></div>
+            <div class="pm-field" style="margin-top:12px;"><label>Nom</label><input name="last_name" value="{{ request.user.last_name }}"></div>
+            <div class="pm-field" style="margin-top:12px;"><label>Téléphone</label><input name="telephone" value="{{ request.user.telephone }}"></div>
+            <div class="pm-foot"><button type="submit" class="pm-btn pm-primary">Enregistrer</button></div>
+        </div>
+    </form>
+
+    <form method="post" class="pm-card" id="formMonMdp">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="mot_de_passe">
+        <div class="pm-card-h"><h3>🔑 Changer mon mot de passe</h3></div>
+        <div class="pm-card-b">
+            <div class="pm-field"><label>Mot de passe actuel</label><input type="password" name="ancien" autocomplete="current-password" required></div>
+            <div class="pm-field" style="margin-top:12px;"><label>Nouveau mot de passe</label><input type="password" name="password" minlength="{{ longueur_min }}" autocomplete="new-password" required></div>
+            <div class="pm-field" style="margin-top:12px;"><label>Confirmer le nouveau mot de passe</label><input type="password" name="password2" minlength="{{ longueur_min }}" autocomplete="new-password" required></div>
+            <div class="pm-hint">{{ longueur_min }} caractères minimum, pas uniquement des chiffres. Vous restez connecté après le changement.</div>
+            <div class="pm-foot"><button type="submit" class="pm-btn pm-primary">Changer le mot de passe</button></div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('formMonMdp').addEventListener('submit', function (e) {
+    if (this.password.value !== this.password2.value) {
+        e.preventDefault(); alert('Les deux nouveaux mots de passe ne correspondent pas.');
+    }
+});
+</script>
+{% endblock %}

@@ -14,7 +14,7 @@ class UtilisateurAdmin(UserAdmin):
     # UserAdmin, qui ne connaît que les champs standard de Django).
     fieldsets = UserAdmin.fieldsets + (
         ("Informations Parcelles Véto", {
-            "fields": ("role", "fcm_token"),
+            "fields": ("role", "telephone", "fcm_token"),
         }),
     )
 

@@ -1,0 +1,77 @@
+{% extends "base_dashboard.html" %}
+{% block title %}{% if cible %}Modifier un utilisateur{% else %}Ajouter un utilisateur{% endif %}{% endblock %}
+{% block content %}
+{% include "parametres/_style.html" %}
+
+<div class="pm-head">
+    <div>
+        <div class="pm-title">{% if cible %}✏️ Modifier le compte{% else %}＋ Nouvel utilisateur{% endif %}</div>
+        <div class="pm-sub">{% if cible %}@{{ cible.username }}{% else %}Créez un accès pour un membre de l'équipe{% endif %}</div>
+    </div>
+</div>
+
+{% include "parametres/_onglets.html" %}
+
+<form method="post" class="pm-card" style="max-width:760px;">
+    {% csrf_token %}
+    <div class="pm-card-b">
+        <div class="pm-grid">
+            <div class="pm-field">
+                <label>Prénom</label>
+                <input name="first_name" value="{% if valeurs %}{{ valeurs.first_name }}{% else %}{{ cible.first_name }}{% endif %}" placeholder="Ex : Awa">
+            </div>
+            <div class="pm-field">
+                <label>Nom</label>
+                <input name="last_name" value="{% if valeurs %}{{ valeurs.last_name }}{% else %}{{ cible.last_name }}{% endif %}" placeholder="Ex : Diop">
+            </div>
+            <div class="pm-field">
+                <label>Téléphone</label>
+                <input name="telephone" value="{% if valeurs %}{{ valeurs.telephone }}{% else %}{{ cible.telephone }}{% endif %}" placeholder="Ex : 77 123 45 67">
+            </div>
+            <div class="pm-field">
+                <label>Rôle</label>
+                
+                <select name="role" {% if est_moi and not request.user.is_superuser %}disabled{% endif %} required>
+                    <option value="">— Choisir —</option>
+                    {% for code, libelle in roles %}
+                    <option value="{{ code }}" {% if role_courant == code %}selected{% endif %}>{{ libelle }}</option>
+                    {% endfor %}
+                </select>
+                {% if est_moi and not request.user.is_superuser %}
+                <input type="hidden" name="role" value="{{ cible.role }}">
+                <div class="pm-hint">Vous ne pouvez pas modifier votre propre rôle.</div>
+                {% endif %}
+            </div>
+
+            {% if not cible %}
+            <div class="pm-field">
+                <label>Identifiant de connexion</label>
+                <input name="username" value="{{ valeurs.username|default:'' }}" placeholder="Ex : awa.diop" autocomplete="off" required>
+                <div class="pm-hint">Sans espace. Il servira à se connecter sur le site et dans l'app.</div>
+            </div>
+            <div></div>
+            <div class="pm-field">
+                <label>Mot de passe provisoire</label>
+                <input type="password" name="password" minlength="{{ longueur_min }}" autocomplete="new-password" required>
+                <div class="pm-hint">{{ longueur_min }} caractères minimum, pas uniquement des chiffres.</div>
+            </div>
+            <div class="pm-field">
+                <label>Confirmer le mot de passe</label>
+                <input type="password" name="password2" minlength="{{ longueur_min }}" autocomplete="new-password" required>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="pm-note" style="margin-top:18px;">
+            <b>Docteur</b> : accès complet (caisse, paramètres, suppressions).
+            <b>Assistant</b> : consultations, rendez-vous et ventes.
+            <b>Pharmacien</b> : ventes et stock des médicaments.
+        </div>
+
+        <div class="pm-foot">
+            <a href="{% url 'utilisateurs_liste' %}" class="pm-btn pm-ghost">Annuler</a>
+            <button type="submit" class="pm-btn pm-primary">{% if cible %}Enregistrer{% else %}Créer le compte{% endif %}</button>
+        </div>
+    </div>
+</form>
+{% endblock %}

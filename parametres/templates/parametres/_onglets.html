@@ -1,0 +1,7 @@
+<div class="pm-tabs">
+    {% if request.user.is_superuser or request.user.role == 'DOCTEUR' %}
+    <a class="pm-tab {% if onglet == 'utilisateurs' %}on{% endif %}" href="{% url 'utilisateurs_liste' %}">👥 Utilisateurs</a>
+    <span class="pm-tab off" title="Bientôt disponible">🏥 Clinique</span>
+    {% endif %}
+    <a class="pm-tab {% if onglet == 'mon_compte' %}on{% endif %}" href="{% url 'mon_compte' %}">👤 Mon compte</a>
+</div>
