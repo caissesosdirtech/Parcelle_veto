@@ -1,4 +1,8 @@
+from html import escape
+
 from notifications.firebase_utils import notify_all_docteurs
+from parametres.clinique import entete_html, logo_reportlab
+from parametres.models import ReglagesClinique
 from rest_framework import viewsets
 from django.shortcuts import render, redirect, get_object_or_404
 
@@ -99,49 +103,84 @@ def ventes_list(request):
     })
 
 
-def vente_pdf(request, id):
-    vente = Vente.objects.get(id=id)
+def vente_pdf(request, vente_id):
+    """Reçu de vente en PDF, avec l'en-tête choisi dans Paramètres › Clinique."""
+    vente = get_object_or_404(
+        Vente.objects.select_related(
+            "client", "ordonnance__consultation__client", "ordonnance__consultation__animal",
+        ).prefetch_related("lignes__medicament__catalogue"),
+        id=vente_id,
+    )
+    consultation = vente.ordonnance.consultation if vente.ordonnance_id and vente.ordonnance else None
+    client = vente.client or (consultation.client if consultation else None)
+    animal = consultation.animal if consultation else None
+    reglages = ReglagesClinique.charger()
 
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="vente.pdf"'
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="recu_vente_{vente.id}.pdf"'
+    doc = SimpleDocTemplate(
+        response, pagesize=A4,
+        rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+    )
+    styles = getSampleStyleSheet()
+    droite_style = ParagraphStyle("droite", parent=styles["Normal"], alignment=TA_RIGHT)
+    elements = []
 
-    p = canvas.Canvas(response)
+    # En-tête
+    gauche = Paragraph(entete_html(reglages, taille_nom=15), styles["Normal"])
+    droite = Paragraph(
+        f'<b><font size="13">REÇU DE VENTE</font></b><br/>N° {vente.id}<br/>'
+        f'{timezone.localtime(vente.date).strftime("%d/%m/%Y à %H:%M")}',
+        droite_style,
+    )
+    logo = logo_reportlab(reglages, 2.6 * cm, 2.6 * cm)
+    if logo:
+        header = Table([[logo, gauche, droite]], colWidths=[3 * cm, 9.5 * cm, 5.5 * cm])
+    else:
+        header = Table([[gauche, droite]], colWidths=[12 * cm, 6 * cm])
+    header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (0, 0), 0)]))
+    elements += [header, Spacer(1, 0.8 * cm)]
 
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(120, 800, "CABINET VÉTÉRINAIRE PARCELLE VETO")
+    infos = [f"<b>Client :</b> {escape(client.nom) if client else 'Client de passage'}"]
+    if client and getattr(client, "telephone", ""):
+        infos.append(f"<b>Téléphone :</b> {escape(client.telephone)}")
+    if animal:
+        infos.append(f"<b>Animal :</b> {escape(animal.nom)}")
+    elements += [Paragraph("<br/>".join(infos), styles["Normal"]), Spacer(1, 0.6 * cm)]
 
-    p.setFont("Helvetica", 11)
-    p.drawString(50, 770, f"Client : {vente.ordonnance.consultation.client.nom}")
-    p.drawString(50, 750, f"Animal : {vente.ordonnance.consultation.animal.nom}")
-    p.drawString(50, 730, f"Date : {vente.date}")
-
-    y = 690
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, y, "Médicaments :")
-
-    y -= 20
-
-    p.setFont("Helvetica", 10)
-
+    # Lignes
+    data = [["Médicament", "Qté", "Prix unitaire", "Montant"]]
     for ligne in vente.lignes.all():
-        p.drawString(
-            60,
-            y,
-            f"{ligne.medicament.nom} | Qté:{ligne.quantite} | PU:{ligne.prix_unitaire} | Total:{ligne.montant_total}"
-        )
-        y -= 20
+        med = ligne.medicament
+        nom = med.catalogue.nom if med and getattr(med, "catalogue", None) else str(med)
+        data.append([
+            Paragraph(escape(nom), styles["Normal"]),
+            str(ligne.quantite),
+            f"{ligne.prix_unitaire:,.0f} FCFA".replace(",", " "),
+            f"{ligne.montant_total:,.0f} FCFA".replace(",", " "),
+        ])
+    data.append(["", "", "TOTAL", f"{(vente.total or 0):,.0f} FCFA".replace(",", " ")])
+    table = Table(data, colWidths=[8 * cm, 2 * cm, 4 * cm, 4 * cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1565C0")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -2), 0.5, colors.grey),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (2, -1), (-1, -1), "Helvetica-Bold"),
+        ("LINEABOVE", (2, -1), (-1, -1), 1, colors.black),
+    ]))
+    elements += [table, Spacer(1, 1.2 * cm)]
 
-        if y < 100:
-            p.showPage()
-            y = 800
-
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, y - 30, f"TOTAL : {vente.total} FCFA")
-
-    p.setFont("Helvetica", 9)
-    p.drawString(150, 40, "Merci pour votre confiance - Parcelle Veto")
-
-    p.save()
+    pied = "Merci pour votre confiance"
+    if reglages.slogan:
+        pied += f" — {reglages.slogan}"
+    elements.append(Paragraph(
+        f"<para alignment='center'><font size='9' color='#555555'>{escape(pied)}</font></para>",
+        styles["Normal"],
+    ))
+    doc.build(elements)
     return response
 
 
@@ -519,7 +558,8 @@ def export_vente_jour_pdf(request):
 
     titre_style = styles["Heading2"]
     titre_style.alignment = TA_CENTER
-    elements.append(Paragraph("<b>VENTE DU JOUR — PARCELLES VÉTO</b>", titre_style))
+    reglages = ReglagesClinique.charger()
+    elements.append(Paragraph(f"<b>VENTE DU JOUR — {escape(reglages.nom_clinique.upper())}</b>", titre_style))
     elements.append(Paragraph(jour_label, ParagraphStyle("sous", parent=styles["Normal"], alignment=TA_CENTER)))
     elements.append(Spacer(1, 0.5 * cm))
 

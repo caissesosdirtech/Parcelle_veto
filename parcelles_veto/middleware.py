@@ -37,6 +37,7 @@ CHEMINS_PUBLICS = (
     "/api/token/",            # obtention et rafraîchissement du jeton JWT
     "/admin/",                # l'administration a sa propre connexion
     "/favicon.ico",
+    "/parametres/clinique/logo/",  # logo de la clinique (page de connexion)
 )
 
 

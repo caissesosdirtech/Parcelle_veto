@@ -324,7 +324,7 @@
 
 <!-- HEADER IMPRESSION -->
 <div class="print-header">
-    <h1>🐾 Parcelles Veto THIÈS</h1>
+    <h1>{% if clinique.a_un_logo %}<img src="{% url 'clinique_logo' %}?v={{ clinique.logo_version }}" alt="" style="height:42px;vertical-align:middle;margin-right:8px;">{% else %}🐾 {% endif %}{{ clinique.nom_clinique }}</h1>
     
     <p>Historique des ventes</p>
 
@@ -332,13 +332,17 @@
         Date d'impression : {% now "d/m/Y à H:i" %}
     </p>
 
+    {% if clinique.telephones %}
     <p style="margin-top:6px; font-weight:600; color:#1e2a3a;">
-        📞 Tel: 775385729 / 768331623
+        📞 Tél : {{ clinique.telephones }}
     </p>
+    {% endif %}
 
+    {% if clinique.email %}
     <p style="font-weight:600; color:#1e2a3a;">
-        ✉️ Mail: parcelles-veto@gmail.com
+        ✉️ E-mail : {{ clinique.email }}
     </p>
+    {% endif %}
 </div>
 
 <!-- HEADER ÉCRAN -->

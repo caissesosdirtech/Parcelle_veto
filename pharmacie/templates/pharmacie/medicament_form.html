@@ -195,7 +195,7 @@
                         <label>Seuil d'alerte</label>
                         <div class="input-with-suffix">
                             <input type="number" name="seuil_alerte" class="form-control"
-                                value="5" id="seuilInput">
+                                value="{{ clinique.seuil_alerte_defaut|default:5 }}" id="seuilInput">
                             <span class="input-suffix">unités</span>
                         </div>
                         <p class="hint">Alerte si stock ≤ seuil</p>

@@ -126,6 +126,12 @@ def notify_users_by_role(role, title, body, data=None):
     # liste des notifications de l'app (/notifications/api/notifications/).
     enregistrer_historique(title, body, (data or {}).get("type"))
 
+    # Choix faits dans Paramètres › Clinique : une notification désactivée
+    # reste dans l'historique mais ne part pas vers les téléphones.
+    from parametres.clinique import notification_autorisee
+    if not notification_autorisee(title, data):
+        return
+
     Utilisateur = get_user_model()
     destinataires = Utilisateur.objects.filter(role=role).exclude(
         fcm_token__isnull=True

@@ -66,6 +66,15 @@ class RendezVousManuel(models.Model):
 VETERINAIRE_PAR_DEFAUT = "Dr Ibrahima Pierre GUISSE"
 
 
+def veterinaire_par_defaut():
+    """Vétérinaire choisi dans Paramètres › Clinique (sinon la valeur d'origine)."""
+    try:
+        from parametres.models import ReglagesClinique
+        return ReglagesClinique.charger().nom_veterinaire or VETERINAIRE_PAR_DEFAUT
+    except Exception:
+        return VETERINAIRE_PAR_DEFAUT
+
+
 class Consultation(models.Model):
     STATUT_CHOICES = [
         ("en_cours", "En cours"),
@@ -104,7 +113,7 @@ class Consultation(models.Model):
         # Quelle que soit l'origine (site, app, admin), une consultation
         # sans vétérinaire indiqué est attribuée au vétérinaire de la clinique.
         if not (self.veterinaire or "").strip():
-            self.veterinaire = VETERINAIRE_PAR_DEFAUT
+            self.veterinaire = veterinaire_par_defaut()
         super().save(*args, **kwargs)
 
     def __str__(self):

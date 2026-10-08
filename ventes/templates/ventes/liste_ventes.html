@@ -197,7 +197,7 @@
 
 <!-- En-tête visible uniquement à l'impression -->
 <div class="print-header">
-    <h1>🐾 Parcelles Veto THIÈS</h1>
+    <h1>{% if clinique.a_un_logo %}<img src="{% url 'clinique_logo' %}?v={{ clinique.logo_version }}" alt="" style="height:42px;vertical-align:middle;margin-right:8px;">{% else %}🐾 {% endif %}{{ clinique.nom_clinique }}</h1>
     <p>Historique des ventes</p>
     <p>Date d'impression : {% now "d/m/Y à H:i" %}</p>
 </div>

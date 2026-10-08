@@ -162,11 +162,11 @@
 <!-- EN-TÊTE DE FACTURE / REÇU (IMPRESSION UNIQUEMENT) -->
 <div class="print-header">
     <div>
-        <h1>🐾 Parcelles Veto THIÈS</h1>
-        <p><strong>Clinique & Pharmacie Vétérinaire</strong></p>
-        <p>Quartier Ngoumsane, Thiès</p>
-        <p>📞 Tel: 77 538 57 29 / 76 833 16 23</p>
-        <p>✉️ Mail: parcelles-veto@gmail.com</p>
+        <h1>{% if clinique.a_un_logo %}<img src="{% url 'clinique_logo' %}?v={{ clinique.logo_version }}" alt="" style="height:42px;vertical-align:middle;margin-right:8px;">{% else %}🐾 {% endif %}{{ clinique.nom_clinique }}</h1>
+        {% if clinique.sous_titre %}<p><strong>{{ clinique.sous_titre }}</strong></p>{% endif %}
+        {% if clinique.adresse %}<p>{{ clinique.adresse }}</p>{% endif %}
+        {% if clinique.telephones %}<p>📞 Tél : {{ clinique.telephones }}</p>{% endif %}
+        {% if clinique.email %}<p>✉️ E-mail : {{ clinique.email }}</p>{% endif %}
     </div>
     <div style="text-align:right;">
         <h2 style="margin:0; font-size:1.2rem; color:#1e2a3a;">REÇU DE VENTE</h2>
@@ -190,6 +190,7 @@
     </div>
     <div style="display:flex; gap:10px;">
         <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimer le reçu</button>
+        <a href="{% url 'vente_pdf' vente.id %}" target="_blank" class="btn btn-back">📄 Reçu PDF</a>
         <a href="{% url 'ventes_list' %}" class="btn btn-back">← Retour</a>
     </div>
 </div>

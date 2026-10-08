@@ -1,4 +1,5 @@
 import json
+from html import escape
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncDate
@@ -21,6 +22,8 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 # Modèles
 from ventes.models import Vente
+from parametres.clinique import entete_html, logo_reportlab
+from parametres.models import ReglagesClinique
 from ventes.medicaments_vendus import recap_medicaments, texte_medicaments
 
 
@@ -182,21 +185,19 @@ def rapport_caisse_pdf(request):
     cellule = ParagraphStyle("cellule", parent=styles["Normal"], fontSize=8, leading=10)
     elements = []
 
-    # En-tête
-    gauche = Paragraph(
-        "<b>Dr. Ibrahima Pierre GUISSE</b><br/>"
-        "Parcelles Assainies<br/>Thiès, Sénégal<br/>"
-        "En face des cimetières Keur Dago<br/>"
-        "Tél : 221 775385729 / 768331623<br/>"
-        "E-mail : parcelles-veto@gmail.com",
-        styles["Normal"],
-    )
+    # En-tête (Paramètres › Clinique)
+    reglages = ReglagesClinique.charger()
+    gauche = Paragraph(entete_html(reglages, taille_nom=13), styles["Normal"])
     droite = Paragraph(
         f'<para alignment="right"><b>Date :</b><br/>'
         f'{timezone.now().strftime("%d/%m/%Y %H:%M")}</para>',
         styles["Normal"],
     )
-    header = Table([[gauche, droite]], colWidths=[12 * cm, 6 * cm])
+    logo = logo_reportlab(reglages, 2.4 * cm, 2.4 * cm)
+    if logo:
+        header = Table([[logo, gauche, droite]], colWidths=[2.8 * cm, 9.6 * cm, 6.2 * cm])
+    else:
+        header = Table([[gauche, droite]], colWidths=[12 * cm, 6 * cm])
     header.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
@@ -207,7 +208,7 @@ def rapport_caisse_pdf(request):
     # Titre
     titre_style = styles["Heading2"]
     titre_style.alignment = TA_CENTER
-    elements.append(Paragraph("<b>RAPPORT DE CAISSE - PARCELLES VETO</b>", titre_style))
+    elements.append(Paragraph(f"<b>RAPPORT DE CAISSE - {escape(reglages.nom_clinique.upper())}</b>", titre_style))
     elements.append(Spacer(1, 0.5 * cm))
 
     # Tableau des ventes
@@ -296,8 +297,9 @@ def rapport_caisse_pdf(request):
     resume_style = ParagraphStyle("resume", parent=styles["Normal"], alignment=TA_RIGHT)
     elements.append(Paragraph(f"<b>Total général : {total_general:,.0f} FCFA</b>", resume_style))
     elements.append(Spacer(1, 1 * cm))
+    pied = reglages.nom_clinique + (f" - {reglages.slogan}" if reglages.slogan else "")
     elements.append(Paragraph(
-        "<para alignment='center'><font size='9'>Parcelles Veto - La santé animale, notre priorité.</font></para>",
+        f"<para alignment='center'><font size='9'>{escape(pied)}</font></para>",
         styles["Normal"],
     ))
 

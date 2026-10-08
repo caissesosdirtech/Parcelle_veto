@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime
+from html import escape
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -28,10 +29,12 @@ from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer,
 from animaux.models import Animal
 from clients.models import Client
 from notifications.firebase_utils import notify_all_docteurs
+from parametres.clinique import entete_html, logo_reportlab
+from parametres.models import ReglagesClinique
 from pharmacie.models import Medicament
 from ventes.models import LigneVente, Vente
 
-from .models import Consultation, LigneOrdonnance, Ordonnance, RendezVous, RendezVousManuel
+from .models import Consultation, LigneOrdonnance, Ordonnance, RendezVous, RendezVousManuel, veterinaire_par_defaut
 from .serializers import (
     ConsultationSerializer,
     LigneOrdonnanceSerializer,
@@ -843,7 +846,7 @@ def api_ordonnance_detail(request, consultation_id):
             "id": consultation.id,
             "statut": consultation.statut,
             "motif": consultation.motif or "—",
-            "veterinaire": consultation.veterinaire or "Dr Ibrahima Pierre GUISSE",
+            "veterinaire": consultation.veterinaire or veterinaire_par_defaut(),
             "date": consultation.date.strftime("%d/%m/%Y à %H:%M") if hasattr(consultation, 'date') and consultation.date else "—",
 
             "client_id": client.id if client else None,
@@ -1240,18 +1243,9 @@ def ordonnance_pdf(request, ordonnance_id):
     styles = getSampleStyleSheet()
     elements = []
 
-    # En-tête du cabinet
-    gauche = Paragraph(
-        """
-        <b><font size="16">PARCELLES VETO</font></b><br/>
-        Cabinet de soins Vétérinaires<br/>
-        Thies Parcelles Assainies U2<br/>
-        En Face Cimetière Keur Dago<br/>
-        Tél : 77 538 57 29 / 76 833 16 23<br/>
-        Email : parcelles-veto@gmail.com
-        """,
-        styles["Normal"],
-    )
+    # En-tête du cabinet (Paramètres › Clinique)
+    reglages = ReglagesClinique.charger()
+    gauche = Paragraph(entete_html(reglages), styles["Normal"])
 
     droite_style = ParagraphStyle(
         "DateStyle", parent=styles["Normal"], alignment=TA_RIGHT
@@ -1264,10 +1258,15 @@ def ordonnance_pdf(request, ordonnance_id):
         droite_style,
     )
 
-    header = Table([[gauche, droite]], colWidths=[12 * cm, 6 * cm])
+    logo = logo_reportlab(reglages, 2.6 * cm, 2.6 * cm)
+    if logo:
+        header = Table([[logo, gauche, droite]], colWidths=[3 * cm, 10 * cm, 5 * cm])
+    else:
+        header = Table([[gauche, droite]], colWidths=[12 * cm, 6 * cm])
     header.setStyle(
         TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (0, 0), 0),
         ])
     )
     elements.append(header)
@@ -1333,6 +1332,20 @@ def ordonnance_pdf(request, ordonnance_id):
     elements.append(Spacer(1, 1.5 * cm))
     signature_style = ParagraphStyle("SigStyle", parent=styles["Normal"], alignment=TA_RIGHT)
     elements.append(Paragraph("<b>Signature et Cachet du Vétérinaire</b>", signature_style))
+    veterinaire = consultation.veterinaire or reglages.nom_veterinaire
+    if veterinaire:
+        elements.append(Paragraph(escape(veterinaire), signature_style))
+
+    # Mention choisie dans Paramètres › Clinique
+    if reglages.mention_ordonnance:
+        elements.append(Spacer(1, 2 * cm))
+        mention_style = ParagraphStyle(
+            "Mention", parent=styles["Normal"], alignment=TA_CENTER,
+            fontSize=8, leading=10, textColor=colors.HexColor("#555555"),
+        )
+        elements.append(Paragraph(
+            escape(reglages.mention_ordonnance).replace("\n", "<br/>"), mention_style
+        ))
 
     # Génération du document PDF
     doc.build(elements)
@@ -1840,7 +1853,7 @@ def create_consultation(request):
             consultation = Consultation.objects.create(
                 client=client,
                 animal=animal,
-                veterinaire=data.get("veterinaire", "Dr Ibrahima Pierre GUISSE"),
+                veterinaire=data.get("veterinaire") or veterinaire_par_defaut(),
                 motif=str(data.get("motif", "")).strip(),
                 observations=str(data.get("observations", "")).strip(),
                 lieu=data.get("lieu", "cabinet"),

@@ -1,5 +1,5 @@
 """
-Rubrique Paramètres — partie 1 : Utilisateurs et Mon compte.
+Rubrique Paramètres : Utilisateurs, Clinique et Mon compte.
 
 Pages web (session) et API JSON pour l'app mobile (jeton JWT).
 La gestion des comptes est réservée au docteur ; « Mon compte » est
@@ -12,12 +12,14 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 
+from . import clinique as reglages_clinique
 from . import services
+from .models import ReglagesClinique
 
 Utilisateur = get_user_model()
 
@@ -125,6 +127,61 @@ def utilisateur_activer(request, user_id):
         etat = "réactivé" if cible.is_active else "désactivé"
         messages.success(request, f"Compte de {cible.get_full_name() or cible.username} {etat}.")
     return redirect("utilisateurs_liste")
+
+
+@docteur_requis
+def clinique(request):
+    reglages = ReglagesClinique.charger()
+    if request.method == "POST":
+        action = request.POST.get("action", "infos")
+        if action == "logo":
+            fichier = request.FILES.get("logo")
+            if not fichier:
+                messages.error(request, "Choisissez d'abord une image.")
+            else:
+                octets, erreur = reglages_clinique.preparer_logo(fichier)
+                if erreur:
+                    messages.error(request, erreur)
+                else:
+                    reglages_clinique.enregistrer_logo(reglages, octets)
+                    messages.success(request, "Logo mis à jour.")
+            return redirect("clinique")
+        if action == "retirer_logo":
+            reglages_clinique.retirer_logo(reglages)
+            messages.success(request, "Logo retiré.")
+            return redirect("clinique")
+
+        erreur = reglages_clinique.appliquer(reglages, request.POST.dict(), cases_a_cocher=True)
+        if erreur:
+            messages.error(request, erreur)
+        else:
+            message = "Réglages de la clinique enregistrés."
+            if request.POST.get("appliquer_seuil_a_tous"):
+                from pharmacie.models import Medicament
+                nb = Medicament.objects.update(seuil_alerte=reglages.seuil_alerte_defaut)
+                message += f" Seuil appliqué à {nb} médicament(s)."
+            messages.success(request, message)
+            return redirect("clinique")
+
+    return render(request, "parametres/clinique.html", {
+        "reglages": reglages,
+        "champs_notif": [
+            (champ, libelle, getattr(reglages, champ))
+            for champ, libelle in reglages_clinique.CHAMPS_NOTIF
+        ],
+        "active_page": "parametres",
+        "onglet": "clinique",
+    })
+
+
+def clinique_logo(request):
+    """Logo de la clinique (public : il s'affiche aussi sur la page de connexion)."""
+    reglages = ReglagesClinique.charger(avec_logo=True)
+    if not reglages.logo:
+        return HttpResponse(status=404)
+    reponse = HttpResponse(bytes(reglages.logo), content_type="image/png")
+    reponse["Cache-Control"] = "public, max-age=86400"
+    return reponse
 
 
 @login_required
@@ -286,3 +343,47 @@ def api_mon_mot_de_passe(request):
     user.set_password(mdp)
     user.save(update_fields=["password"])
     return JsonResponse({"message": "Votre mot de passe a été changé."})
+
+
+@_api()
+@require_http_methods(["GET", "POST"])
+def api_clinique(request):
+    """
+    GET : réglages de la clinique (lecture ouverte à tout le personnel,
+    l'app s'en sert pour ses en-têtes).
+    POST : modification, réservée au docteur. Seules les clés envoyées
+    changent. Un fichier « logo » (multipart) remplace le logo ;
+    « retirer_logo » = true le supprime.
+    """
+    reglages = ReglagesClinique.charger()
+    if request.method == "POST":
+        if not services.est_docteur(request.user):
+            return JsonResponse({"error": "Réservé au docteur."}, status=403)
+        d = request.donnees
+        if request.FILES.get("logo"):
+            octets, erreur = reglages_clinique.preparer_logo(request.FILES["logo"])
+            if erreur:
+                return JsonResponse({"error": erreur}, status=400)
+            reglages_clinique.enregistrer_logo(reglages, octets)
+        elif reglages_clinique._vrai(d.get("retirer_logo", False)):
+            reglages_clinique.retirer_logo(reglages)
+
+        notifs = d.get("notifications")
+        if isinstance(notifs, dict):  # forme {"notif_rdv": false, ...}
+            d = {**d, **notifs}
+        erreur = reglages_clinique.appliquer(reglages, d, cases_a_cocher=False)
+        if erreur:
+            return JsonResponse({"error": erreur}, status=400)
+        nb = None
+        if reglages_clinique._vrai(d.get("appliquer_seuil_a_tous", False)):
+            from pharmacie.models import Medicament
+            nb = Medicament.objects.update(seuil_alerte=reglages.seuil_alerte_defaut)
+        reponse = {"clinique": reglages_clinique.en_dict(reglages, request),
+                   "message": "Réglages enregistrés."}
+        if nb is not None:
+            reponse["message"] += f" Seuil appliqué à {nb} médicament(s)."
+        return JsonResponse(reponse)
+    return JsonResponse({
+        "clinique": reglages_clinique.en_dict(reglages, request),
+        "modifiable": services.est_docteur(request.user),
+    })

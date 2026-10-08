@@ -236,12 +236,26 @@ def medicaments_list(request):
     return render(request, "pharmacie/medicaments_list.html", context)
 
 
+def _seuil_defaut(valeur=None):
+    """
+    Seuil saisi s'il y en a un, sinon celui choisi dans
+    Paramètres › Clinique (5 si les réglages sont illisibles).
+    """
+    if valeur not in (None, ""):
+        return valeur
+    try:
+        from parametres.models import ReglagesClinique
+        return ReglagesClinique.charger().seuil_alerte_defaut
+    except Exception:
+        return 5
+
+
 def medicament_create(request):
     if request.method == "POST":
         catalogue_id = request.POST.get("catalogue")
         stock = int(request.POST.get("stock", 0))
         prix = request.POST.get("prix")
-        seuil = request.POST.get("seuil_alerte", 5)
+        seuil = _seuil_defaut(request.POST.get("seuil_alerte"))
 
         fournisseur_nom = request.POST.get("fournisseur_nom")
         fournisseur_contact = request.POST.get("fournisseur_contact")
@@ -392,7 +406,7 @@ def api_ajouter_medicament(request):
             catalogue=catalogue,
             stock=int(data.get("stock", 0)),
             prix=float(data.get("prix", 0)),
-            seuil_alerte=int(data.get("seuil_alerte", 5)),
+            seuil_alerte=int(_seuil_defaut(data.get("seuil_alerte"))),
             fournisseur=fournisseur,
         )
 
@@ -698,7 +712,10 @@ def export_pharmacie_pdf(request):
 
     titre_style = styles["Heading2"]
     titre_style.alignment = TA_CENTER
-    elements.append(Paragraph("**ÉTAT DU STOCK - PHARMACIE PARCELLES VÉTO**", titre_style))
+    from html import escape
+    from parametres.models import ReglagesClinique
+    nom_clinique = ReglagesClinique.charger().nom_clinique.upper()
+    elements.append(Paragraph(f"<b>ÉTAT DU STOCK - PHARMACIE {escape(nom_clinique)}</b>", titre_style))
     elements.append(Paragraph(
         f"Édité le {timezone.now().strftime('%d/%m/%Y %H:%M')}",
         styles["Normal"],
@@ -791,7 +808,7 @@ def api_creer_medicament_express(request):
         famille_nom = data.get("famille", "Général").strip()
         stock = int(data.get("stock", 0))
         prix = float(data.get("prix", 0))
-        seuil = int(data.get("seuil_alerte", 5))
+        seuil = int(_seuil_defaut(data.get("seuil_alerte")))
 
         if not nom:
             return JsonResponse({"success": False, "error": "Le nom du médicament est requis."}, status=400)

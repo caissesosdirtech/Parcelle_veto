@@ -3,10 +3,10 @@
   "model": "fournisseurs.fournisseur",
   "pk": 1,
   "fields": {
-    "nom": "Vetagropharma International (Thi�s)",
+    "nom": "Vetagropharma International (Thiès)",
     "telephone": "(+221) 33 951 10 94 ",
     "email": "",
-    "adresse": "Avenue El Hadj Oumar Thi�s - S�n�gal. "
+    "adresse": "Avenue El Hadj Oumar Thiès - Sénégal. "
   }
 },
 {
@@ -108,14 +108,14 @@
   "model": "pharmacie.famillemedicament",
   "pk": 6,
   "fields": {
-    "nom": "Vitamines et Compl�ments"
+    "nom": "Vitamines et Compléments"
   }
 },
 {
   "model": "pharmacie.famillemedicament",
   "pk": 7,
   "fields": {
-    "nom": "D�sinfectants"
+    "nom": "Désinfectants"
   }
 },
 {
@@ -129,7 +129,7 @@
   "model": "pharmacie.famillemedicament",
   "pk": 9,
   "fields": {
-    "nom": "H�patoprotecteurs"
+    "nom": "Hépatoprotecteurs"
   }
 },
 {
@@ -157,14 +157,14 @@
   "model": "pharmacie.famillemedicament",
   "pk": 13,
   "fields": {
-    "nom": "R�gulateurs digestifs"
+    "nom": "Régulateurs digestifs"
   }
 },
 {
   "model": "pharmacie.cataloguemedicament",
   "pk": 1,
   "fields": {
-    "nom": "Oxyt�tracycline",
+    "nom": "Oxytétracycline",
     "famille": 1
   }
 },
@@ -212,7 +212,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 7,
   "fields": {
-    "nom": "�rythromycine",
+    "nom": "Érythromycine",
     "famille": 1
   }
 },
@@ -436,7 +436,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 35,
   "fields": {
-    "nom": "Cyperm�thrine",
+    "nom": "Cyperméthrine",
     "famille": 4
   }
 },
@@ -452,7 +452,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 37,
   "fields": {
-    "nom": "Perm�thrine",
+    "nom": "Perméthrine",
     "famille": 4
   }
 },
@@ -716,7 +716,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 70,
   "fields": {
-    "nom": "Cr�syl",
+    "nom": "Crésyl",
     "famille": 7
   }
 },
@@ -724,7 +724,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 71,
   "fields": {
-    "nom": "Eau de Javel v�t�rinaire",
+    "nom": "Eau de Javel vétérinaire",
     "famille": 7
   }
 },
@@ -732,7 +732,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 72,
   "fields": {
-    "nom": "Glutarald�hyde",
+    "nom": "Glutaraldéhyde",
     "famille": 7
   }
 },
@@ -740,7 +740,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 73,
   "fields": {
-    "nom": "Vitamine C concentr�e",
+    "nom": "Vitamine C concentrée",
     "famille": 8
   }
 },
@@ -748,7 +748,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 74,
   "fields": {
-    "nom": "�lectrolytes",
+    "nom": "Électrolytes",
     "famille": 8
   }
 },
@@ -756,7 +756,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 75,
   "fields": {
-    "nom": "Anti-stress multivitamin�",
+    "nom": "Anti-stress multivitaminé",
     "famille": 8
   }
 },
@@ -788,7 +788,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 79,
   "fields": {
-    "nom": "M�thionine",
+    "nom": "Méthionine",
     "famille": 9
   }
 },
@@ -828,7 +828,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 84,
   "fields": {
-    "nom": "Pr�biotiques",
+    "nom": "Prébiotiques",
     "famille": 10
   }
 },
@@ -836,7 +836,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 85,
   "fields": {
-    "nom": "Acides amin�s",
+    "nom": "Acides aminés",
     "famille": 10
   }
 },
@@ -884,7 +884,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 91,
   "fields": {
-    "nom": "Aspirine v�t�rinaire",
+    "nom": "Aspirine vétérinaire",
     "famille": 12
   }
 },
@@ -900,7 +900,7 @@
   "model": "pharmacie.cataloguemedicament",
   "pk": 93,
   "fields": {
-    "nom": "M�loxicam",
+    "nom": "Méloxicam",
     "famille": 12
   }
 },
