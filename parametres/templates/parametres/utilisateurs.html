@@ -16,7 +16,7 @@
 <div class="pm-card">
     <table class="pm-table">
         <thead>
-            <tr><th>Utilisateur</th><th>Rôle</th><th>Téléphone</th><th>Dernière connexion</th><th>Statut</th><th></th></tr>
+            <tr><th>Utilisateur</th><th>Rôle</th><th>Téléphone</th><th>Activité</th><th>Statut</th><th></th></tr>
         </thead>
         <tbody>
         {% for u in utilisateurs %}
@@ -32,7 +32,16 @@
                 </td>
                 <td><span class="pm-role {% if u.role %}pm-role-{{ u.role }}{% else %}pm-role-x{% endif %}">{{ u.libelle_role }}</span></td>
                 <td>{{ u.telephone|default:"—" }}</td>
-                <td>{% if u.last_login %}{{ u.last_login|date:"d/m/Y à H:i" }}{% else %}<span class="pm-login">Jamais</span>{% endif %}</td>
+                <td>
+                    <div class="pm-act"><span>Connexion :</span>
+                        {% if u.last_login %}{{ u.last_login|date:"d/m/Y à H:i" }}{% else %}<span class="pm-login">jamais</span>{% endif %}</div>
+                    <div class="pm-act"><span>Mot de passe :</span>
+                        {% if u.mdp_change_le %}
+                            changé le {{ u.mdp_change_le|date:"d/m/Y à H:i" }}
+                            {% if u.mdp_change_par_id == u.pk %}<span class="pm-mdp-soi">par lui-même</span>
+                            {% elif u.mdp_change_par %}<span class="pm-login">par {{ u.mdp_change_par.get_full_name|default:u.mdp_change_par.username }}</span>{% endif %}
+                        {% else %}<span class="pm-login">jamais changé</span>{% endif %}</div>
+                </td>
                 <td><span class="pm-state {% if u.is_active %}on{% else %}off{% endif %}">{% if u.is_active %}● Actif{% else %}● Désactivé{% endif %}</span></td>
                 <td>
                     {% if request.user.is_superuser or not u.is_superuser %}

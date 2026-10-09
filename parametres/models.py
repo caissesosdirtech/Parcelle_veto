@@ -43,6 +43,7 @@ class ReglagesClinique(models.Model):
     notif_rdv = models.BooleanField("Nouveau rendez-vous", default=True)
     notif_vente = models.BooleanField("Vente / opération en pharmacie", default=True)
     notif_stock = models.BooleanField("Alerte de stock bas", default=True)
+    notif_compte = models.BooleanField("Changement de mot de passe", default=True)
 
     modifie_le = models.DateTimeField(auto_now=True)
 

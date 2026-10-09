@@ -25,6 +25,7 @@ CHAMPS_NOTIF = [
     ("notif_rdv", "Nouveau rendez-vous"),
     ("notif_vente", "Vente / opération en pharmacie"),
     ("notif_stock", "Alerte de stock bas"),
+    ("notif_compte", "Mot de passe changé par un membre de l'équipe"),
 ]
 LOGO_TAILLE_MAX = 3 * 1024 * 1024  # 3 Mo avant redimensionnement
 LOGO_COTE_MAX = 400                # pixels
@@ -175,6 +176,8 @@ def notification_autorisee(titre, data=None):
         return reglages.notif_vente
     if type_ == "stock":
         return reglages.notif_stock
+    if type_ == "compte":
+        return reglages.notif_compte
     return True
 
 

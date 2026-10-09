@@ -64,6 +64,32 @@ def nettoyer(donnees, creation=False, cible=None):
     return champs, None
 
 
+def changer_mot_de_passe(cible, mdp, auteur):
+    """
+    Change le mot de passe de `cible` et note qui l'a fait et quand.
+    Si un membre de l'équipe (autre que le docteur) change lui-même son mot
+    de passe, le docteur est prévenu. Le mot de passe n'est jamais transmis.
+    """
+    from django.utils import timezone
+
+    cible.set_password(mdp)
+    cible.mdp_change_le = timezone.now()
+    cible.mdp_change_par = auteur
+    cible.save(update_fields=["password", "mdp_change_le", "mdp_change_par"])
+
+    if auteur.pk == cible.pk and not est_docteur(cible):
+        try:
+            from notifications.firebase_utils import notify_all_docteurs
+            notify_all_docteurs(
+                title="🔑 Mot de passe changé",
+                body=f"{cible.get_full_name() or cible.username} ({cible.libelle_role}) "
+                     f"a changé son mot de passe le {timezone.localtime(cible.mdp_change_le):%d/%m/%Y à %H:%M}.",
+                data={"type": "compte", "id": str(cible.pk)},
+            )
+        except Exception:
+            pass  # une notification ratée ne doit pas bloquer le changement
+
+
 def creer(champs):
     mdp = champs.pop("password")
     user = Utilisateur(**champs)
@@ -104,4 +130,17 @@ def en_dict(u):
         "is_active": u.is_active,
         "is_superuser": u.is_superuser,
         "derniere_connexion": u.last_login.isoformat() if u.last_login else None,
+        "mdp_change_le": u.mdp_change_le.isoformat() if u.mdp_change_le else None,
+        "mdp_change_par": _auteur_mdp(u),
     }
+
+
+def _auteur_mdp(u):
+    """« lui-même », le nom de l'auteur, ou None si jamais changé."""
+    if not u.mdp_change_le:
+        return None
+    if u.mdp_change_par_id == u.pk:
+        return "lui-même"
+    if u.mdp_change_par is None:
+        return "—"
+    return u.mdp_change_par.get_full_name() or u.mdp_change_par.username

@@ -8,6 +8,7 @@ class Notification(models.Model):
         ('consultation', 'Consultation'),
         ('stock', 'Alerte Stock'),
         ('rdv', 'Rendez-vous'),
+        ('compte', 'Compte utilisateur'),
     ]
 
     titre = models.CharField(max_length=255)

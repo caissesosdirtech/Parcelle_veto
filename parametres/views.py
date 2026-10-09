@@ -42,7 +42,7 @@ def utilisateurs_liste(request):
     utilisateurs = Utilisateur.objects.order_by("-is_active", "role", "first_name", "username")
     if not request.user.is_superuser:
         utilisateurs = utilisateurs.filter(is_superuser=False) | Utilisateur.objects.filter(pk=request.user.pk)
-    utilisateurs = utilisateurs.distinct().order_by("-is_active", "role", "first_name", "username")
+    utilisateurs = utilisateurs.distinct().select_related("mdp_change_par").order_by("-is_active", "role", "first_name", "username")
     return render(request, "parametres/utilisateurs.html", {
         "utilisateurs": utilisateurs,
         "nb_actifs": sum(1 for u in utilisateurs if u.is_active),
@@ -101,8 +101,7 @@ def utilisateur_mot_de_passe(request, user_id):
     if erreur:
         messages.error(request, erreur)
     else:
-        cible.set_password(mdp)
-        cible.save(update_fields=["password"])
+        services.changer_mot_de_passe(cible, mdp, request.user)
         if cible.pk == request.user.pk:
             update_session_auth_hash(request, cible)
         messages.success(
@@ -205,8 +204,7 @@ def mon_compte(request):
                 if erreur:
                     messages.error(request, erreur)
                 else:
-                    user.set_password(request.POST["password"])
-                    user.save(update_fields=["password"])
+                    services.changer_mot_de_passe(user, request.POST["password"], user)
                     update_session_auth_hash(request, user)  # reste connecté
                     messages.success(request, "Votre mot de passe a été changé.")
         return redirect("mon_compte")
@@ -256,7 +254,7 @@ def api_utilisateurs(request):
         return JsonResponse({
             "moi": request.user.pk,
             "roles": [{"code": c, "libelle": l} for c, l in Utilisateur.ROLE_CHOICES],
-            "utilisateurs": [services.en_dict(u) for u in qs.distinct().order_by("-is_active", "role", "first_name")],
+            "utilisateurs": [services.en_dict(u) for u in qs.distinct().select_related("mdp_change_par").order_by("-is_active", "role", "first_name")],
         })
     champs, erreur = services.nettoyer(request.donnees, creation=True)
     if erreur:
@@ -297,8 +295,7 @@ def api_utilisateur_mot_de_passe(request, user_id):
     erreur = services.verifier_mot_de_passe(mdp)
     if erreur:
         return JsonResponse({"error": erreur}, status=400)
-    cible.set_password(mdp)
-    cible.save(update_fields=["password"])
+    services.changer_mot_de_passe(cible, mdp, request.user)
     return JsonResponse({"message": "Mot de passe réinitialisé."})
 
 
@@ -340,8 +337,7 @@ def api_mon_mot_de_passe(request):
     erreur = services.verifier_mot_de_passe(mdp)
     if erreur:
         return JsonResponse({"error": erreur}, status=400)
-    user.set_password(mdp)
-    user.save(update_fields=["password"])
+    services.changer_mot_de_passe(user, mdp, user)
     return JsonResponse({"message": "Votre mot de passe a été changé."})
 
 
