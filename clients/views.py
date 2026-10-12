@@ -90,23 +90,151 @@ def clients_list(request):
     })
 
 
-def historique_client(request, client_id):
-    """Affiche l'historique complet d'un client (consultations, RDV, ordonnances)."""
-    client = get_object_or_404(Client, id=client_id)
+_MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+         "août", "septembre", "octobre", "novembre", "décembre"]
+_JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
-    animaux = Animal.objects.filter(client=client)
-    consultations = Consultation.objects.filter(client=client).order_by("-date")
-    rendezvous = RendezVous.objects.filter(animal__client=client).order_by("-date_rdv")
-    ordonnances = Ordonnance.objects.filter(
-        consultation__client=client
-    ).order_by("-date_creation")
+
+def _mois_annee(d):
+    d = timezone.localtime(d)
+    return f"{_MOIS[d.month - 1]} {d.year}"
+
+
+def _jour_complet(d):
+    """« samedi 17 octobre à 14:06 »"""
+    d = timezone.localtime(d)
+    return f"{_JOURS[d.weekday()]} {d.day} {_MOIS[d.month - 1]} à {d:%H:%M}"
+
+
+def _depuis(d):
+    """« aujourd'hui », « il y a 3 jours », « il y a 2 mois »…"""
+    jours = (timezone.localdate() - timezone.localtime(d).date()).days
+    if jours <= 0:
+        return "aujourd'hui"
+    if jours == 1:
+        return "hier"
+    if jours < 31:
+        return f"il y a {jours} jours"
+    if jours < 365:
+        return f"il y a {jours // 30} mois"
+    ans = jours // 365
+    return f"il y a {ans} an{'s' if ans > 1 else ''}"
+
+
+def _fcfa(montant):
+    """10500 → « 10 500 »"""
+    return f"{int(round(float(montant or 0))):,}".replace(",", "\u202f")
+
+
+def _numero_whatsapp(telephone):
+    """77 123 45 67 → 221771234567 (numéros sénégalais à 9 chiffres)."""
+    chiffres = "".join(ch for ch in (telephone or "") if ch.isdigit())
+    if len(chiffres) == 9:
+        chiffres = "221" + chiffres
+    return chiffres
+
+
+def historique_client(request, client_id):
+    """
+    Dossier d'un client : ses animaux, son prochain rendez-vous et un
+    historique unique (consultations avec leur ordonnance, rendez-vous,
+    achats en pharmacie) du plus récent au plus ancien.
+    """
+    from ventes.models import Vente
+
+    client = get_object_or_404(Client, id=client_id)
+    maintenant = timezone.now()
+
+    animaux = list(
+        Animal.objects.filter(client=client)
+        .annotate(nb_consultations=Count("consultation", distinct=True))
+        .order_by("nom")
+    )
+    consultations = list(
+        Consultation.objects.filter(client=client)
+        .select_related("animal", "ordonnance")
+        .prefetch_related("ordonnance__lignes__medicament__catalogue")
+        .order_by("-date")
+    )
+    rendezvous = list(
+        RendezVous.objects.filter(animal__client=client)
+        .select_related("animal")
+        .order_by("-date_rdv")
+    )
+    ventes = list(
+        Vente.objects.filter(Q(client=client) | Q(ordonnance__consultation__client=client))
+        .select_related("ordonnance")
+        .prefetch_related("lignes__medicament__catalogue")
+        .distinct()
+    )
+
+    # Montant payé pour chaque ordonnance (affiché sur la consultation)
+    montant_par_ordonnance = {}
+    for v in ventes:
+        if v.ordonnance_id:
+            montant_par_ordonnance[v.ordonnance_id] = montant_par_ordonnance.get(v.ordonnance_id, 0) + (v.total or 0)
+
+    def _nom_med(ligne):
+        med = ligne.medicament
+        return med.catalogue.nom if med and getattr(med, "catalogue", None) else str(med)
+
+    evenements = []
+    for c in consultations:
+        ordonnance = c.ordonnance if hasattr(c, "ordonnance") else None
+        lignes = list(ordonnance.lignes.all()) if ordonnance else []
+        evenements.append({
+            "type": "consultation",
+            "date": c.date,
+            "objet": c,
+            "animal": c.animal,
+            "ordonnance": ordonnance,
+            "medicaments": [f"{_nom_med(l)} ×{l.quantite}" for l in lignes],
+            "montant": montant_par_ordonnance.get(ordonnance.id) if ordonnance else None,
+        })
+    for r in rendezvous:
+        evenements.append({
+            "type": "rdv",
+            "date": r.date_rdv,
+            "objet": r,
+            "animal": r.animal,
+            "a_venir": r.date_rdv >= maintenant and r.statut in ("EN_ATTENTE", "CONFIRME"),
+        })
+    for v in ventes:
+        if v.ordonnance_id:
+            continue  # déjà affichée avec sa consultation
+        evenements.append({
+            "type": "vente",
+            "date": v.date,
+            "objet": v,
+            "medicaments": [f"{_nom_med(l)} ×{l.quantite}" for l in v.lignes.all()],
+            "montant": v.total,
+        })
+    evenements.sort(key=lambda e: e["date"], reverse=True)
+    for e in evenements:
+        e["mois"] = _mois_annee(e["date"])
+        if e.get("montant"):
+            e["montant_txt"] = _fcfa(e["montant"])
+
+    prochain_rdv = min(
+        (r for r in rendezvous if r.date_rdv >= maintenant and r.statut in ("EN_ATTENTE", "CONFIRME")),
+        key=lambda r: r.date_rdv, default=None,
+    )
+    total_depense = sum((v.total or 0) for v in ventes)
 
     return render(request, "clients/historique_client.html", {
         "client": client,
         "animaux": animaux,
-        "consultations": consultations,
-        "rendezvous": rendezvous,
-        "ordonnances": ordonnances,
+        "evenements": evenements,
+        "prochain_rdv": prochain_rdv,
+        "derniere_visite": consultations[0].date if consultations else None,
+        "derniere_visite_depuis": _depuis(consultations[0].date) if consultations else "",
+        "prochain_rdv_libelle": _jour_complet(prochain_rdv.date_rdv) if prochain_rdv else "",
+        "nb_consultations": len(consultations),
+        "nb_rdv": len(rendezvous),
+        "nb_achats": sum(1 for e in evenements if e["type"] == "vente"),
+        "total_depense": _fcfa(total_depense),
+        "telephone_wa": _numero_whatsapp(client.telephone),
+        "active_page": "clients",
     })
 
 

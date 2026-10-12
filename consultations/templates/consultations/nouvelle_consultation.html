@@ -617,6 +617,16 @@ function fermerErrorModal(){
 document.getElementById("errorModalOverlay").addEventListener("click", function(e){
     if(e.target === this) fermerErrorModal();
 });
+
+// Arrivée depuis le dossier d'un client (?client=ID) : client déjà choisi
+(function () {
+    var id = new URLSearchParams(window.location.search).get("client");
+    var select = document.getElementById("clientSelect");
+    if (!id || !select || !select.querySelector('option[value="' + CSS.escape(id) + '"]')) return;
+    if (typeof setMode === "function") setMode("existing");
+    select.value = id;
+    select.dispatchEvent(new Event("change"));
+})();
 </script>
 
 {% endblock %}

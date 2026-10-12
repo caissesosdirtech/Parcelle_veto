@@ -1,232 +1,313 @@
 {% extends "base_dashboard.html" %}
+{% block title %}Dossier · {{ client.nom }}{% endblock %}
 {% block content %}
 <style>
-.page-title { font-size:18px; font-weight:700; margin-bottom:18px; color:#1f6feb; }
+/* ── Palette de l'app ───────────────────────────────────────────── */
+.dc { --bleu:#1f6feb; --bleu-f:#0d47a1; --encre:#0F2547; --gris:#6B7A90; --trait:#EEF2F7; --fond:#F4F7FB; }
 
-/* ===== HEADER CLIENT ===== */
-.client-card {
-    background:linear-gradient(135deg,#1f6feb,#0d47a1);
-    color:#fff;
-    padding:26px 28px;
-    border-radius:20px;
-    margin-bottom:22px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:24px;
-    box-shadow:0 14px 32px rgba(31,111,235,.25);
+/* ── Fil d'Ariane ───────────────────────────────────────────────── */
+.dc-ariane { font-size:.82rem; color:var(--gris); margin-bottom:14px; }
+.dc-ariane a { color:var(--bleu); text-decoration:none; font-weight:600; }
+
+/* ── En-tête ────────────────────────────────────────────────────── */
+.dc-tete {
+    background:#fff; border-radius:20px; padding:22px 24px; margin-bottom:20px;
+    box-shadow:0 8px 24px rgba(15,40,80,.06); display:flex; gap:20px; align-items:center; flex-wrap:wrap;
 }
-.client-identity { display:flex; align-items:center; gap:16px; }
-.client-avatar {
-    width:58px; height:58px; border-radius:16px;
-    background:rgba(255,255,255,.18);
-    display:flex; align-items:center; justify-content:center;
-    font-size:1.5rem; font-weight:800; flex-shrink:0;
+.dc-avatar {
+    width:64px; height:64px; border-radius:18px; flex:none; display:flex; align-items:center; justify-content:center;
+    font-size:1.6rem; font-weight:800; color:#fff; background:linear-gradient(135deg,var(--bleu),var(--bleu-f));
+    box-shadow:0 8px 18px rgba(31,111,235,.28);
 }
-.client-info h2 { margin:0 0 6px; font-size:1.3rem; font-weight:800; }
-.client-info p { margin:3px 0; font-size:.84rem; opacity:.9; display:flex; align-items:center; gap:6px; }
-
-.client-stats { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
-.stat-pill {
-    background:rgba(255,255,255,.14);
-    border-radius:12px;
-    padding:10px 16px;
-    text-align:center;
-    min-width:74px;
+.dc-ident { flex:1; min-width:220px; }
+.dc-ident h1 { margin:0 0 6px; font-size:1.45rem; font-weight:800; color:var(--encre); }
+.dc-coord { display:flex; gap:16px; flex-wrap:wrap; font-size:.86rem; color:var(--gris); }
+.dc-coord span { display:inline-flex; align-items:center; gap:6px; }
+.dc-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.dc-btn {
+    display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border-radius:12px;
+    font-weight:700; font-size:.86rem; text-decoration:none; border:none; cursor:pointer; white-space:nowrap;
 }
-.stat-pill .num { font-size:1.15rem; font-weight:800; line-height:1.1; }
-.stat-pill .lbl { font-size:.66rem; text-transform:uppercase; letter-spacing:.03em; opacity:.85; margin-top:2px; }
+.dc-btn:hover { text-decoration:none; filter:brightness(.97); }
+.dc-btn-primaire { background:linear-gradient(135deg,var(--bleu),var(--bleu-f)); color:#fff; box-shadow:0 6px 14px rgba(31,111,235,.25); }
+.dc-btn-primaire:hover { color:#fff; }
+.dc-btn-doux { background:var(--fond); color:var(--encre); }
+.dc-btn-wa { background:#E8F8EE; color:#15803D; }
 
-/* ===== GRID ===== */
-.wrapper { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+/* ── Chiffres clés ──────────────────────────────────────────────── */
+.dc-chiffres { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.dc-chiffre { background:#fff; border-radius:16px; padding:16px 18px; box-shadow:0 6px 18px rgba(15,40,80,.05); }
+.dc-chiffre .v { font-size:1.35rem; font-weight:800; color:var(--encre); line-height:1.15; }
+.dc-chiffre .l { font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--gris); margin-top:4px; }
+.dc-chiffre .s { font-size:.78rem; color:var(--gris); margin-top:2px; }
 
-/* ===== CARD ===== */
-.card {
-    background:#fff;
-    border-radius:18px;
-    box-shadow:0 6px 20px rgba(15,40,80,.06);
-    padding:0;
-    overflow:hidden;
+/* ── Mise en page ───────────────────────────────────────────────── */
+.dc-corps { display:grid; grid-template-columns:minmax(0,340px) minmax(0,1fr); gap:20px; align-items:start; }
+.dc-col { display:flex; flex-direction:column; gap:18px; }
+.dc-carte { background:#fff; border-radius:18px; box-shadow:0 6px 20px rgba(15,40,80,.06); overflow:hidden; }
+.dc-carte-h { display:flex; justify-content:space-between; align-items:center; padding:16px 18px 10px; }
+.dc-carte-h h2 { margin:0; font-size:.8rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--gris); }
+.dc-carte-h .n { font-size:.78rem; font-weight:700; color:var(--bleu); background:#EAF1FE; padding:2px 9px; border-radius:20px; }
+.dc-carte-b { padding:4px 14px 14px; }
+
+/* Prochain RDV */
+.dc-rdv { margin:0; padding:16px 18px; border-radius:18px; color:#fff;
+          background:linear-gradient(135deg,#F59E0B,#EA580C); box-shadow:0 10px 22px rgba(234,88,12,.22); }
+.dc-rdv .t { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; opacity:.85; }
+.dc-rdv .d { font-size:1.15rem; font-weight:800; margin:4px 0 2px; }
+.dc-rdv .m { font-size:.85rem; opacity:.95; }
+
+/* Animaux */
+.dc-animal { display:flex; gap:12px; align-items:center; padding:11px 10px; border-radius:12px; text-decoration:none; color:inherit; }
+.dc-animal:hover { background:var(--fond); text-decoration:none; }
+.dc-animal + .dc-animal { border-top:1px solid var(--trait); }
+.dc-animal .ic { width:42px; height:42px; flex:none; border-radius:12px; background:#EAF1FE; display:flex; align-items:center; justify-content:center; font-size:1.3rem; }
+.dc-animal .nom { font-weight:800; color:var(--encre); font-size:.95rem; }
+.dc-animal .det { font-size:.78rem; color:var(--gris); margin-top:1px; }
+.dc-animal .fl { margin-left:auto; color:#B0BCC9; font-size:1.2rem; }
+
+/* ── Historique ─────────────────────────────────────────────────── */
+.dc-filtres { display:flex; gap:6px; flex-wrap:wrap; padding:0 18px 12px; border-bottom:1px solid var(--trait); }
+.dc-filtre {
+    padding:7px 13px; border-radius:20px; border:1px solid var(--trait); background:#fff; color:var(--gris);
+    font-size:.8rem; font-weight:700; cursor:pointer; font-family:inherit;
 }
-.card-head {
-    display:flex; align-items:center; gap:10px;
-    padding:16px 20px;
-    border-bottom:1px solid #f1f4f8;
-}
-.card-head .ic-pill {
-    width:34px; height:34px; border-radius:10px;
-    display:flex; align-items:center; justify-content:center;
-    font-size:1rem; flex-shrink:0;
-}
-.card-head h3 { margin:0; font-size:.92rem; font-weight:700; color:#1e2a3a; }
-.card-body { padding:14px 16px 18px; }
+.dc-filtre.on { background:var(--encre); border-color:var(--encre); color:#fff; }
+.dc-fil { position:relative; padding:8px 18px 18px 18px; }
+.dc-mois { font-size:.74rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--gris); margin:16px 0 8px 46px; }
+.dc-ev { position:relative; display:flex; gap:14px; padding-bottom:14px; }
+.dc-ev::before { content:""; position:absolute; left:15px; top:34px; bottom:0; width:2px; background:var(--trait); }
+.dc-pt { width:32px; height:32px; flex:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.95rem; z-index:1; }
+.ev-consultation .dc-pt { background:#E6F4EA; }
+.ev-rdv .dc-pt          { background:#FFF3E0; }
+.ev-vente .dc-pt        { background:#F3E8FD; }
+.dc-ev-c { flex:1; min-width:0; border:1px solid var(--trait); border-radius:14px; padding:12px 14px; transition:border-color .15s, background .15s; }
+.dc-ev-c:hover { border-color:#DCE8FB; background:#FBFDFF; }
+.dc-ev-h { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+.dc-ev-t { font-weight:800; color:var(--encre); font-size:.93rem; }
+.dc-ev-t a { color:inherit; text-decoration:none; }
+.dc-ev-t a:hover { color:var(--bleu); }
+.dc-ev-d { font-size:.78rem; color:var(--gris); white-space:nowrap; }
+.dc-ev-m { font-size:.82rem; color:#475569; margin-top:4px; }
+.dc-meds { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.dc-med { font-size:.75rem; background:var(--fond); color:#334155; padding:3px 9px; border-radius:20px; }
+.dc-ev-pied { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+.dc-lien { font-size:.78rem; font-weight:700; color:var(--bleu); text-decoration:none; padding:5px 10px; border-radius:9px; background:#EAF1FE; }
+.dc-lien:hover { text-decoration:none; background:#DCE8FB; }
+.dc-montant { margin-left:auto; font-weight:800; color:#15803D; font-size:.86rem; }
 
-.card.animaux  .ic-pill { background:#e8f0fe; color:#1f6feb; }
-.card.consults .ic-pill { background:#e6f4ea; color:#28a745; }
-.card.rdv      .ic-pill { background:#fff3e0; color:#fd7e14; }
-.card.ordo     .ic-pill { background:#f3e8fd; color:#6f42c1; }
+.dc-badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:.7rem; font-weight:800; }
+.b-terminee, .b-TERMINE { background:#E6F4EA; color:#166534; }
+.b-en_cours, .b-EN_ATTENTE { background:#FFF3E0; color:#B45309; }
+.b-CONFIRME { background:#EAF1FE; color:#1D4ED8; }
+.b-annulee, .b-ANNULE { background:#FDECEC; color:#B91C1C; }
+.b-avenir { background:#F59E0B; color:#fff; }
 
-/* ===== ITEM ===== */
-.item {
-    padding:13px 14px;
-    border:1px solid #eef2f7;
-    border-radius:12px;
-    margin-bottom:10px;
-    transition:.15s;
-    display:flex; align-items:flex-start; gap:12px;
-}
-.item:last-child { margin-bottom:0; }
-.item:hover { background:#f8fbff; border-color:#dce8fb; }
-.item .item-ic { font-size:1rem; margin-top:1px; flex-shrink:0; }
-.item .item-body { flex:1; min-width:0; }
+.dc-vide { text-align:center; padding:34px 10px; color:#9AA8B8; font-size:.88rem; }
+.dc-vide .ic { font-size:2rem; display:block; margin-bottom:6px; }
 
-/* ===== LINK ===== */
-.link { font-weight:700; color:#1e2a3a; text-decoration:none; font-size:.92rem; }
-.link:hover { color:#1f6feb; }
-
-/* ===== META ===== */
-.meta { font-size:.78rem; color:#7c8a9e; margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-
-/* ===== BADGE ===== */
-.badge { display:inline-block; padding:3px 10px; font-size:.7rem; font-weight:700; border-radius:20px; background:#e8f0fe; color:#1f6feb; }
-.badge-EN_ATTENTE { background:#fff3e0; color:#e65100; }
-.badge-CONFIRME   { background:#e6f4ea; color:#1e7e34; }
-.badge-ANNULE     { background:#fce8e6; color:#c62828; }
-.badge-TERMINE    { background:#e8f0fe; color:#1f6feb; }
-
-/* ===== EMPTY ===== */
-.empty-mini { text-align:center; padding:24px 10px; color:#b0bcc9; font-size:.85rem; }
-.empty-mini .ic { font-size:1.8rem; margin-bottom:6px; display:block; }
-
-@media (max-width:880px) {
-    .client-card { flex-direction:column; align-items:flex-start; }
-    .client-stats { justify-content:flex-start; }
-    .wrapper { grid-template-columns:1fr; }
+@media (max-width: 1000px) {
+    .dc-corps { grid-template-columns:1fr; }
+    .dc-chiffres { grid-template-columns:repeat(2,1fr); }
 }
 </style>
 
-<div class="page-title">👤 Dossier client</div>
+<div class="dc">
 
-<!-- ===== CLIENT INFO ===== -->
-<div class="client-card">
-    <div class="client-identity">
-        <div class="client-avatar">{{ client.nom|slice:":1"|upper }}</div>
-        <div class="client-info">
-            <h2>{{ client.nom }}</h2>
-            <p>📞 {{ client.telephone|default:"Non renseigné" }}</p>
-            <p>📍 {{ client.adresse|default:"Adresse inconnue" }}</p>
+    <div class="dc-ariane"><a href="{% url 'clients_list' %}">Clients</a> › Dossier client</div>
+
+    <!-- ══════ En-tête ══════ -->
+    <div class="dc-tete">
+        <div class="dc-avatar">{{ client.nom|slice:":1"|upper }}</div>
+        <div class="dc-ident">
+            <h1>{{ client.nom }}</h1>
+            <div class="dc-coord">
+                <span>📞 {{ client.telephone|default:"Téléphone non renseigné" }}</span>
+                <span>📍 {{ client.adresse|default:"Adresse non renseignée" }}</span>
+            </div>
+        </div>
+        <div class="dc-actions">
+            <a class="dc-btn dc-btn-primaire" href="{% url 'nouvelle_consultation' %}?client={{ client.id }}">🩺 Nouvelle consultation</a>
+            {% if client.telephone %}
+            <a class="dc-btn dc-btn-doux" href="tel:{{ client.telephone }}">📞 Appeler</a>
+            {% if telephone_wa %}<a class="dc-btn dc-btn-wa" href="https://wa.me/{{ telephone_wa }}" target="_blank" rel="noopener">💬 WhatsApp</a>{% endif %}
+            {% endif %}
         </div>
     </div>
-    <div class="client-stats">
-        <div class="stat-pill"><div class="num">{{ animaux|length }}</div><div class="lbl">Animaux</div></div>
-        <div class="stat-pill"><div class="num">{{ consultations|length }}</div><div class="lbl">Consult.</div></div>
-        <div class="stat-pill"><div class="num">{{ rendezvous|length }}</div><div class="lbl">RDV</div></div>
-        <div class="stat-pill"><div class="num">{{ ordonnances|length }}</div><div class="lbl">Ordo.</div></div>
+
+    <!-- ══════ Chiffres clés ══════ -->
+    <div class="dc-chiffres">
+        <div class="dc-chiffre">
+            <div class="v">{{ animaux|length }}</div>
+            <div class="l">{% if animaux|length > 1 %}Animaux{% else %}Animal{% endif %}</div>
+        </div>
+        <div class="dc-chiffre">
+            <div class="v">{{ nb_consultations }}</div>
+            <div class="l">Consultation{{ nb_consultations|pluralize }}</div>
+        </div>
+        <div class="dc-chiffre">
+            <div class="v">{% if derniere_visite %}{{ derniere_visite|date:"d/m/Y" }}{% else %}—{% endif %}</div>
+            <div class="l">Dernière visite</div>
+            {% if derniere_visite %}<div class="s">{{ derniere_visite_depuis }}</div>{% endif %}
+        </div>
+        <div class="dc-chiffre">
+            <div class="v">{{ total_depense }} <span style="font-size:.8rem;">FCFA</span></div>
+            <div class="l">Total payé</div>
+            <div class="s">consultations et achats</div>
+        </div>
+    </div>
+
+    <div class="dc-corps">
+
+        <!-- ══════ Colonne gauche ══════ -->
+        <div class="dc-col">
+
+            {% if prochain_rdv %}
+            <div class="dc-rdv">
+                <div class="t">📅 Prochain rendez-vous</div>
+                <div class="d">{{ prochain_rdv_libelle|capfirst }}</div>
+                <div class="m">{{ prochain_rdv.animal.nom }} · {{ prochain_rdv.motif|default:"Rendez-vous"|truncatechars:60 }}</div>
+            </div>
+            {% endif %}
+
+            <div class="dc-carte">
+                <div class="dc-carte-h"><h2>🐾 Animaux</h2><span class="n">{{ animaux|length }}</span></div>
+                <div class="dc-carte-b">
+                    {% for a in animaux %}
+                    {% with e=a.espece|lower %}
+                    <a class="dc-animal" href="{% url 'historique_animal' a.id %}">
+                        <div class="ic">{% if 'chien' in e %}🐕{% elif 'chat' in e %}🐈{% elif 'bovin' in e or 'vache' in e or 'boeuf' in e or 'bœuf' in e %}🐄{% elif 'mouton' in e or 'ovin' in e %}🐑{% elif 'chèvre' in e or 'chevre' in e or 'caprin' in e %}🐐{% elif 'cheval' in e or 'équin' in e or 'equin' in e or 'âne' in e %}🐎{% elif 'poule' in e or 'volaille' in e or 'poulet' in e %}🐓{% elif 'lapin' in e %}🐇{% else %}🐾{% endif %}</div>
+                        <div>
+                            <div class="nom">{{ a.nom }}</div>
+                            <div class="det">
+                                {{ a.espece }}{% if a.race %} · {{ a.race }}{% endif %}{% if a.sexe %} · {{ a.sexe }}{% endif %}{% if a.poids %} · {{ a.poids|floatformat:"-1" }} kg{% endif %}
+                            </div>
+                            <div class="det">{{ a.nb_consultations }} consultation{{ a.nb_consultations|pluralize }}</div>
+                        </div>
+                        <span class="fl">›</span>
+                    </a>
+                    {% endwith %}
+                    {% empty %}
+                    <div class="dc-vide"><span class="ic">🐾</span>Aucun animal enregistré</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ══════ Historique ══════ -->
+        <div class="dc-carte">
+            <div class="dc-carte-h"><h2>🕘 Historique</h2><span class="n">{{ evenements|length }}</span></div>
+            <div class="dc-filtres">
+                <button type="button" class="dc-filtre on" data-filtre="tout">Tout</button>
+                <button type="button" class="dc-filtre" data-filtre="consultation">🩺 Consultations ({{ nb_consultations }})</button>
+                <button type="button" class="dc-filtre" data-filtre="rdv">📅 Rendez-vous ({{ nb_rdv }})</button>
+                {% if nb_achats %}<button type="button" class="dc-filtre" data-filtre="vente">💊 Achats ({{ nb_achats }})</button>{% endif %}
+            </div>
+
+            <div class="dc-fil" id="fil">
+                {% for ev in evenements %}
+                {% ifchanged ev.mois %}<div class="dc-mois" data-mois>{{ ev.mois }}</div>{% endifchanged %}
+
+                <div class="dc-ev ev-{{ ev.type }}" data-type="{{ ev.type }}">
+                    {% if ev.type == "consultation" %}
+                        <div class="dc-pt">🩺</div>
+                        <div class="dc-ev-c">
+                            <div class="dc-ev-h">
+                                <div class="dc-ev-t"><a href="{% url 'consultation_detail' ev.objet.id %}">Consultation · {{ ev.animal.nom }}</a></div>
+                                <div class="dc-ev-d">{{ ev.date|date:"d/m/Y à H:i" }}</div>
+                            </div>
+                            <div class="dc-ev-m">
+                                <span class="dc-badge b-{{ ev.objet.statut }}">{{ ev.objet.get_statut_display }}</span>
+                                &nbsp;{{ ev.objet.motif|default:"Sans motif" }}
+                                {% if ev.objet.veterinaire %} · {{ ev.objet.veterinaire }}{% endif %}
+                            </div>
+                            {% if ev.medicaments %}
+                            <div class="dc-meds">{% for m in ev.medicaments %}<span class="dc-med">💊 {{ m }}</span>{% endfor %}</div>
+                            {% endif %}
+                            <div class="dc-ev-pied">
+                                <a class="dc-lien" href="{% url 'consultation_detail' ev.objet.id %}">Voir la consultation</a>
+                                {% if ev.ordonnance %}
+                                <a class="dc-lien" href="{% url 'ordonnance_detail' ev.ordonnance.id %}">Ordonnance</a>
+                                <a class="dc-lien" href="{% url 'ordonnance_pdf' ev.ordonnance.id %}" target="_blank">🖨️ PDF</a>
+                                {% endif %}
+                                {% if ev.montant_txt %}<span class="dc-montant">{{ ev.montant_txt }} FCFA</span>{% endif %}
+                            </div>
+                        </div>
+
+                    {% elif ev.type == "rdv" %}
+                        <div class="dc-pt">📅</div>
+                        <div class="dc-ev-c">
+                            <div class="dc-ev-h">
+                                <div class="dc-ev-t">Rendez-vous · {{ ev.animal.nom }}</div>
+                                <div class="dc-ev-d">{{ ev.date|date:"d/m/Y à H:i" }}</div>
+                            </div>
+                            <div class="dc-ev-m">
+                                {% if ev.a_venir %}<span class="dc-badge b-avenir">À venir</span>{% else %}<span class="dc-badge b-{{ ev.objet.statut }}">{{ ev.objet.get_statut_display }}</span>{% endif %}
+                                &nbsp;{{ ev.objet.motif|default:"Rendez-vous"|truncatechars:90 }} · {{ ev.objet.get_type_rdv_display }}
+                            </div>
+                        </div>
+
+                    {% else %}
+                        <div class="dc-pt">💊</div>
+                        <div class="dc-ev-c">
+                            <div class="dc-ev-h">
+                                <div class="dc-ev-t"><a href="{% url 'vente_detail' ev.objet.id %}">Achat en pharmacie</a></div>
+                                <div class="dc-ev-d">{{ ev.date|date:"d/m/Y à H:i" }}</div>
+                            </div>
+                            {% if ev.medicaments %}
+                            <div class="dc-meds">{% for m in ev.medicaments %}<span class="dc-med">💊 {{ m }}</span>{% endfor %}</div>
+                            {% endif %}
+                            <div class="dc-ev-pied">
+                                <a class="dc-lien" href="{% url 'vente_detail' ev.objet.id %}">Voir le reçu</a>
+                                <span class="dc-montant">{{ ev.montant_txt|default:"0" }} FCFA</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="dc-vide"><span class="ic">🕘</span>Aucune consultation, aucun rendez-vous pour ce client.</div>
+                {% endfor %}
+                <div class="dc-vide" id="filVide" style="display:none;"><span class="ic">🔎</span>Rien dans cette catégorie.</div>
+            </div>
+        </div>
+
     </div>
 </div>
 
-<!-- ===== CONTENT GRID ===== -->
-<div class="wrapper">
-
-    <!-- ANIMAUX -->
-    <div class="card animaux">
-        <div class="card-head">
-            <div class="ic-pill">🐾</div>
-            <h3>Animaux</h3>
-        </div>
-        <div class="card-body">
-            {% for a in animaux %}
-            <div class="item">
-                <span class="item-ic">🐾</span>
-                <div class="item-body">
-                    <a class="link" href="{% url 'historique_animal' a.id %}">{{ a.nom }}</a>
-                    <div class="meta">
-                        <span>{{ a.espece }}</span>
-                        {% if a.race %}<span>· {{ a.race }}</span>{% endif %}
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="empty-mini"><span class="ic">🐾</span>Aucun animal enregistré</div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- CONSULTATIONS -->
-    <div class="card consults">
-        <div class="card-head">
-            <div class="ic-pill">🩺</div>
-            <h3>Consultations</h3>
-        </div>
-        <div class="card-body">
-            {% for c in consultations %}
-            <div class="item">
-                <span class="item-ic">🩺</span>
-                <div class="item-body">
-                    <div class="link">{{ c.motif|default:"Consultation" }}</div>
-                    <div class="meta">📅 {{ c.date|default:"-" }}</div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="empty-mini"><span class="ic">🩺</span>Aucune consultation</div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- RENDEZ-VOUS -->
-    <div class="card rdv">
-        <div class="card-head">
-            <div class="ic-pill">📅</div>
-            <h3>Rendez-vous</h3>
-        </div>
-        <div class="card-body">
-            {% for r in rendezvous %}
-            <div class="item">
-                <span class="item-ic">📅</span>
-                <div class="item-body">
-                    <div class="link">Rendez-vous</div>
-                    <div class="meta">
-                        <span>{{ r.date_rdv|default:"-" }}</span>
-                        <span class="badge badge-{{ r.statut }}">{{ r.statut }}</span>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="empty-mini"><span class="ic">📅</span>Aucun rendez-vous</div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="card ordo">
-    <div class="card-head">
-        <div class="ic-pill">💊</div>
-        <h3>Ordonnances</h3>
-    </div>
-
-    <div class="card-body">
-        {% for o in ordonnances %}
-        <div class="item">
-            <span class="item-ic">💊</span>
-
-            <div class="item-body">
-                
-                <!-- LIEN CLIQUABLE -->
-                <a class="link" href="{% url 'ordonnance_detail' o.id %}">
-                    Consulter Ordonnance #{{ o.id }}
-                </a>
-
-                <div class="meta">
-                    📅 {{ o.date_creation|date:"d/m/Y H:i" }}
-                </div>
-            </div>
-        </div>
-        {% empty %}
-        <div class="empty-mini">
-            <span class="ic">💊</span>Aucune ordonnance
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-</div>
+<script>
+(function () {
+    var boutons = document.querySelectorAll('.dc-filtre');
+    var fil = document.getElementById('fil');
+    if (!fil) return;
+    boutons.forEach(function (b) {
+        b.addEventListener('click', function () {
+            boutons.forEach(function (x) { x.classList.remove('on'); });
+            b.classList.add('on');
+            var f = b.dataset.filtre, visibles = 0, enfants = fil.children;
+            for (var i = 0; i < enfants.length; i++) {
+                var el = enfants[i];
+                if (el.dataset.type) {
+                    var ok = f === 'tout' || el.dataset.type === f;
+                    el.style.display = ok ? '' : 'none';
+                    if (ok) visibles++;
+                }
+            }
+            // Un titre de mois disparaît s'il n'a plus rien en dessous
+            for (var j = 0; j < enfants.length; j++) {
+                var m = enfants[j];
+                if (m.hasAttribute('data-mois')) {
+                    var k = j + 1, garde = false;
+                    while (k < enfants.length && !enfants[k].hasAttribute('data-mois')) {
+                        if (enfants[k].dataset.type && enfants[k].style.display !== 'none') { garde = true; break; }
+                        k++;
+                    }
+                    m.style.display = garde ? '' : 'none';
+                }
+            }
+            document.getElementById('filVide').style.display = visibles ? 'none' : '';
+        });
+    });
+})();
+</script>
 {% endblock %}
