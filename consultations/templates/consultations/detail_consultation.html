@@ -80,49 +80,64 @@
     color:#721c24;
 }
 
-/* ===== SUMMARY ===== */
-.summary{
-    background:#fff;
-    border-radius:16px;
-    padding:20px;
+/* ===== COLONNE DE DROITE ===== */
+.side { display:flex; flex-direction:column; gap:16px; align-self:start; }
+
+.statut-carte {
+    display:flex; gap:14px; align-items:center; padding:18px; border-radius:16px;
     box-shadow:0 8px 20px rgba(0,0,0,0.06);
 }
-
- /* Style général des boutons */
-.btn {
-        display: inline-block;
-        padding: 8px 14px;
-        margin-right: 35px; /* espace entre les boutons */
-        text-decoration: none; /* enlève le soulignement */
-        border-radius: 6px;
-        font-weight: 600;
-        color: #fff;
+.statut-icone {
+    width:46px; height:46px; flex:none; border-radius:50%; background:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800;
 }
+.statut-libelle { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; opacity:.75; }
+.statut-valeur  { font-size:19px; font-weight:800; line-height:1.2; }
+.statut-date    { font-size:12px; opacity:.8; margin-top:2px; }
+.statut-terminee { background:#E9F8EF; color:#166534; }
+.statut-terminee .statut-icone { color:#16A34A; }
+.statut-en_cours { background:#FFF7E6; color:#92400E; }
+.statut-en_cours .statut-icone { color:#D97706; }
+.statut-annulee  { background:#FEF2F2; color:#991B1B; }
+.statut-annulee .statut-icone { color:#DC2626; }
 
-    /* Bouton Modifier en rouge */
-.btn-edit {
-        background-color: #dc3545;
+.actions-carte {
+    background:#fff; border-radius:16px; padding:18px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:10px;
 }
-
-.btn-edit:hover {
-        background-color: #bb2d3b;
-        text-decoration: none;
+.actions-titre, .danger-titre {
+    font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#6B7A90; margin-bottom:2px;
 }
-
-.form-supprimer { display:inline; margin:0; }
-.btn-danger {
-    background:#fef2f2; color:#dc2626; border:1px solid #fecaca; cursor:pointer;
-    font-family:inherit;
+.act {
+    display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px;
+    text-decoration:none; font-weight:700; font-size:14px; transition:background .15s, transform .1s;
 }
-.btn-danger:hover { background:#fee2e2; }
+.act:hover { text-decoration:none; }
+.act:active { transform:scale(.99); }
+.act-ic  { width:32px; height:32px; flex:none; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.act-txt { flex:1; display:flex; flex-direction:column; line-height:1.25; }
+.act-txt small { font-size:12px; font-weight:500; opacity:.8; }
+.act-fl  { font-size:20px; opacity:.5; }
+.act-principal { background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff; box-shadow:0 6px 16px rgba(31,111,235,.25); }
+.act-principal .act-ic { background:rgba(255,255,255,.18); }
+.act-principal:hover { color:#fff; filter:brightness(1.05); }
+.act-secondaire { background:#F4F7FB; color:#0F2547; }
+.act-secondaire .act-ic { background:#fff; }
+.act-secondaire:hover { background:#E9EEF6; color:#0F2547; }
 
-.btn-success {
-    background-color: #198754;
+.danger-carte {
+    background:#fff; border:1px dashed #F5C2C2; border-radius:16px; padding:16px 18px;
 }
+.danger-titre { color:#B91C1C; }
+.danger-texte { margin:4px 0 12px; font-size:12.5px; color:#6B7A90; line-height:1.45; }
+.act-supprimer {
+    width:100%; padding:10px 14px; border-radius:11px; border:1px solid #FECACA; background:#FEF2F2;
+    color:#DC2626; font-weight:700; font-size:13.5px; cursor:pointer; font-family:inherit; transition:background .15s;
+}
+.act-supprimer:hover { background:#FEE2E2; }
 
-.btn-success:hover {
-    background-color: #157347;
-    text-decoration: none;
+@media (max-width: 900px) {
+    .detail-wrapper { grid-template-columns:1fr; }
 }
 
 </style>
@@ -176,56 +191,86 @@
 
             <div class="info-row">
                 <span class="info-label">Date</span>
-                <span class="info-value">{{ consultation.date }}</span>
+                <span class="info-value">{{ consultation.date|date:"d/m/Y à H:i" }}</span>
             </div>
 
         </div>
     </div>
 
     <!-- ================= RIGHT ================= -->
-    <div class="summary">
+    <aside class="side">
 
-        <h4 style="color:#1f6feb;">Statut</h4>
+        <!-- Statut -->
+        <div class="statut-carte statut-{{ consultation.statut }}">
+            <div class="statut-icone">
+                {% if consultation.statut == "terminee" %}✔{% elif consultation.statut == "en_cours" %}⏳{% else %}✕{% endif %}
+            </div>
+            <div>
+                <div class="statut-libelle">Statut</div>
+                <div class="statut-valeur">
+                    {% if consultation.statut == "en_cours" %}En cours
+                    {% elif consultation.statut == "terminee" %}Terminée
+                    {% else %}Annulée{% endif %}
+                </div>
+                <div class="statut-date">Consultation n° {{ consultation.id }} · {{ consultation.date|date:"d/m/Y à H:i" }}</div>
+            </div>
+        </div>
 
-        <p>
-            {% if consultation.statut == "en_cours" %}
-                <span class="badge en_cours">En cours</span>
-            {% elif consultation.statut == "terminee" %}
-                <span class="badge terminee">Terminée</span>
+        <!-- Actions -->
+        <div class="actions-carte">
+            <div class="actions-titre">Actions</div>
+
+            {% if consultation.ordonnance %}
+                <a href="{% url 'ordonnance_detail' consultation.ordonnance.id %}" class="act act-principal">
+                    <span class="act-ic">📋</span>
+                    <span class="act-txt">Consulter l'ordonnance
+                        <small>{{ consultation.ordonnance.lignes.count }} médicament{{ consultation.ordonnance.lignes.count|pluralize }} prescrit{{ consultation.ordonnance.lignes.count|pluralize }}</small></span>
+                    <span class="act-fl">›</span>
+                </a>
+                <a href="{% url 'ordonnance_pdf' consultation.ordonnance.id %}" target="_blank" class="act act-secondaire">
+                    <span class="act-ic">🖨️</span>
+                    <span class="act-txt">Imprimer l'ordonnance <small>PDF</small></span>
+                    <span class="act-fl">›</span>
+                </a>
             {% else %}
-                <span class="badge annulee">Annulée</span>
+                <a href="{% url 'ordonnance_create' consultation.id %}" class="act act-principal">
+                    <span class="act-ic">➕</span>
+                    <span class="act-txt">Ajouter une ordonnance <small>Aucun médicament prescrit</small></span>
+                    <span class="act-fl">›</span>
+                </a>
             {% endif %}
-        </p>
 
-        <hr>
+            {% if consultation.statut != "terminee" %}
+                <a href="{% url 'edit_consultation' consultation.id %}" class="act act-secondaire">
+                    <span class="act-ic">✏️</span>
+                    <span class="act-txt">Modifier la consultation</span>
+                    <span class="act-fl">›</span>
+                </a>
+            {% endif %}
 
-        <h4 style="color:#1f6feb;">Actions</h4>
+            <a href="{% url 'liste_consultations' %}" class="act act-secondaire">
+                <span class="act-ic">←</span>
+                <span class="act-txt">Retour aux consultations</span>
+                <span class="act-fl">›</span>
+            </a>
+        </div>
 
-{% if consultation.statut != "terminee" %}
-<a href="{% url 'edit_consultation' consultation.id %}" class="btn btn-edit">
-    ✏ Modifier
-</a>
-{% endif %}
-
-{% if consultation.ordonnance %}
-    <a href="{% url 'ordonnance_detail' consultation.ordonnance.id %}" class="btn btn-success">
-        📋 Consulter l'ordonnance
-    </a>
-{% else %}
-    <a href="{% url 'ordonnance_create' consultation.id %}" class="btn btn-success">
-        ➕ Ajouter Ordonnance
-    </a>
-{% endif %}
-        
         {% if request.user.is_superuser or request.user.role == 'DOCTEUR' %}
-        <button type="button" class="btn btn-danger" onclick="ouvrirSuppression()">🗑 Supprimer la consultation</button>
+        <!-- Zone sensible, à part -->
+        <div class="danger-carte">
+            <div class="danger-titre">Zone sensible</div>
+            <p class="danger-texte">
+                {% if consultation.statut == "terminee" %}
+                    Supprime la consultation, son ordonnance et la vente liée ; les médicaments sont remis en stock.
+                {% else %}
+                    Supprime la consultation et son ordonnance.
+                {% endif %}
+            </p>
+            <button type="button" class="act-supprimer" onclick="ouvrirSuppression()">🗑 Supprimer la consultation</button>
+        </div>
         {% endif %}
 
-        <!--{% if consultation.statut == "en_cours" %}
-        <a href="{% url 'terminer_consultation' consultation.id %}" class="btn"> ✔ Terminer</a>
-        {% endif %} -->
-
-    </div>
+    </aside>
 
 </div>
 
