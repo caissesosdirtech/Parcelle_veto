@@ -124,12 +124,19 @@
         </a>
     {% endif %}
 
-    <!-- ================= PARAMÈTRES (docteur) ================= -->
+    <!-- ================= PARAMÈTRES ================= -->
     {% if request.user.role == 'DOCTEUR' or request.user.is_superuser %}
     <div class="nav-section-label">Administration</div>
     <a class="nav-item {% if active_page == 'parametres' %}active{% endif %}"
        href="{% url 'utilisateurs_liste' %}">
         ⚙️ Paramètres
+    </a>
+    {% else %}
+    {# Assistant, pharmacien : leur compte (informations, mot de passe) #}
+    <div class="nav-section-label">Mon espace</div>
+    <a class="nav-item {% if active_page == 'mon_compte' %}active{% endif %}"
+       href="{% url 'mon_compte' %}">
+        ⚙️ Paramètres · mot de passe
     </a>
     {% endif %}
 
