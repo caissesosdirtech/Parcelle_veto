@@ -34,7 +34,15 @@ from parametres.models import ReglagesClinique
 from pharmacie.models import Medicament
 from ventes.models import LigneVente, Vente
 
-from .models import Consultation, LigneOrdonnance, Ordonnance, RendezVous, RendezVousManuel, veterinaire_par_defaut
+from .models import (
+    MESSAGE_RDV_VERROUILLE,
+    Consultation,
+    LigneOrdonnance,
+    Ordonnance,
+    RendezVous,
+    RendezVousManuel,
+    veterinaire_par_defaut,
+)
 from .serializers import (
     ConsultationSerializer,
     LigneOrdonnanceSerializer,
@@ -118,6 +126,12 @@ class RendezVousViewSet(viewsets.ModelViewSet):
     queryset = RendezVous.objects.all().order_by('-date_rdv')
     serializer_class = RendezVousSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        if serializer.instance.est_verrouille:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(MESSAGE_RDV_VERROUILLE)
+        serializer.save()
 
     def perform_create(self, serializer):
         rdv = serializer.save()
@@ -298,9 +312,16 @@ def changer_statut_rdv(request, type_rdv, rdv_id):
     else:
         rdv = get_object_or_404(RendezVous, id=rdv_id)
 
+    if rdv.est_verrouille:
+        messages.error(request, MESSAGE_RDV_VERROUILLE)
+        return redirect("rendez_vous_list")
+
     rdv.statut = nouveau_statut
     rdv.save()
-    messages.success(request, "Statut mis à jour.")
+    if nouveau_statut == "TERMINE":
+        messages.success(request, "Rendez-vous terminé : il est maintenant verrouillé.")
+    else:
+        messages.success(request, "Statut mis à jour.")
     return redirect("rendez_vous_list")
 
 
@@ -1548,6 +1569,14 @@ def api_modifier_statut_rdv(request, rdv_id):
             rdv = RendezVousManuel.objects.get(pk=rdv_id)
         else:
             rdv = RendezVous.objects.get(pk=rdv_id)
+
+        if rdv.est_verrouille:
+            return JsonResponse(
+                {"error": MESSAGE_RDV_VERROUILLE, "verrouille": True, "statut": rdv.statut},
+                status=409,
+            )
+        if nouveau_statut not in ("EN_ATTENTE", "CONFIRME", "ANNULE", "TERMINE"):
+            return JsonResponse({"error": "Statut invalide."}, status=400)
 
         rdv.statut = nouveau_statut
         rdv.save()

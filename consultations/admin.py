@@ -9,14 +9,23 @@ from .models import (
 )
 
 
+class VerrouAdminMixin:
+    """Un rendez-vous terminé s'affiche en lecture seule dans l'administration."""
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.est_verrouille:
+            return False
+        return super().has_change_permission(request, obj)
+
+
 @admin.register(RendezVous)
-class RendezVousAdmin(admin.ModelAdmin):
+class RendezVousAdmin(VerrouAdminMixin, admin.ModelAdmin):
     list_display = ('animal', 'date_rdv', 'type_rdv', 'statut')
     list_filter = ('statut', 'type_rdv')
 
 
 @admin.register(RendezVousManuel)
-class RendezVousManuelAdmin(admin.ModelAdmin):
+class RendezVousManuelAdmin(VerrouAdminMixin, admin.ModelAdmin):
     list_display = ('nom_client', 'nom_animal', 'date_rdv', 'lieu', 'statut')
     list_filter = ('statut', 'lieu')
     search_fields = ('nom_client', 'nom_animal', 'telephone')

@@ -3,7 +3,33 @@ from animaux.models import Animal
 from clients.models import Client
 
 
-class RendezVous(models.Model):
+MESSAGE_RDV_VERROUILLE = "Ce rendez-vous est terminé : il est verrouillé et ne peut plus être modifié."
+
+
+class RendezVousVerrouille(Exception):
+    """Tentative de modifier un rendez-vous déjà terminé."""
+
+
+class VerrouRendezVousMixin:
+    """
+    Un rendez-vous passé au statut « Terminé » est verrouillé : plus aucun
+    enregistrement n'est accepté, quelle que soit la source (site, app,
+    API, administration). La suppression reste possible.
+    """
+
+    @property
+    def est_verrouille(self):
+        return self.statut == "TERMINE"
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            ancien = type(self).objects.filter(pk=self.pk).values_list("statut", flat=True).first()
+            if ancien == "TERMINE":
+                raise RendezVousVerrouille(MESSAGE_RDV_VERROUILLE)
+        super().save(*args, **kwargs)
+
+
+class RendezVous(VerrouRendezVousMixin, models.Model):
     TYPE = (
         ('CABINET', 'Cabinet'),
         ('DOMICILE', 'Domicile'),
@@ -35,7 +61,7 @@ class RendezVous(models.Model):
         return f"{self.animal} - {self.date_rdv.strftime('%d/%m/%Y %H:%M')}"
 
 
-class RendezVousManuel(models.Model):
+class RendezVousManuel(VerrouRendezVousMixin, models.Model):
     LIEU_CHOICES = [
         ("cabinet", "Au cabinet"),
         ("domicile", "À domicile"),
