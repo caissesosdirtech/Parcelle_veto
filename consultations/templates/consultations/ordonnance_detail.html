@@ -1,6 +1,7 @@
 {% extends "base_dashboard.html" %}
 {% load static %}
 
+{% block title %}Ordonnance n° {{ ordonnance.id }}{% endblock %}
 {% block messages_toast %}{% endblock %}
 
 {% block content %}
@@ -8,384 +9,337 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
-/* ===== BASE ===== */
-.page-title { font-size:18px; font-weight:700; margin-bottom:6px; color:#1f6feb; }
-.page-sub   { font-size:.85rem; color:#7c8a9e; margin-bottom:20px; }
+.od { --bleu:#1f6feb; --bleu-f:#0d47a1; --encre:#0F2547; --gris:#6B7A90; --trait:#E8EDF4; --fond:#F4F7FB; --vert:#0B7A5E;
+      font-family:'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif; color:var(--encre); }
+.od a { text-decoration:none; }
 
-.wrapper { display:grid; grid-template-columns:2fr 1fr; gap:20px; }
+/* ── Barre du haut ───────────────────────── */
+.od-barre { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+.od-ariane { font-size:.82rem; color:var(--gris); margin-bottom:4px; }
+.od-ariane a { color:var(--bleu); font-weight:600; }
+.od-titre { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.od-titre h1 { margin:0; font-size:1.45rem; font-weight:800; letter-spacing:-.01em; }
+.od-statut { padding:5px 12px; border-radius:20px; font-size:.78rem; font-weight:800; }
+.od-statut.en_cours { background:#FFF3E0; color:#B45309; }
+.od-statut.terminee { background:#E6F4EA; color:#166534; }
+.od-statut.annulee  { background:#FDECEC; color:#B91C1C; }
+.od-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.od-btn { display:inline-flex; align-items:center; gap:8px; padding:10px 15px; border-radius:12px; font-weight:700; font-size:.86rem;
+          border:1px solid var(--trait); background:#fff; color:var(--encre); cursor:pointer; font-family:inherit; white-space:nowrap; }
+.od-btn:hover { border-color:#C9D8F5; color:var(--encre); }
+.od-btn-vert { background:linear-gradient(135deg,#16A34A,#15803D); border-color:transparent; color:#fff; box-shadow:0 6px 14px rgba(22,163,74,.28); }
+.od-btn-vert:hover { color:#fff; filter:brightness(1.05); }
+.od-fait { display:inline-flex; align-items:center; gap:8px; padding:10px 15px; border-radius:12px; font-weight:700; font-size:.86rem; background:#E6F4EA; color:#166534; }
 
-/* ===== CARDS ===== */
-.card { background:#fff; border-radius:16px; box-shadow:0 8px 25px rgba(0,0,0,0.08); margin-bottom:20px; }
-.card-header {
-    padding:14px 20px;
-    background:linear-gradient(135deg,#1f6feb,#0d47a1);
-    color:#fff; font-weight:600; font-size:.95rem;
-    border-radius:16px 16px 0 0;
-    display:flex; align-items:center; justify-content:space-between;
-}
-.card-body { padding:20px; }
+.od-grille { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:20px; align-items:start; }
 
-/* ===== INFO GRID ===== */
-.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.info-item label { display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; margin-bottom:3px; }
-.info-item span  { font-size:.9rem; font-weight:600; color:#1e2a3a; }
+/* ── La feuille d'ordonnance ─────────────── */
+.od-feuille { background:#fff; border-radius:20px; border:1px solid var(--trait); box-shadow:0 14px 34px rgba(15,40,80,.07); overflow:hidden; }
+.od-entete { display:flex; justify-content:space-between; gap:16px; padding:20px 24px; border-bottom:2px solid var(--encre); flex-wrap:wrap; }
+.od-clinique { display:flex; gap:12px; align-items:center; }
+.od-logo { width:48px; height:48px; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center;
+           background:linear-gradient(135deg,#0B47C9,#08C792); color:#fff; font-size:20px; flex:none; }
+.od-logo img { width:100%; height:100%; object-fit:contain; background:#fff; }
+.od-clinique b { display:block; font-size:1.02rem; color:var(--encre); }
+.od-clinique span { font-size:.8rem; color:var(--gris); }
+.od-ref { text-align:right; font-size:.82rem; color:var(--gris); }
+.od-ref b { display:block; font-size:1rem; color:var(--encre); }
 
-/* ===== TABLE ===== */
-.ordo-table { width:100%; border-collapse:collapse; font-size:.88rem; }
-.ordo-table th {
-    background:#f4f7fb; color:#7c8a9e;
-    font-size:.72rem; font-weight:700; text-transform:uppercase;
-    padding:10px 12px; text-align:left; border-bottom:2px solid #e7ecf2;
-}
-.ordo-table td { padding:11px 12px; border-bottom:1px solid #f1f4f8; color:#1e2a3a; vertical-align:middle; }
-.ordo-table tr:last-child td { border-bottom:none; }
-.ordo-table tr:hover td { background:#f9fbff; }
-.badge-med {
-    display:inline-block; padding:3px 10px; border-radius:20px;
-    background:#e8f0fe; color:#1f6feb; font-weight:700; font-size:.8rem;
-}
-.qty-badge {
-    display:inline-block; padding:3px 10px; border-radius:20px;
-    background:#e6f4ea; color:#28a745; font-weight:700; font-size:.8rem;
-}
-.empty-state { text-align:center; padding:40px 20px; color:#b0bcc9; }
-.empty-state .icon { font-size:2.5rem; margin-bottom:10px; }
+.od-patient { display:grid; grid-template-columns:1.1fr 1fr; gap:0; border-bottom:1px solid var(--trait); }
+.od-bloc { padding:16px 24px; }
+.od-bloc + .od-bloc { border-left:1px solid var(--trait); }
+.od-bloc-t { font-size:.74rem; font-weight:700; color:var(--gris); margin-bottom:8px; }
+.od-animal { display:flex; gap:12px; align-items:center; }
+.od-animal .e { width:44px; height:44px; border-radius:12px; background:#EAF1FE; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex:none; }
+.od-animal b, .od-proprio b { font-size:1rem; }
+.od-ligne { font-size:.84rem; color:#475569; margin-top:2px; }
+.od-ligne a { color:var(--bleu); font-weight:600; }
+.od-motif { padding:14px 24px; border-bottom:1px solid var(--trait); display:flex; gap:24px; flex-wrap:wrap; font-size:.86rem; }
+.od-motif span { color:var(--gris); }
+.od-obs { margin:0 24px 0; padding:12px 14px; border-radius:12px; background:var(--fond); font-size:.86rem; color:#334155; line-height:1.5; }
+.od-obs-zone { padding:14px 0 0; }
 
-/* ===== ADD FORM ===== */
-.add-form { background:#f8faff; border:1px dashed #c0d3f5; border-radius:12px; padding:16px; margin-top:16px; }
-.add-form .form-row { display:grid; grid-template-columns:2fr 1fr 2fr; gap:10px; align-items:end; }
-.form-group label { display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; color:#7c8a9e; margin-bottom:5px; }
-.form-control, .form-select {
-    width:100%; padding:9px 12px; border-radius:10px;
-    border:1px solid #e7ecf2; font-size:.88rem;
-    background:#fff; color:#1e2a3a;
-}
-.form-control:focus, .form-select:focus { outline:none; border-color:#1f6feb; box-shadow:0 0 0 3px rgba(31,111,235,.1); }
+/* Liste des médicaments */
+.od-rx { padding:16px 24px 6px; display:flex; align-items:baseline; gap:12px; }
+.od-rx-sym { font-family:Georgia, 'Times New Roman', serif; font-size:1.9rem; font-weight:700; color:var(--bleu); line-height:1; }
+.od-rx h2 { margin:0; font-size:1rem; font-weight:700; }
+.od-rx .n { font-size:.8rem; color:var(--gris); }
+.od-table-scroll { overflow-x:auto; }
+.ordo-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+.ordo-table th { text-align:left; padding:10px 12px; font-size:.74rem; font-weight:700; color:var(--gris); border-bottom:1px solid var(--trait); }
+.ordo-table th:first-child, .ordo-table td:first-child { padding-left:24px; }
+.ordo-table th:last-child, .ordo-table td:last-child { padding-right:18px; width:1%; }
+.ordo-table td { padding:13px 12px; border-bottom:1px solid #F1F4F8; vertical-align:middle; }
+.ordo-table tbody tr:hover td { background:#FBFDFF; }
+.badge-med { font-weight:700; color:var(--encre); }
+.qty-badge { display:inline-block; padding:3px 10px; border-radius:20px; background:#EAF1FE; color:#1D4ED8; font-weight:700; font-size:.82rem; }
+.cell-posologie { color:#475569; }
+.cell-total { font-weight:700; color:var(--encre) !important; white-space:nowrap; text-align:right; }
+.cell-posologie { min-width:180px; }
+.ordo-table th.droite { text-align:right; }
+.od-num { color:#B0BCC9; font-weight:700; }
+.od-total { display:flex; justify-content:flex-end; align-items:baseline; gap:14px; padding:14px 24px 18px; }
+.od-total span { font-size:.86rem; color:var(--gris); }
+.od-total b { font-size:1.35rem; font-variant-numeric:tabular-nums; }
+.empty-state { text-align:center; padding:34px 20px; color:#9AA8B8; }
+.empty-state .icon { font-size:2.2rem; margin-bottom:6px; }
 
-/* ===== BUTTONS ===== */
-.btn { padding:9px 18px; border-radius:10px; border:none; cursor:pointer; font-weight:600; font-size:.85rem; transition:all .2s; }
-.btn-primary   { background:linear-gradient(135deg,#1f6feb,#0d47a1); color:#fff; }
-.btn-primary:hover { opacity:.9; }
-.btn-success   { background:linear-gradient(135deg,#28a745,#1e7e34); color:#fff; }
-.btn-success:hover { opacity:.9; }
-.btn-danger    { background:#fff; color:#dc3545; border:1px solid #dc3545; padding:6px 12px; font-size:.8rem; border-radius:8px; }
-.btn-danger:hover  { background:#dc3545; color:#fff; }
-.btn-outline   { background:#fff; color:#1f6feb; border:1px solid #1f6feb; }
-.btn-outline:hover { background:#1f6feb; color:#fff; }
-.btn-print     { background:#fff; color:#6c757d; border:1px solid #dee2e6; }
-.btn-print:hover   { background:#f8f9fa; }
-.btn-sm { padding:6px 12px; font-size:.8rem; }
-.btn-block { width:100%; padding:13px; font-size:.95rem; }
+/* Ajout d'un médicament (dans la feuille) */
+.add-form { margin:0 24px 20px; padding:14px; border:1.5px dashed #C9D8F5; border-radius:14px; background:#FAFCFF; }
+.add-form-t { font-size:.82rem; font-weight:700; color:var(--bleu); margin-bottom:10px; }
+.add-form .form-row { display:grid; grid-template-columns:2fr .7fr 2fr auto; gap:10px; align-items:end; }
+.form-group label { display:block; font-size:.76rem; font-weight:700; color:var(--gris); margin-bottom:5px; }
+.form-control, .form-select { width:100%; min-width:0; box-sizing:border-box; height:42px; padding:0 12px; border:1.5px solid var(--trait); border-radius:11px;
+                              background:#fff; font:inherit; font-size:.88rem; color:var(--encre); }
+.form-control:focus, .form-select:focus { outline:none; border-color:var(--bleu); box-shadow:0 0 0 4px rgba(31,111,235,.1); }
 
-/* ===== SUMMARY CARD ===== */
-.summary { background:#fff; border-radius:16px; box-shadow:0 8px 20px rgba(0,0,0,0.07); padding:20px; position:sticky; top:20px; }
-.summary h4 { font-size:1rem; font-weight:700; color:#1e2a3a; margin-bottom:16px; }
-.sum-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f4f8; font-size:.85rem; }
-.sum-row:last-child { border-bottom:none; }
-.sum-label { color:#7c8a9e; font-weight:600; }
-.sum-value { font-weight:700; color:#1e2a3a; }
-.sum-total { font-size:1.1rem; color:#1f6feb; }
-.divider { border:none; border-top:1px solid #e7ecf2; margin:16px 0; }
+.od-signature { display:flex; justify-content:flex-end; padding:8px 24px 22px; }
+.od-signature div { text-align:center; font-size:.82rem; color:var(--gris); }
+.od-signature b { display:block; color:var(--encre); margin-top:4px; }
 
-/* ===== STATUS BADGE ===== */
-.status-badge {
-    display:inline-block; padding:4px 12px; border-radius:20px;
-    font-size:.75rem; font-weight:700; text-transform:uppercase;
-}
-.status-en_cours  { background:#fff3cd; color:#856404; }
-.status-terminee  { background:#d4edda; color:#155724; }
-.status-annulee   { background:#f8d7da; color:#721c24; }
-
-/* ===== TOOLTIP ===== */
+/* Boutons des lignes (utilisés par le script) */
+.btn { padding:9px 16px; border-radius:10px; border:none; cursor:pointer; font-weight:700; font-size:.85rem; font-family:inherit; transition:all .15s; }
+.btn-primary { background:linear-gradient(135deg,var(--bleu),var(--bleu-f)); color:#fff; height:42px; white-space:nowrap; }
+.btn-primary:hover { filter:brightness(1.05); }
+.btn-success { background:#16A34A; color:#fff; }
+.btn-outline { background:#fff; color:#475569; border:1px solid var(--trait); }
+.btn-danger { background:#fff; color:#DC2626; border:1px solid #F5C2C2; padding:6px 8px; font-size:.8rem; border-radius:9px; }
+.btn-danger:hover { background:#DC2626; color:#fff; }
+.btn-edit { background:#fff; color:var(--bleu); border:1px solid #C9D8F5; padding:6px 8px; font-size:.8rem; border-radius:9px; margin-right:4px; }
+.btn-edit:hover { background:var(--bleu); color:#fff; }
+.btn-sm { padding:6px 10px; font-size:.8rem; }
+.actions-cell { display:flex; justify-content:flex-end; white-space:nowrap; }
+.edit-input { width:70px; padding:6px 8px; border-radius:8px; border:1.5px solid var(--trait); font-size:.86rem; font-family:inherit; }
+.edit-input.posologie { width:100%; min-width:140px; }
 .tooltip { position:relative; }
-.tooltip::after {
-    content: attr(data-tooltip);
-    position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
-    background:#1e2a3a; color:#fff; font-size:.72rem; font-weight:600;
-    padding:6px 10px; border-radius:6px; white-space:nowrap;
-    opacity:0; visibility:hidden; transition:opacity .15s ease, visibility .15s ease;
-    pointer-events:none; z-index:10;
-}
-.tooltip::before {
-    content:''; position:absolute; bottom:calc(100% + 3px); left:50%; transform:translateX(-50%);
-    border:5px solid transparent; border-top-color:#1e2a3a;
-    opacity:0; visibility:hidden; transition:opacity .15s ease, visibility .15s ease;
-}
-.tooltip:hover::after, .tooltip:hover::before { opacity:1; visibility:visible; }
+.tooltip::after { content:attr(data-tooltip); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+    background:var(--encre); color:#fff; font-size:.72rem; font-weight:600; padding:6px 10px; border-radius:7px; white-space:nowrap;
+    opacity:0; visibility:hidden; transition:opacity .15s; pointer-events:none; z-index:10; }
+.tooltip:hover::after { opacity:1; visibility:visible; }
 
-.btn-edit { background:#fff; color:#1f6feb; border:1px solid #1f6feb; padding:6px 12px; font-size:.8rem; border-radius:8px; margin-right:6px; }
-.btn-edit:hover { background:#1f6feb; color:#fff; }
-.actions-cell { display:flex; gap:0; white-space:nowrap; }
-.edit-input { width:70px; padding:5px 8px; border-radius:6px; border:1px solid #e7ecf2; font-size:.85rem; }
-.edit-input.posologie { width:140px; }
+/* ── Colonne de droite ───────────────────── */
+.od-cote { display:flex; flex-direction:column; gap:16px; position:sticky; top:12px; }
+.od-carte { background:#fff; border:1px solid var(--trait); border-radius:18px; padding:16px 18px; }
+.od-carte h3 { margin:0 0 12px; font-size:.95rem; font-weight:700; }
+.od-chiffres { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.od-chiffre { background:var(--fond); border-radius:12px; padding:12px; }
+.od-chiffre b { display:block; font-size:1.2rem; font-variant-numeric:tabular-nums; }
+.od-chiffre span { font-size:.76rem; color:var(--gris); }
+.od-rdv { display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px; background:linear-gradient(135deg,#FFF7ED,#FFEDD5); border:1px solid #FED7AA; }
+.od-rdv .cal { width:52px; flex:none; text-align:center; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 2px 6px rgba(234,88,12,.15); }
+.od-rdv .cal i { display:block; font-style:normal; background:#EA580C; color:#fff; font-size:.68rem; font-weight:700; padding:2px 0; }
+.od-rdv .cal b { display:block; font-size:1.3rem; padding:2px 0 4px; }
+.od-rdv .txt { font-size:.84rem; color:#7C2D12; line-height:1.4; }
+.od-rdv .txt b { color:#9A3412; font-size:.92rem; }
+.od-sans { font-size:.84rem; color:var(--gris); margin-bottom:12px; }
+.od-rdv-form { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; margin-top:12px; }
+.od-rdv-form .plein { grid-column:1 / -1; }
+.od-rdv-form button { grid-column:1 / -1; height:42px; border:none; border-radius:11px; background:var(--encre); color:#fff; font:inherit; font-weight:700; font-size:.86rem; cursor:pointer; }
+.od-rdv-form button:hover { background:var(--bleu); }
+.od-replier { font-size:.82rem; font-weight:700; color:var(--bleu); background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
 
-/* ===== PRINT ===== */
+@media (max-width: 1500px) {
+    .ordo-table th:nth-child(5), .ordo-table td:nth-child(5) { display:none; }
+}
+@media (max-width: 1100px) {
+    .od-grille { grid-template-columns:1fr; }
+    .od-cote { position:static; }
+}
+@media (max-width: 700px) {
+    .od-patient { grid-template-columns:1fr; }
+    .od-bloc + .od-bloc { border-left:none; border-top:1px solid var(--trait); }
+    .add-form .form-row { grid-template-columns:1fr; }
+    .ordo-table th:nth-child(5), .ordo-table td:nth-child(5) { display:none; }
+}
 @media print {
     .no-print { display:none !important; }
-    .wrapper  { grid-template-columns:1fr; }
-    .card     { box-shadow:none; border:1px solid #ddd; }
-    body      { background:#fff; }
+    .od-grille { grid-template-columns:1fr; }
+    .od-feuille { box-shadow:none; }
 }
 </style>
 
-<!-- HEADER -->
-<div class="page-title">📋 Ordonnance #{{ ordonnance.id }}</div>
-<div class="page-sub">
-    Consultation du {{ ordonnance.consultation.date|date:"d/m/Y à H:i" }} —
-    <span class="status-badge status-{{ ordonnance.consultation.statut }}">
-        {{ ordonnance.consultation.get_statut_display }}
-    </span>
-</div>
+{% with c=ordonnance.consultation a=ordonnance.consultation.animal cl=ordonnance.consultation.client %}
+{% with e=a.espece|lower %}
+<div class="od">
 
-<div class="wrapper">
-
-    <!-- COLONNE PRINCIPALE -->
-    <div>
-
-        <!-- INFO CONSULTATION -->
-        <div class="card no-print">
-            <div class="card-header">🩺 Informations de la consultation</div>
-            <div class="card-body">
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Client</label>
-                        <span>{{ ordonnance.consultation.client.nom }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Téléphone</label>
-                        <span>{{ ordonnance.consultation.client.telephone|default:"—" }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Animal</label>
-                        <span>{{ ordonnance.consultation.animal.nom }} ({{ ordonnance.consultation.animal.espece }})</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Race / Sexe</label>
-                        <span>{{ ordonnance.consultation.animal.race|default:"—" }} / {{ ordonnance.consultation.animal.get_sexe_display }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Motif</label>
-                        <span>{{ ordonnance.consultation.motif|default:"—" }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Vétérinaire</label>
-                        <span>{{ ordonnance.consultation.veterinaire|default:"—" }}</span>
-                    </div>
-                </div>
-                {% if ordonnance.consultation.observations %}
-                <div style="margin-top:14px; padding:12px; background:#f8faff; border-radius:10px; border-left:3px solid #1f6feb;">
-                    <label style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#7c8a9e;">Observations</label>
-                    <p style="margin:4px 0 0; font-size:.88rem; color:#1e2a3a;">{{ ordonnance.consultation.observations }}</p>
-                </div>
-                {% endif %}
+    <!-- ═════ Barre du haut ═════ -->
+    <div class="od-barre no-print">
+        <div>
+            <div class="od-ariane">
+                <a href="{% url 'liste_consultations' %}">Consultations</a> ›
+                <a href="{% url 'consultation_detail' c.id %}">Consultation du {{ c.date|date:"d/m/Y" }}</a> › Ordonnance
+            </div>
+            <div class="od-titre">
+                <h1>Ordonnance n° {{ ordonnance.id }}</h1>
+                <span class="od-statut {{ c.statut }}">{{ c.get_statut_display }}</span>
             </div>
         </div>
-
-        <!-- ORDONNANCE IMPRIMABLE -->
-        <div class="card" id="print-zone">
-            {% if ordonnance.rendez_vous %}
-            <div style="margin-top:20px;padding:15px;border:1px solid #dbe5f1;border-radius:10px;background:#f8fbff;">
-                <h4>📅 Prochain rendez-vous</h4>
-                <p><strong>Date :</strong> {{ ordonnance.rendez_vous.date_rdv|date:"d/m/Y à H:i" }}</p>
-                <p><strong>Motif :</strong> {{ ordonnance.rendez_vous.motif }}</p>
-                <p><strong>Lieu :</strong> {{ ordonnance.rendez_vous.get_type_rdv_display }}</p>
-            </div>
-            {% endif %}
-
-            <div class="card-header">
-                💊 Médicaments prescrits
-                <span style="font-size:.8rem; font-weight:400; opacity:.85;">
-                    {{ ordonnance.lignes.count }} ligne(s)
-                </span>
-            </div>
-            <div class="card-body" style="padding:0;">
-
-                {% if ordonnance.lignes.all %}
-                <table class="ordo-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Médicament</th>
-                            <th>Quantité</th>
-                            <th>Posologie</th>
-                            <th>Prix unit.</th>
-                            <th>Total</th>
-                            <th class="no-print"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="lignesBody">
-                        {% for ligne in ordonnance.lignes.all %}
-                        <tr id="row-{{ ligne.id }}">
-                            <td style="color:#b0bcc9; font-weight:700;">{{ forloop.counter }}</td>
-                            <td><span class="badge-med">{{ ligne.medicament.catalogue.nom }}</span></td>
-                            <td class="cell-qte" data-value="{{ ligne.quantite }}"><span class="qty-badge">× {{ ligne.quantite }}</span></td>
-                            <td class="cell-posologie" data-value="{{ ligne.posologie }}" style="color:#5a6a7e;">{{ ligne.posologie }}</td>
-                            <td>{{ ligne.medicament.prix|floatformat:0 }} FCFA</td>
-                            <td class="cell-total" style="font-weight:700; color:#1f6feb;">
-                                {% widthratio ligne.quantite 1 ligne.medicament.prix %} FCFA
-                            </td>
-                            <td class="no-print">
-                                {% if ordonnance.consultation.statut == "en_cours" %}
-                                <div class="actions-cell">
-                                    <button class="btn btn-edit tooltip" data-tooltip="Modifier cette ligne" data-prix="{{ ligne.medicament.prix }}" data-stock="{{ ligne.medicament.stock }}" onclick="editerLigne({{ ligne.id }}, this)">✏️</button>
-                                    <button class="btn btn-danger btn-sm tooltip" data-tooltip="Supprimer cette ligne" onclick="supprimerLigne({{ ligne.id }})">🗑</button>
-                                </div>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="empty-state">
-                    <div class="icon">💊</div>
-                    <p>Aucun médicament prescrit pour l'instant.</p>
-                    <p style="font-size:.8rem;">Utilisez le formulaire ci-dessous pour ajouter des lignes.</p>
-                </div>
-                {% endif %}
-
-            </div>
-        </div>
-
-        <!-- FORMULAIRE AJOUT -->
-        {% if ordonnance.consultation.statut == "en_cours" %}
-        <div class="card no-print">
-            <div class="card-header">➕ Ajouter un médicament</div>
-            <div class="card-body">
-                <div class="add-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Médicament</label>
-                            <select class="form-select" id="medSelect">
-                                <option value="">-- Choisir un médicament --</option>
-                                {% for med in medicaments %}
-                                    <option value="{{ med.id }}" data-prix="{{ med.prix }}" data-stock="{{ med.stock }}">
-                                        {{ med.catalogue.nom }} (Stock : {{ med.stock }})
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Quantité</label>
-                            <input type="number" class="form-control" id="qteInput" min="1" value="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Posologie</label>
-                            <input type="text" class="form-control" id="posologieInput" placeholder="Ex: 2 fois/jour pendant 5 jours">
-                        </div>
-                    </div>
-                    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-                        <button class="btn btn-primary" onclick="ajouterLigne()">
-                            ✔ Ajouter à l'ordonnance
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-    </div>
-
-    <!-- COLONNE RÉSUMÉ -->
-    <div class="no-print">
-        <div class="summary">
-            <h4>📊 Résumé</h4>
-
-            <div class="sum-row">
-                <span class="sum-label">Patient</span>
-                <span class="sum-value">{{ ordonnance.consultation.animal.nom }}</span>
-            </div>
-            <div class="sum-row">
-                <span class="sum-label">Espèce</span>
-                <span class="sum-value">{{ ordonnance.consultation.animal.espece }}</span>
-            </div>
-            <div class="sum-row">
-                <span class="sum-label">Poids</span>
-                <span class="sum-value">
-                    {% if ordonnance.consultation.poids %}
-                        {{ ordonnance.consultation.poids }} kg
-                    {% else %}—{% endif %}
-                </span>
-            </div>
-            <div class="sum-row">
-                <span class="sum-label">Propriétaire</span>
-                <span class="sum-value">{{ ordonnance.consultation.client.nom }}</span>
-            </div>
-
-            <hr class="divider">
-
-            <div class="sum-row">
-                <span class="sum-label">Nb. médicaments</span>
-                <span class="sum-value" id="sumNbMed">{{ ordonnance.lignes.count }}</span>
-            </div>
-            <div class="sum-row">
-                <span class="sum-label">Total estimé</span>
-                <span class="sum-value sum-total" id="sumTotal">— FCFA</span>
-            </div>
-            <div class="sum-row">
-                <span class="sum-label">Rendez-vous</span>
-                <span class="sum-value">
-                    {% if rdv_prevu %}
-                        {{ rdv_prevu.date_rdv|date:"d/m/Y à H:i" }}{% if rdv_prevu.motif %}<br><small>{{ rdv_prevu.motif }}</small>{% endif %}
-                    {% else %}Aucun{% endif %}
-                </span>
-            </div>
-
-            <hr class="divider">
-
-            <!-- FORMULAIRE RDV -->
-            <div class="card no-print" style="margin-top:20px;">
-                <div class="card-header">📅 Programmer un rendez-vous</div>
-                <div class="card-body">
-                    <form method="post" action="{% url 'enregistrer_rendez_vous' ordonnance.id %}">
-                        {% csrf_token %}
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Date</label>
-                                <input type="date" name="date_rdv" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Heure</label>
-                                <input type="time" name="heure_rdv" class="form-control" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group" style="margin-top:10px;">
-                            <label>Motif</label>
-                            <input type="text" name="motif" class="form-control" placeholder="Contrôle, vaccin, suivi..." required>
-                        </div>
-
-                        <div style="margin-top:15px;">
-                            <button class="btn btn-success">💾 Enregistrer le rendez-vous</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- ACTIONS PRINCIPALES -->
-            <a href="{% url 'ordonnance_pdf' ordonnance.id %}" target="_blank" class="btn btn-outline btn-block" style="margin-bottom:10px; text-align:center; display:block;">
-                🖨️ Imprimer l'ordonnance
-            </a>
-
-            {% if ordonnance.consultation.statut == "en_cours" %}
-            <button class="btn btn-success btn-block" onclick="confirmerTerminer()">
-                ✅ Terminer la consultation
-            </button>
+        <div class="od-actions">
+            <a href="{% url 'consultation_detail' c.id %}" class="od-btn"><i class="fa-solid fa-arrow-left"></i> Consultation</a>
+            <a href="{% url 'ordonnance_pdf' ordonnance.id %}" target="_blank" class="od-btn"><i class="fa-solid fa-print"></i> Imprimer</a>
+            {% if c.statut == "en_cours" %}
+            <button type="button" class="od-btn od-btn-vert" onclick="confirmerTerminer()"><i class="fa-solid fa-check"></i> Terminer la consultation</button>
             {% else %}
-            <div style="text-align:center; padding:12px; background:#d4edda; border-radius:10px; color:#155724; font-weight:600; font-size:.85rem;">
-                ✅ Consultation terminée
-            </div>
+            <span class="od-fait"><i class="fa-solid fa-circle-check"></i> Consultation terminée</span>
             {% endif %}
-
-            <hr class="divider">
-
-            <a href="{% url 'consultation_detail' ordonnance.consultation.id %}" style="display:block; text-align:center; color:#7c8a9e; font-size:.82rem; text-decoration:none;">
-                ← Retour à la consultation
-            </a>
         </div>
     </div>
 
+    <div class="od-grille">
+
+        <!-- ═════ La feuille d'ordonnance ═════ -->
+        <article class="od-feuille" id="print-zone">
+            <header class="od-entete">
+                <div class="od-clinique">
+                    <span class="od-logo">{% if clinique.a_un_logo %}<img src="{% url 'clinique_logo' %}?v={{ clinique.logo_version }}" alt="">{% else %}<i class="fa-solid fa-paw"></i>{% endif %}</span>
+                    <span><b>{{ clinique.nom_clinique|default:"Parcelles Véto" }}</b><span>{{ clinique.telephones|default:"" }}</span></span>
+                </div>
+                <div class="od-ref">
+                    <b>Ordonnance n° {{ ordonnance.id }}</b>
+                    {{ ordonnance.date_creation|date:"d/m/Y à H:i" }}
+                </div>
+            </header>
+
+            <section class="od-patient">
+                <div class="od-bloc">
+                    <div class="od-bloc-t">Patient</div>
+                    <div class="od-animal">
+                        <span class="e">{% if 'chien' in e %}🐕{% elif 'chat' in e %}🐈{% elif 'bovin' in e or 'vache' in e %}🐄{% elif 'ovin' in e or 'mouton' in e %}🐑{% elif 'caprin' in e or 'chèvre' in e or 'chevre' in e %}🐐{% elif 'cheval' in e or 'équin' in e or 'âne' in e %}🐎{% elif 'volaille' in e or 'poule' in e %}🐓{% else %}🐾{% endif %}</span>
+                        <div>
+                            <a href="{% url 'historique_animal' a.id %}" style="color:inherit;"><b>{{ a.nom }}</b></a>
+                            <div class="od-ligne">
+                                {{ a.espece|capfirst }}{% if a.race %} · {{ a.race }}{% endif %}{% if a.sexe == 'M' %} · Mâle{% elif a.sexe == 'F' %} · Femelle{% endif %}{% if c.poids %} · {{ c.poids|floatformat:"-1" }} kg{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="od-bloc od-proprio">
+                    <div class="od-bloc-t">Propriétaire</div>
+                    <a href="{% url 'historique_client' cl.id %}" style="color:inherit;"><b>{{ cl.nom }}</b></a>
+                    <div class="od-ligne">{% if cl.telephone %}<a href="tel:{{ cl.telephone }}"><i class="fa-solid fa-phone"></i> {{ cl.telephone }}</a>{% else %}Pas de téléphone{% endif %}</div>
+                </div>
+            </section>
+
+            <div class="od-motif">
+                <div><span>Motif :</span> <b>{{ c.motif|default:"—" }}</b></div>
+                <div><span>Vétérinaire :</span> <b>{{ c.veterinaire|default:"—" }}</b></div>
+                <div><span>Lieu :</span> <b>{{ c.get_lieu_display }}</b></div>
+            </div>
+            {% if c.observations %}
+            <div class="od-obs-zone"><div class="od-obs"><b>Observations :</b> {{ c.observations|linebreaksbr }}</div></div>
+            {% endif %}
+
+            <div class="od-rx">
+                <span class="od-rx-sym">℞</span>
+                <h2>Médicaments prescrits</h2>
+                <span class="n"><span id="sumNbMed">{{ ordonnance.lignes.count }}</span> ligne(s)</span>
+            </div>
+
+            {% if ordonnance.lignes.all %}
+            <div class="od-table-scroll">
+            <table class="ordo-table">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Médicament</th><th>Quantité</th><th>Posologie</th><th>Prix unit.</th><th class="droite">Total</th><th class="no-print"></th>
+                    </tr>
+                </thead>
+                <tbody id="lignesBody">
+                    {% for ligne in ordonnance.lignes.all %}
+                    <tr id="row-{{ ligne.id }}">
+                        <td class="od-num">{{ forloop.counter }}</td>
+                        <td><span class="badge-med">{{ ligne.medicament.catalogue.nom }}</span></td>
+                        <td class="cell-qte" data-value="{{ ligne.quantite }}"><span class="qty-badge">× {{ ligne.quantite }}</span></td>
+                        <td class="cell-posologie" data-value="{{ ligne.posologie }}">{{ ligne.posologie }}</td>
+                        <td>{{ ligne.medicament.prix|floatformat:0 }} FCFA</td>
+                        <td class="cell-total">{% widthratio ligne.quantite 1 ligne.medicament.prix %} FCFA</td>
+                        <td class="no-print">
+                            {% if c.statut == "en_cours" %}
+                            <div class="actions-cell">
+                                <button class="btn btn-edit tooltip" data-tooltip="Modifier cette ligne" data-prix="{{ ligne.medicament.prix }}" data-stock="{{ ligne.medicament.stock }}" onclick="editerLigne({{ ligne.id }}, this)">✏️</button>
+                                <button class="btn btn-danger btn-sm tooltip" data-tooltip="Supprimer cette ligne" onclick="supprimerLigne({{ ligne.id }})">🗑</button>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="icon">💊</div>
+                <p style="margin:0;">Aucun médicament prescrit pour l'instant.</p>
+                {% if c.statut == "en_cours" %}<p style="font-size:.84rem; margin:4px 0 0;">Ajoutez le premier avec le formulaire ci-dessous.</p>{% endif %}
+            </div>
+            {% endif %}
+
+            <div class="od-total">
+                <span>Total estimé</span>
+                <b id="sumTotal">— FCFA</b>
+            </div>
+
+            {% if c.statut == "en_cours" %}
+            <div class="add-form no-print">
+                <div class="add-form-t"><i class="fa-solid fa-plus"></i> Ajouter un médicament</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="medSelect">Médicament</label>
+                        <select class="form-select" id="medSelect">
+                            <option value="">Choisir un médicament</option>
+                            {% for med in medicaments %}
+                                <option value="{{ med.id }}" data-prix="{{ med.prix }}" data-stock="{{ med.stock }}">
+                                    {{ med.catalogue.nom }} (Stock : {{ med.stock }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="qteInput">Quantité</label>
+                        <input type="number" class="form-control" id="qteInput" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="posologieInput">Posologie</label>
+                        <input type="text" class="form-control" id="posologieInput" placeholder="ex. 2 fois par jour pendant 5 jours">
+                    </div>
+                    <button class="btn btn-primary" onclick="ajouterLigne()"><i class="fa-solid fa-plus"></i> Ajouter</button>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="od-signature">
+                <div>Signature et cachet du vétérinaire<b>{{ c.veterinaire|default:clinique.nom_veterinaire }}</b></div>
+            </div>
+        </article>
+
+        <!-- ═════ Colonne de droite ═════ -->
+        <aside class="od-cote no-print">
+
+            <div class="od-carte">
+                <h3>Rendez-vous de suivi</h3>
+                {% if rdv_prevu %}
+                <div class="od-rdv">
+                    <div class="cal"><i>{{ rdv_prevu.date_rdv|date:"m/Y" }}</i><b>{{ rdv_prevu.date_rdv|date:"d" }}</b></div>
+                    <div class="txt"><b>{{ rdv_prevu.date_rdv|date:"d/m/Y à H:i" }}</b><br>{{ rdv_prevu.motif|default:"Rendez-vous"|truncatechars:60 }}{% if rdv_prevu.get_type_rdv_display %} · {{ rdv_prevu.get_type_rdv_display }}{% endif %}</div>
+                </div>
+                <div style="margin-top:12px;"><button type="button" class="od-replier" onclick="document.getElementById('formRdv').hidden = !document.getElementById('formRdv').hidden"><i class="fa-regular fa-calendar-plus"></i> Programmer un autre rendez-vous</button></div>
+                {% else %}
+                <div class="od-sans">Aucun rendez-vous de suivi pour l'instant.</div>
+                {% endif %}
+
+                <form method="post" action="{% url 'enregistrer_rendez_vous' ordonnance.id %}" class="od-rdv-form" id="formRdv" {% if rdv_prevu %}hidden{% endif %}>
+                    {% csrf_token %}
+                    <div class="form-group"><label for="rdvDate">Date</label><input id="rdvDate" type="date" name="date_rdv" class="form-control" required></div>
+                    <div class="form-group"><label for="rdvHeure">Heure</label><input id="rdvHeure" type="time" name="heure_rdv" class="form-control" required></div>
+                    <div class="form-group plein"><label for="rdvMotif">Motif</label><input id="rdvMotif" type="text" name="motif" class="form-control" placeholder="Contrôle, vaccin, suivi…" required></div>
+                    <button type="submit"><i class="fa-regular fa-calendar-check"></i> Enregistrer le rendez-vous</button>
+                </form>
+            </div>
+
+        </aside>
+    </div>
 </div>
+{% endwith %}
+{% endwith %}
 
 <script>
 // ===========================
