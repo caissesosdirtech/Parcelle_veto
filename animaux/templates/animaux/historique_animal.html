@@ -1,284 +1,287 @@
 {% extends "base_dashboard.html" %}
+{% block title %}{{ animal.nom }} · Historique{% endblock %}
 {% block content %}
-
 <style>
-/* ===== HEADER ANIMAL ===== */
-.animal-card {
-    background: linear-gradient(135deg, #1f6feb, #0d47a1);
-    color: #fff;
-    padding: 28px 30px;
-    border-radius: 20px;
-    margin-bottom: 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 24px;
-    box-shadow: 0 14px 32px rgba(31, 111, 235, 0.25);
-}
+.ha { --bleu:#1f6feb; --bleu-f:#0d47a1; --encre:#0F2547; --gris:#6B7A90; --trait:#EEF2F7; --fond:#F4F7FB;
+      font-family:'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif; color:var(--encre); }
+.ha a { text-decoration:none; }
+.ha-ariane { font-size:.82rem; color:var(--gris); margin-bottom:14px; }
+.ha-ariane a { color:var(--bleu); font-weight:600; }
 
-.animal-identity { 
-    display: flex; 
-    align-items: center; 
-    gap: 18px; 
-}
+/* ── En-tête ─────────────────────────────── */
+.ha-tete { background:#fff; border-radius:20px; padding:22px 24px; margin-bottom:20px;
+           box-shadow:0 8px 24px rgba(15,40,80,.06); display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+.ha-avatar { width:72px; height:72px; border-radius:20px; flex:none; display:flex; align-items:center; justify-content:center;
+             font-size:2.2rem; background:linear-gradient(135deg,#EAF1FE,#E3F7EF); }
+.ha-ident { flex:1; min-width:240px; }
+.ha-ident h1 { margin:0; font-size:1.55rem; font-weight:800; letter-spacing:-.01em; }
+.ha-puces { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.ha-puce { font-size:.8rem; font-weight:600; padding:4px 10px; border-radius:20px; background:var(--fond); color:#334155; }
+.ha-proprio { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:14px; background:var(--fond); color:inherit; }
+.ha-proprio:hover { background:#EAF1FE; color:inherit; }
+.ha-proprio .ini { width:36px; height:36px; border-radius:50%; background:var(--bleu); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
+.ha-proprio .n { font-weight:700; font-size:.9rem; }
+.ha-proprio .t { font-size:.78rem; color:var(--gris); }
+.ha-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.ha-btn { display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border-radius:12px; font-weight:700; font-size:.86rem; white-space:nowrap; }
+.ha-btn-p { background:linear-gradient(135deg,var(--bleu),var(--bleu-f)); color:#fff; box-shadow:0 6px 14px rgba(31,111,235,.25); }
+.ha-btn-p:hover { color:#fff; filter:brightness(1.05); }
+.ha-btn-wa { background:#E8F8EE; color:#15803D; }
+.ha-btn-d { background:var(--fond); color:var(--encre); }
 
-.animal-avatar {
-    width: 72px; 
-    height: 72px; 
-    border-radius: 18px;
-    background: rgba(255,255,255,.18);
-    display: flex; 
-    align-items: center; 
-    justify-content: center;
-    font-size: 2.2rem; 
-    flex-shrink: 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-}
+/* ── Chiffres ────────────────────────────── */
+.ha-chiffres { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.ha-chiffre { background:#fff; border-radius:16px; padding:16px 18px; box-shadow:0 6px 18px rgba(15,40,80,.05); }
+.ha-chiffre .v { font-size:1.35rem; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums; }
+.ha-chiffre .l { font-size:.8rem; color:var(--gris); margin-top:4px; }
+.ha-chiffre .s { font-size:.78rem; color:var(--gris); margin-top:2px; }
+.ha-hausse { color:#15803D; font-weight:700; } .ha-baisse { color:#B91C1C; font-weight:700; }
 
-.animal-info h1 { 
-    margin: 0 0 6px; 
-    font-size: 1.85rem; 
-    font-weight: 800; 
-}
+/* ── Corps ───────────────────────────────── */
+.ha-corps { display:grid; grid-template-columns:minmax(0,320px) minmax(0,1fr); gap:20px; align-items:start; }
+.ha-col { display:flex; flex-direction:column; gap:18px; }
+.ha-carte { background:#fff; border-radius:18px; box-shadow:0 6px 20px rgba(15,40,80,.06); overflow:hidden; }
+.ha-carte-h { display:flex; justify-content:space-between; align-items:center; padding:16px 18px 10px; }
+.ha-carte-h h2 { margin:0; font-size:.95rem; font-weight:700; }
+.ha-carte-h .n { font-size:.78rem; font-weight:700; color:var(--bleu); background:#EAF1FE; padding:2px 9px; border-radius:20px; }
+.ha-carte-b { padding:2px 18px 18px; }
 
-.animal-info p { 
-    margin: 4px 0; 
-    font-size: .9rem; 
-    opacity: .92; 
-}
+.ha-rdv { padding:16px 18px; border-radius:18px; color:#fff; background:linear-gradient(135deg,#F59E0B,#EA580C); box-shadow:0 10px 22px rgba(234,88,12,.22); }
+.ha-rdv .t { font-size:.8rem; font-weight:700; opacity:.9; }
+.ha-rdv .d { font-size:1.12rem; font-weight:800; margin:4px 0 2px; }
+.ha-rdv .m { font-size:.85rem; opacity:.95; }
 
-.animal-stats {
-    display: flex; 
-    gap: 12px; 
-    flex-wrap: wrap;
-}
+.ha-courbe svg { width:100%; height:auto; display:block; }
+.ha-courbe .leg { display:flex; justify-content:space-between; font-size:.74rem; color:var(--gris); margin-top:4px; }
+.ha-fiche { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid var(--trait); font-size:.86rem; }
+.ha-fiche:first-child { border-top:none; }
+.ha-fiche span:first-child { color:var(--gris); }
+.ha-fiche span:last-child { font-weight:600; text-align:right; }
 
-/* ===== GRID & CARDS ===== */
-.wrapper { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 22px; 
-}
+/* ── Historique ──────────────────────────── */
+.ha-filtres { display:flex; gap:6px; flex-wrap:wrap; padding:0 18px 12px; border-bottom:1px solid var(--trait); }
+.ha-filtre { padding:7px 13px; border-radius:20px; border:1px solid var(--trait); background:#fff; color:var(--gris);
+             font-size:.8rem; font-weight:700; cursor:pointer; font-family:inherit; }
+.ha-filtre.on { background:var(--encre); border-color:var(--encre); color:#fff; }
+.ha-fil { padding:8px 18px 18px; }
+.ha-mois { font-size:.8rem; font-weight:700; color:var(--gris); margin:16px 0 8px 46px; }
+.ha-mois::first-letter { text-transform:uppercase; }
+.ha-ev { position:relative; display:flex; gap:14px; padding-bottom:14px; }
+.ha-ev::before { content:""; position:absolute; left:15px; top:34px; bottom:0; width:2px; background:var(--trait); }
+.ha-pt { width:32px; height:32px; flex:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.95rem; z-index:1; }
+.ev-consultation .ha-pt { background:#E6F4EA; } .ev-rdv .ha-pt { background:#FFF3E0; }
+.ha-ev-c { flex:1; min-width:0; border:1px solid var(--trait); border-radius:14px; padding:12px 14px; transition:border-color .15s, background .15s; }
+.ha-ev-c:hover { border-color:#DCE8FB; background:#FBFDFF; }
+.ha-ev-h { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.ha-ev-t { font-weight:800; font-size:.93rem; color:var(--encre); }
+a.ha-ev-t:hover { color:var(--bleu); }
+.ha-ev-d { font-size:.78rem; color:var(--gris); white-space:nowrap; }
+.ha-ev-m { font-size:.83rem; color:#475569; margin-top:5px; line-height:1.5; }
+.ha-obs { font-size:.82rem; color:#475569; margin-top:6px; padding:8px 10px; border-radius:10px; background:var(--fond); }
+.ha-meds { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.ha-med { font-size:.75rem; background:#F3E8FD; color:#5B21B6; padding:3px 9px; border-radius:20px; }
+.ha-pied { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+.ha-lien { font-size:.78rem; font-weight:700; color:var(--bleu); padding:5px 10px; border-radius:9px; background:#EAF1FE; }
+.ha-lien:hover { background:#DCE8FB; }
+.ha-montant { margin-left:auto; font-weight:800; color:#15803D; font-size:.86rem; }
+.ha-badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:.7rem; font-weight:800; }
+.b-terminee, .b-TERMINE { background:#E6F4EA; color:#166534; }
+.b-en_cours, .b-EN_ATTENTE { background:#FFF3E0; color:#B45309; }
+.b-CONFIRME { background:#EAF1FE; color:#1D4ED8; }
+.b-annulee, .b-ANNULE { background:#FDECEC; color:#B91C1C; }
+.b-avenir { background:#F59E0B; color:#fff; }
+.ha-vide { text-align:center; padding:34px 10px; color:#9AA8B8; font-size:.88rem; }
+.ha-vide .ic { font-size:2rem; display:block; margin-bottom:6px; }
 
-.card {
-    background: #fff;
-    border-radius: 18px;
-    box-shadow: 0 6px 20px rgba(15,40,80,.06);
-    padding: 0;
-    overflow: hidden;
-}
-
-.card-head {
-    display: flex; 
-    align-items: center; 
-    gap: 12px;
-    padding: 18px 22px;
-    border-bottom: 1px solid #f1f4f8;
-}
-
-.card-head .ic-pill {
-    width: 38px; 
-    height: 38px; 
-    border-radius: 12px;
-    display: flex; 
-    align-items: center; 
-    justify-content: center;
-    font-size: 1.25rem; 
-    flex-shrink: 0;
-}
-
-.card-head h3 { 
-    margin: 0; 
-    font-size: 1.05rem; 
-    font-weight: 700; 
-    color: #1e2a3a; 
-}
-
-/* Couleurs spécifiques */
-.card.consults .ic-pill { background: #e6f4ea; color: #28a745; }
-.card.rdv     .ic-pill { background: #fff3e0; color: #fd7e14; }
-.card.ordo    .ic-pill { background: #f3e8fd; color: #6f42c1; }
-
-/* Item */
-.item {
-    padding: 14px 16px;
-    border: 1px solid #eef2f7;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    transition: .15s;
-    display: flex; 
-    align-items: flex-start; 
-    gap: 14px;
-}
-
-.item:last-child { margin-bottom: 0; }
-.item:hover { 
-    background: #f8fbff; 
-    border-color: #dce8fb; 
-}
-
-.item .item-ic { 
-    font-size: 1.3rem; 
-    margin-top: 2px; 
-    flex-shrink: 0; 
-}
-
-.item .item-body { 
-    flex: 1; 
-    min-width: 0; 
-}
-
-.meta { 
-    font-size: .82rem; 
-    color: #7c8a9e; 
-    margin-top: 4px; 
-    display: flex; 
-    align-items: center; 
-    gap: 10px; 
-    flex-wrap: wrap; 
-}
-
-.badge {
-    padding: 3px 11px;
-    font-size: .73rem;
-    font-weight: 700;
-    border-radius: 20px;
-}
-
-.empty-mini { 
-    text-align: center; 
-    padding: 40px 20px; 
-    color: #b0bcc9; 
-    font-size: .9rem; 
-}
-.empty-mini .ic { 
-    font-size: 2.2rem; 
-    margin-bottom: 8px; 
-    display: block; 
-}
-
-@media (max-width: 920px) {
-    .animal-card { flex-direction: column; align-items: flex-start; }
-    .animal-stats { justify-content: flex-start; }
-    .wrapper { grid-template-columns: 1fr; }
-}
+@media (max-width:1000px) { .ha-corps { grid-template-columns:1fr; } .ha-chiffres { grid-template-columns:repeat(2,1fr); } }
 </style>
 
-<!-- ===== HEADER ANIMAL ===== -->
-<div class="animal-card">
-    <div class="animal-identity">
-        <div class="animal-avatar">🐾</div>
-        <div class="animal-info">
+{% with e=animal.espece|lower %}
+<div class="ha">
+    <div class="ha-ariane">
+        <a href="{% url 'clients_list' %}">Clients</a> ›
+        {% if client %}<a href="{% url 'historique_client' client.id %}">{{ client.nom }}</a> › {% endif %}
+        {{ animal.nom }}
+    </div>
+
+    <!-- ═════ En-tête ═════ -->
+    <div class="ha-tete">
+        <div class="ha-avatar">{% if 'chien' in e %}🐕{% elif 'chat' in e %}🐈{% elif 'bovin' in e or 'vache' in e or 'boeuf' in e or 'bœuf' in e %}🐄{% elif 'mouton' in e or 'ovin' in e or 'bélier' in e %}🐑{% elif 'chèvre' in e or 'chevre' in e or 'caprin' in e %}🐐{% elif 'cheval' in e or 'équin' in e or 'equin' in e or 'âne' in e %}🐎{% elif 'poule' in e or 'volaille' in e or 'poulet' in e %}🐓{% elif 'lapin' in e %}🐇{% else %}🐾{% endif %}</div>
+        <div class="ha-ident">
             <h1>{{ animal.nom }}</h1>
-            <p>{{ animal.espece }} • {{ animal.race|default:"Race non renseignée" }}</p>
-            <p>Sexe : {{ animal.sexe|title }}</p>
+            <div class="ha-puces">
+                <span class="ha-puce">{{ animal.espece|capfirst }}</span>
+                {% if animal.race %}<span class="ha-puce">{{ animal.race }}</span>{% endif %}
+                {% if animal.sexe %}<span class="ha-puce">{% if animal.sexe == 'M' %}♂ Mâle{% elif animal.sexe == 'F' %}♀ Femelle{% else %}{{ animal.sexe }}{% endif %}</span>{% endif %}
+                {% if poids_actuel %}<span class="ha-puce">⚖️ {{ poids_actuel|floatformat:"-1" }} kg</span>{% endif %}
+            </div>
+        </div>
+        {% if client %}
+        <a class="ha-proprio" href="{% url 'historique_client' client.id %}" title="Ouvrir le dossier du propriétaire">
+            <span class="ini">{{ client.nom|slice:":1"|upper }}</span>
+            <span><span class="n">{{ client.nom }}</span><br><span class="t">Propriétaire · {{ client.telephone|default:"sans téléphone" }}</span></span>
+        </a>
+        {% endif %}
+        <div class="ha-actions">
+            <a class="ha-btn ha-btn-p" href="{% url 'nouvelle_consultation' %}{% if client %}?client={{ client.id }}{% endif %}">🩺 Nouvelle consultation</a>
+            {% if telephone_wa %}<a class="ha-btn ha-btn-wa" href="https://wa.me/{{ telephone_wa }}" target="_blank" rel="noopener">💬 WhatsApp</a>{% endif %}
         </div>
     </div>
-    
-    <div class="animal-stats">
-        <div class="stat-pill">
-            <div class="num">{{ consultations|length }}</div>
-            <div class="lbl">Consultations</div>
+
+    <!-- ═════ Chiffres ═════ -->
+    <div class="ha-chiffres">
+        <div class="ha-chiffre">
+            <div class="v">{{ nb_consultations }}</div>
+            <div class="l">Consultation{{ nb_consultations|pluralize }}</div>
+            <div class="s">{{ nb_ordonnances }} ordonnance{{ nb_ordonnances|pluralize }}</div>
         </div>
-        <div class="stat-pill">
-            <div class="num">{{ rendezvous|length }}</div>
-            <div class="lbl">Rendez-vous</div>
+        <div class="ha-chiffre">
+            <div class="v">{% if derniere_visite %}{{ derniere_visite|date:"d/m/Y" }}{% else %}—{% endif %}</div>
+            <div class="l">Dernière visite</div>
+            {% if derniere_visite %}<div class="s">{{ derniere_visite_depuis }}</div>{% endif %}
         </div>
-        <div class="stat-pill">
-            <div class="num">{{ ordonnances|length }}</div>
-            <div class="lbl">Ordonnances</div>
+        <div class="ha-chiffre">
+            <div class="v">{% if poids_actuel %}{{ poids_actuel|floatformat:"-1" }} kg{% else %}—{% endif %}</div>
+            <div class="l">Poids actuel</div>
+            {% if ecart_poids is not None %}
+            <div class="s">{% if ecart_poids > 0 %}<span class="ha-hausse">▲ +{{ ecart_poids }} kg</span>{% elif ecart_poids < 0 %}<span class="ha-baisse">▼ {{ ecart_poids }} kg</span>{% else %}stable{% endif %} depuis la pesée précédente</div>
+            {% endif %}
+        </div>
+        <div class="ha-chiffre">
+            <div class="v">{% if total_soins %}{{ total_soins }} <span style="font-size:.8rem;">FCFA</span>{% else %}—{% endif %}</div>
+            <div class="l">Total des soins</div>
+            <div class="s">médicaments des ordonnances</div>
         </div>
     </div>
-</div>
 
-<!-- ===== CONTENT GRID ===== -->
-<div class="wrapper">
+    <div class="ha-corps">
+        <!-- ═════ Colonne gauche ═════ -->
+        <div class="ha-col">
+            {% if prochain_rdv %}
+            <div class="ha-rdv">
+                <div class="t">📅 Prochain rendez-vous</div>
+                <div class="d">{{ prochain_rdv_libelle|capfirst }}</div>
+                <div class="m">{{ prochain_rdv.motif|default:"Rendez-vous"|truncatechars:70 }}</div>
+            </div>
+            {% endif %}
 
-    <!-- CONSULTATIONS -->
-    <div class="card consults">
-        <div class="card-head">
-            <div class="ic-pill">🩺</div>
-            <h3>Historique des Consultations</h3>
+            {% if courbe %}
+            <div class="ha-carte">
+                <div class="ha-carte-h"><h2>Évolution du poids</h2></div>
+                <div class="ha-carte-b ha-courbe">
+                    <svg viewBox="-6 0 272 90" role="img" aria-label="Évolution du poids de {{ courbe.mini }} à {{ courbe.maxi }} kg">
+                        <polyline points="{{ courbe.points }}" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                        <circle cx="{{ courbe.dernier.x }}" cy="{{ courbe.dernier.y }}" r="5" fill="#fff" stroke="#1f6feb" stroke-width="2.5"/>
+                    </svg>
+                    <div class="leg"><span>depuis le {{ courbe.debut }}</span><span>min {{ courbe.mini|floatformat:"-1" }} kg · max {{ courbe.maxi|floatformat:"-1" }} kg</span></div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="ha-carte">
+                <div class="ha-carte-h"><h2>Fiche</h2></div>
+                <div class="ha-carte-b">
+                    <div class="ha-fiche"><span>Espèce</span><span>{{ animal.espece|capfirst }}</span></div>
+                    <div class="ha-fiche"><span>Race</span><span>{{ animal.race|default:"—" }}</span></div>
+                    <div class="ha-fiche"><span>Sexe</span><span>{% if animal.sexe == 'M' %}Mâle{% elif animal.sexe == 'F' %}Femelle{% else %}{{ animal.sexe|default:"—" }}{% endif %}</span></div>
+                    <div class="ha-fiche"><span>Rendez-vous</span><span>{{ nb_rdv }}</span></div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            {% for c in consultations %}
-            <div class="item">
-                <span class="item-ic">🩺</span>
-                <div class="item-body">
-                    <div class="link">{{ c.motif }}</div>
-                    <div class="meta">
-                        📅 {{ c.date|date:"d MMM yyyy" }}
-                        {% if c.veterinaire %} • Dr. {{ c.veterinaire }}{% endif %}
+
+        <!-- ═════ Historique ═════ -->
+        <div class="ha-carte">
+            <div class="ha-carte-h"><h2>Historique médical</h2><span class="n">{{ evenements|length }}</span></div>
+            <div class="ha-filtres">
+                <button type="button" class="ha-filtre on" data-filtre="tout">Tout</button>
+                <button type="button" class="ha-filtre" data-filtre="consultation">🩺 Consultations ({{ nb_consultations }})</button>
+                <button type="button" class="ha-filtre" data-filtre="ordonnance">💊 Avec ordonnance ({{ nb_ordonnances }})</button>
+                <button type="button" class="ha-filtre" data-filtre="rdv">📅 Rendez-vous ({{ nb_rdv }})</button>
+            </div>
+
+            <div class="ha-fil" id="fil">
+                {% for ev in evenements %}
+                {% ifchanged ev.mois %}<div class="ha-mois" data-mois>{{ ev.mois }}</div>{% endifchanged %}
+
+                {% if ev.type == "consultation" %}
+                <div class="ha-ev ev-consultation" data-type="consultation{% if ev.ordonnance %} ordonnance{% endif %}">
+                    <div class="ha-pt">🩺</div>
+                    <div class="ha-ev-c">
+                        <div class="ha-ev-h">
+                            <a class="ha-ev-t" href="{% url 'consultation_detail' ev.objet.id %}">{{ ev.objet.motif|default:"Consultation" }}</a>
+                            <span class="ha-ev-d">{{ ev.date|date:"d/m/Y à H:i" }}</span>
+                        </div>
+                        <div class="ha-ev-m">
+                            <span class="ha-badge b-{{ ev.objet.statut }}">{{ ev.objet.get_statut_display }}</span>
+                            {% if ev.objet.veterinaire %}&nbsp;{{ ev.objet.veterinaire }}{% endif %}
+                            {% if ev.objet.poids %} · {{ ev.objet.poids|floatformat:"-1" }} kg{% endif %}
+                            · {{ ev.objet.get_lieu_display }}
+                        </div>
+                        {% if ev.objet.observations %}<div class="ha-obs">{{ ev.objet.observations|linebreaksbr }}</div>{% endif %}
+                        {% if ev.medicaments %}
+                        <div class="ha-meds">{% for m in ev.medicaments %}<span class="ha-med" title="{{ m.posologie }}">💊 {{ m.nom }} ×{{ m.qte }}</span>{% endfor %}</div>
+                        {% endif %}
+                        <div class="ha-pied">
+                            <a class="ha-lien" href="{% url 'consultation_detail' ev.objet.id %}">Voir la consultation</a>
+                            {% if ev.ordonnance %}
+                            <a class="ha-lien" href="{% url 'ordonnance_detail' ev.ordonnance.id %}">Ordonnance n° {{ ev.ordonnance.id }}</a>
+                            <a class="ha-lien" href="{% url 'ordonnance_pdf' ev.ordonnance.id %}" target="_blank">🖨️ PDF</a>
+                            {% endif %}
+                            {% if ev.montant_txt %}<span class="ha-montant">{{ ev.montant_txt }} FCFA</span>{% endif %}
+                        </div>
                     </div>
                 </div>
-            </div>
-            {% empty %}
-            <div class="empty-mini">
-                <span class="ic">🩺</span>
-                Aucune consultation enregistrée
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- RENDEZ-VOUS -->
-    <div class="card rdv">
-        <div class="card-head">
-            <div class="ic-pill">📅</div>
-            <h3>Rendez-vous</h3>
-        </div>
-        <div class="card-body">
-            {% for r in rendezvous %}
-            <div class="item">
-                <span class="item-ic">📅</span>
-                <div class="item-body">
-                    <div class="link">Rendez-vous</div>
-                    <div class="meta">
-                        <span>{{ r.date|date:"d MMM yyyy à H:i" }}</span>
-                        <span class="badge badge-{{ r.statut|lower }}">{{ r.statut }}</span>
+                {% else %}
+                <div class="ha-ev ev-rdv" data-type="rdv">
+                    <div class="ha-pt">📅</div>
+                    <div class="ha-ev-c">
+                        <div class="ha-ev-h">
+                            <span class="ha-ev-t">Rendez-vous</span>
+                            <span class="ha-ev-d">{{ ev.date|date:"d/m/Y à H:i" }}</span>
+                        </div>
+                        <div class="ha-ev-m">
+                            {% if ev.a_venir %}<span class="ha-badge b-avenir">À venir</span>{% else %}<span class="ha-badge b-{{ ev.objet.statut }}">{{ ev.objet.get_statut_display }}</span>{% endif %}
+                            &nbsp;{{ ev.objet.motif|default:"Sans motif"|truncatechars:100 }} · {{ ev.objet.get_type_rdv_display }}
+                        </div>
                     </div>
                 </div>
-            </div>
-            {% empty %}
-            <div class="empty-mini">
-                <span class="ic">📅</span>
-                Aucun rendez-vous
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="card ordo">
-    <div class="card-head">
-        <div class="ic-pill">💊</div>
-        <h3>Ordonnances</h3>
-    </div>
-
-    <div class="card-body">
-        {% for o in ordonnances %}
-        <div class="item">
-            <span class="item-ic">💊</span>
-
-            <div class="item-body">
-                
-                <!-- LIEN CLIQUABLE -->
-                <a class="link" href="{% url 'ordonnance_detail' o.id %}">
-                    Consultez Ordonnance #{{ o.id }}
-                </a>
-
-                <div class="meta">
-                    📅 {{ o.date_creation|date:"d/m/Y H:i" }}
-                </div>
+                {% endif %}
+                {% empty %}
+                <div class="ha-vide"><span class="ic">🩺</span>Aucune consultation ni rendez-vous pour {{ animal.nom }}.</div>
+                {% endfor %}
+                <div class="ha-vide" id="filVide" style="display:none;"><span class="ic">🔎</span>Rien dans cette catégorie.</div>
             </div>
         </div>
-        {% empty %}
-        <div class="empty-mini">
-            <span class="ic">💊</span>Aucune ordonnance
-        </div>
-        {% endfor %}
     </div>
 </div>
+{% endwith %}
 
-</div>
-
+<script>
+(function () {
+    var boutons = document.querySelectorAll('.ha-filtre'), fil = document.getElementById('fil');
+    if (!fil) return;
+    boutons.forEach(function (b) {
+        b.addEventListener('click', function () {
+            boutons.forEach(function (x) { x.classList.toggle('on', x === b); });
+            var f = b.dataset.filtre, visibles = 0, el = fil.children;
+            for (var i = 0; i < el.length; i++) {
+                if (el[i].dataset.type) {
+                    var ok = f === 'tout' || el[i].dataset.type.split(' ').indexOf(f) >= 0;
+                    el[i].style.display = ok ? '' : 'none'; if (ok) visibles++;
+                }
+            }
+            for (var j = 0; j < el.length; j++) {
+                if (!el[j].hasAttribute('data-mois')) continue;
+                var k = j + 1, garde = false;
+                while (k < el.length && !el[k].hasAttribute('data-mois')) {
+                    if (el[k].dataset.type && el[k].style.display !== 'none') { garde = true; break; }
+                    k++;
+                }
+                el[j].style.display = garde ? '' : 'none';
+            }
+            document.getElementById('filVide').style.display = visibles ? 'none' : '';
+        });
+    });
+})();
+</script>
 {% endblock %}

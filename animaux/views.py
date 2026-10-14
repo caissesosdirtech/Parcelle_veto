@@ -57,20 +57,97 @@ def ajouter_animal(request):
 
 
 def historique_animal(request, animal_id):
-    """Affiche l'historique complet (consultations, RDV, ordonnances) d'un animal."""
-    animal = get_object_or_404(Animal, id=animal_id)
+    """
+    Dossier d'un animal : identité, propriétaire, évolution du poids,
+    prochain rendez-vous et historique unique (consultations avec leur
+    ordonnance, rendez-vous), du plus récent au plus ancien.
+    """
+    from django.utils import timezone
 
-    consultations = Consultation.objects.filter(animal=animal).order_by("-date")
-    rendezvous = RendezVous.objects.filter(animal=animal).order_by("-date_rdv")
-    ordonnances = Ordonnance.objects.filter(
-        consultation__animal=animal
-    ).select_related("consultation").order_by("-date_creation")
+    from clients.views import _depuis, _fcfa, _jour_complet, _mois_annee, _numero_whatsapp
+    from ventes.models import Vente
+
+    animal = get_object_or_404(Animal.objects.select_related("client"), id=animal_id)
+    maintenant = timezone.now()
+
+    consultations = list(
+        Consultation.objects.filter(animal=animal)
+        .select_related("ordonnance")
+        .prefetch_related("ordonnance__lignes__medicament__catalogue")
+        .order_by("-date")
+    )
+    rendezvous = list(RendezVous.objects.filter(animal=animal).order_by("-date_rdv"))
+
+    montants = {}
+    for v in Vente.objects.filter(ordonnance__consultation__animal=animal).only("ordonnance_id", "total"):
+        montants[v.ordonnance_id] = montants.get(v.ordonnance_id, 0) + (v.total or 0)
+
+    def _nom_med(ligne):
+        med = ligne.medicament
+        return med.catalogue.nom if med and getattr(med, "catalogue", None) else str(med)
+
+    evenements = []
+    for c in consultations:
+        ordonnance = c.ordonnance if hasattr(c, "ordonnance") else None
+        lignes = list(ordonnance.lignes.all()) if ordonnance else []
+        montant = montants.get(ordonnance.id) if ordonnance else None
+        evenements.append({
+            "type": "consultation", "date": c.date, "objet": c, "ordonnance": ordonnance,
+            "medicaments": [{"nom": _nom_med(l), "qte": l.quantite, "posologie": l.posologie} for l in lignes],
+            "montant_txt": _fcfa(montant) if montant else "",
+        })
+    for r in rendezvous:
+        evenements.append({
+            "type": "rdv", "date": r.date_rdv, "objet": r,
+            "a_venir": r.date_rdv >= maintenant and r.statut in ("EN_ATTENTE", "CONFIRME"),
+        })
+    evenements.sort(key=lambda e: e["date"], reverse=True)
+    for e in evenements:
+        e["mois"] = _mois_annee(e["date"])
+
+    # Évolution du poids (pesées des consultations, de la plus ancienne à la plus récente)
+    pesees = [(c.date, c.poids) for c in reversed(consultations) if c.poids]
+    poids_actuel = pesees[-1][1] if pesees else animal.poids
+    ecart_poids = round(pesees[-1][1] - pesees[-2][1], 1) if len(pesees) >= 2 else None
+    courbe = None
+    if len(pesees) >= 2:
+        valeurs = [p for _, p in pesees][-12:]
+        mini, maxi = min(valeurs), max(valeurs)
+        etendue = (maxi - mini) or 1
+        largeur, hauteur = 260, 70
+        pas = largeur / (len(valeurs) - 1)
+        points = [(round(i * pas, 1), round(hauteur - (v - mini) * hauteur / etendue, 1)) for i, v in enumerate(valeurs)]
+        courbe = {
+            "points": " ".join(f"{x},{y + 8}" for x, y in points),
+            "dernier": {"x": points[-1][0], "y": points[-1][1] + 8},
+            "mini": mini, "maxi": maxi,
+            "debut": timezone.localtime(pesees[-len(valeurs)][0]).strftime("%d/%m/%Y"),
+        }
+
+    prochain_rdv = min(
+        (r for r in rendezvous if r.date_rdv >= maintenant and r.statut in ("EN_ATTENTE", "CONFIRME")),
+        key=lambda r: r.date_rdv, default=None,
+    )
+    total = sum(montants.values())
+    client = animal.client
 
     return render(request, "animaux/historique_animal.html", {
         "animal": animal,
-        "consultations": consultations,
-        "rendezvous": rendezvous,
-        "ordonnances": ordonnances,
+        "client": client,
+        "evenements": evenements,
+        "nb_consultations": len(consultations),
+        "nb_rdv": len(rendezvous),
+        "nb_ordonnances": sum(1 for e in evenements if e.get("ordonnance")),
+        "derniere_visite": consultations[0].date if consultations else None,
+        "derniere_visite_depuis": _depuis(consultations[0].date) if consultations else "",
+        "poids_actuel": poids_actuel,
+        "ecart_poids": ecart_poids,
+        "courbe": courbe,
+        "prochain_rdv": prochain_rdv,
+        "prochain_rdv_libelle": _jour_complet(prochain_rdv.date_rdv) if prochain_rdv else "",
+        "total_soins": _fcfa(total) if total else "",
+        "telephone_wa": _numero_whatsapp(client.telephone if client else ""),
+        "active_page": "animaux",
     })
 
 
