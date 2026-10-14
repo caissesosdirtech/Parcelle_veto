@@ -2,7 +2,7 @@ import json
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q, Count
+from django.db.models import Q, Count, F
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -303,9 +303,21 @@ def api_clients_list(request):
     espece = request.GET.get("espece", "")
     page = int(request.GET.get("page", 1))
 
+    from django.db.models import Max
+
     qs = Client.objects.prefetch_related("animaux").annotate(
-        nb_animaux=Count("animaux")
-    ).order_by('-id')  # 🔑 Tri par ID décroissant pour voir les derniers ajoutés en premier
+        nb_animaux=Count("animaux", distinct=True),
+        nb_consultations=Count("consultation", distinct=True),
+        derniere_visite=Max("consultation__date"),
+    )
+    # Tri : derniers ajoutés (par défaut), ordre alphabétique ou dernière visite
+    tri = request.GET.get("tri", "")
+    if tri == "nom":
+        qs = qs.order_by("nom", "id")
+    elif tri == "visite":
+        qs = qs.order_by(F("derniere_visite").desc(nulls_last=True), "-id")
+    else:
+        qs = qs.order_by('-id')  # 🔑 Tri par ID décroissant pour voir les derniers ajoutés en premier
 
     if search:
         qs = qs.filter(
@@ -317,7 +329,7 @@ def api_clients_list(request):
         ).distinct()
 
     if espece:
-        qs = qs.filter(animaux__espece=espece).distinct()
+        qs = qs.filter(animaux__espece__iexact=espece).distinct()
 
     paginator = Paginator(qs, 20) # Augmenté à 20 pour éviter de rater des elements sur mobile
     page_obj = paginator.get_page(page)
@@ -335,6 +347,10 @@ def api_clients_list(request):
             "telephone": c.telephone or "",
             "adresse": c.adresse or "",
             "nb_animaux": len(animaux),
+            "nb_consultations": c.nb_consultations,
+            "derniere_visite": c.derniere_visite.isoformat() if c.derniere_visite else None,
+            "derniere_visite_depuis": _depuis(c.derniere_visite) if c.derniere_visite else "",
+            "telephone_wa": _numero_whatsapp(c.telephone),
             "animaux": [
                 {
                     "id": a.id,
@@ -353,6 +369,8 @@ def api_clients_list(request):
         "page": page_obj.number,
         "has_next": page_obj.has_next(),
         "has_previous": page_obj.has_previous(),
+        "num_pages": paginator.num_pages,
+        "count": paginator.count,
         "total_clients": Client.objects.count(),
         "total_animaux": Animal.objects.count(),
         "total_animaux_page": total_animaux_page,

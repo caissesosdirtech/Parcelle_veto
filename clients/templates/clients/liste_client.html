@@ -1,183 +1,88 @@
 {% extends "base_dashboard.html" %}
 {% block content %}
 
-<div class="page-title">🐾 Liste des Clients et leurs Animaux</div>
-
 <style>
-.table-wrapper {
-    background:#fff;
-    border-radius:16px;
-    padding:22px;
-    box-shadow:0 8px 25px rgba(0,0,0,0.06);
-}
+.lc { --bleu:#1f6feb; --bleu-f:#0d47a1; --encre:#0F2547; --gris:#6B7A90; --trait:#E8EDF4; --fond:#F4F7FB;
+      font-family:'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif; color:var(--encre); }
+.lc a { text-decoration:none; }
 
-/* ===== TOP BAR ===== */
-.top-bar {
-    display:flex;
-    gap:12px;
-    margin-bottom:16px;
-    align-items:center;
-}
-.top-bar input,
-.top-bar select {
-    padding:11px 14px;
-    border:1.5px solid #e7ecf2;
-    border-radius:10px;
-    font-size:.86rem;
-    color:#1e2a3a;
-    background:#fafcff;
-    transition:border-color .15s, box-shadow .15s;
-}
-.top-bar input:focus,
-.top-bar select:focus {
-    outline:none; border-color:#1f6feb; background:#fff;
-    box-shadow:0 0 0 4px rgba(31,111,235,.1);
-}
-.top-bar input { flex:1; }
+/* En-tête */
+.lc-tete { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+.lc-tete h1 { margin:0; font-size:1.5rem; font-weight:800; letter-spacing:-.01em; }
+.lc-tete .sous { font-size:.88rem; color:var(--gris); margin-top:3px; }
+.lc-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.lc-btn { display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-radius:12px; font-weight:700; font-size:.85rem;
+          border:1px solid var(--trait); background:#fff; color:var(--encre); cursor:pointer; font-family:inherit; }
+.lc-btn:hover { border-color:#C9D8F5; color:var(--encre); }
+.lc-btn-p { background:linear-gradient(135deg,var(--bleu),var(--bleu-f)); border-color:transparent; color:#fff; box-shadow:0 6px 14px rgba(31,111,235,.25); }
+.lc-btn-p:hover { color:#fff; filter:brightness(1.05); }
 
-/* ===== STATS + ACTIONS ROW ===== */
-.toolbar-row {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:18px;
-    flex-wrap:wrap;
-    gap:12px;
-}
-.stats-pills { display:flex; gap:10px; }
-.stat-pill {
-    background:#f4f7fb;
-    border-radius:12px;
-    padding:9px 16px;
-    font-size:.82rem;
-    font-weight:700;
-    color:#1e2a3a;
-    display:flex; align-items:center; gap:6px;
-}
-.stat-pill .num { color:#1f6feb; }
+/* Barre de recherche et filtres */
+.lc-barre { background:#fff; border:1px solid var(--trait); border-radius:18px; padding:14px; margin-bottom:18px; }
+.lc-recherche { display:flex; gap:10px; flex-wrap:wrap; }
+.lc-champ { flex:1; min-width:240px; position:relative; }
+.lc-champ i { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#8A9AAD; }
+.lc-champ input { width:100%; box-sizing:border-box; height:46px; padding:0 40px 0 40px; border:1.5px solid var(--trait); border-radius:13px;
+                  background:var(--fond); font:inherit; font-size:.95rem; color:var(--encre); }
+.lc-champ input:focus { outline:none; border-color:var(--bleu); background:#fff; box-shadow:0 0 0 4px rgba(31,111,235,.1); }
+.lc-effacer { position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:#E8EDF4; color:#5B6B80;
+              width:26px; height:26px; border-radius:50%; cursor:pointer; display:none; }
+.lc-tri { height:46px; padding:0 12px; border:1.5px solid var(--trait); border-radius:13px; background:#fff; font:inherit; font-size:.88rem; color:var(--encre); }
+.lc-especes { display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; }
+.lc-espece { padding:7px 12px; border-radius:20px; border:1px solid var(--trait); background:#fff; color:#475569; font:inherit;
+             font-size:.82rem; font-weight:600; cursor:pointer; transition:background .15s, color .15s, border-color .15s; }
+.lc-espece:hover { border-color:#C9D8F5; }
+.lc-espece.on { background:var(--encre); border-color:var(--encre); color:#fff; }
+.lc-resume { font-size:.85rem; color:var(--gris); margin:0 2px 12px; }
+.lc-resume b { color:var(--encre); }
 
-.action-bar { display:flex; gap:10px; }
-.action-bar a {
-    padding:9px 16px;
-    border-radius:10px;
-    font-size:.82rem;
-    font-weight:700;
-    text-decoration:none;
-    display:inline-flex; align-items:center; gap:6px;
-    transition:opacity .15s;
-}
-.action-bar a:hover { opacity:.85; }
-.btn-excel { background:#e6f4ea; color:#1e7e34; }
-.btn-pdf   { background:#fce8e6; color:#c62828; }
+/* Cartes clients */
+.lc-grille { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:16px; }
+.lc-carte { background:#fff; border:1px solid var(--trait); border-radius:18px; padding:16px 16px 14px; display:flex; flex-direction:column; gap:12px;
+            transition:border-color .15s, box-shadow .15s; }
+.lc-carte:hover { border-color:#C9D8F5; box-shadow:0 12px 28px rgba(15,40,80,.08); }
+.lc-c-tete { display:flex; gap:12px; align-items:center; }
+.lc-ini { width:46px; height:46px; border-radius:14px; flex:none; display:flex; align-items:center; justify-content:center;
+          font-weight:800; font-size:1.15rem; color:#fff; }
+.lc-nom { font-weight:800; font-size:1.02rem; color:var(--encre); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+a.lc-nom:hover { color:var(--bleu); }
+.lc-meta { font-size:.8rem; color:var(--gris); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lc-modif { margin-left:auto; flex:none; border:none; background:var(--fond); color:#475569; width:34px; height:34px; border-radius:10px; cursor:pointer; }
+.lc-modif:hover { background:#EAF1FE; color:var(--bleu); }
+.lc-coord { display:flex; gap:8px; flex-wrap:wrap; }
+.lc-coord a, .lc-coord span { display:inline-flex; align-items:center; gap:6px; font-size:.82rem; padding:5px 10px; border-radius:9px; background:var(--fond); color:#334155; }
+.lc-coord a:hover { background:#EAF1FE; color:var(--bleu); }
+.lc-coord .wa { background:#E8F8EE; color:#15803D; }
+.lc-animaux { display:flex; flex-direction:column; gap:6px; }
+.lc-animal { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:12px; border:1px solid var(--trait); color:inherit; }
+.lc-animal:hover { border-color:#C9D8F5; background:#FBFDFF; color:inherit; }
+.lc-animal .e { width:32px; height:32px; border-radius:10px; background:#EAF1FE; display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex:none; }
+.lc-animal .n { font-weight:700; font-size:.88rem; }
+.lc-animal .d { font-size:.76rem; color:var(--gris); }
+.lc-animal .f { margin-left:auto; color:#B0BCC9; }
+.lc-sans { font-size:.82rem; color:#9AA8B8; padding:6px 2px; }
+.lc-pied { display:flex; align-items:center; gap:8px; margin-top:auto; padding-top:10px; border-top:1px solid var(--trait); }
+.lc-visite { font-size:.78rem; color:var(--gris); }
+.lc-visite b { color:var(--encre); font-weight:600; }
+.lc-ouvrir { margin-left:auto; font-size:.82rem; font-weight:700; color:#fff; background:var(--encre); padding:8px 12px; border-radius:10px; white-space:nowrap; }
+.lc-ouvrir:hover { background:var(--bleu); color:#fff; }
 
-/* ===== TABLE ===== */
-.table-scroll { overflow-x:auto; border-radius:14px; }
-table {
-    width:100%;
-    border-collapse:collapse;
-    font-size:.87rem;
-}
-thead th {
-    background:#f4f7fb;
-    color:#7c8a9e;
-    font-size:.72rem;
-    font-weight:700;
-    text-transform:uppercase;
-    letter-spacing:.03em;
-    padding:12px 14px;
-    text-align:left;
-    border-bottom:2px solid #e7ecf2;
-    white-space:nowrap;
-}
-tbody td {
-    padding:14px;
-    border-bottom:1px solid #f1f4f8;
-    color:#1e2a3a;
-    vertical-align:top;
-}
-tbody tr:last-child td { border-bottom:none; }
-tbody tr:hover td { background:#f9fbff; }
+/* Pagination */
+.lc-pages { display:flex; gap:6px; justify-content:center; align-items:center; margin-top:20px; flex-wrap:wrap; }
+.lc-pages button { min-width:38px; height:38px; padding:0 10px; border:1px solid var(--trait); background:#fff; border-radius:10px;
+                   cursor:pointer; font:inherit; font-weight:600; font-size:.85rem; color:#475569; }
+.lc-pages button:hover:not(:disabled) { border-color:var(--bleu); color:var(--bleu); }
+.lc-pages button.on { background:var(--bleu); border-color:var(--bleu); color:#fff; }
+.lc-pages button:disabled { opacity:.45; cursor:default; }
+.lc-pages span { color:#9AA8B8; padding:0 2px; }
 
-/* ===== CLIENT CELL ===== */
-.client-name {
-    font-weight:700;
-    color:#1e2a3a;
-    display:flex; align-items:center; gap:6px;
-}
-.client-meta { font-size:.78rem; color:#7c8a9e; margin-top:3px; }
-
-/* ===== ANIMAL LIST ===== */
-.animal-box {
-    padding:8px 10px;
-    margin-bottom:6px;
-    background:#f8fbff;
-    border:1px solid #eef2f7;
-    border-radius:10px;
-}
-.animal-box:last-child { margin-bottom:0; }
-.animal-name {
-    font-weight:700;
-    color:#1e2a3a;
-    font-size:.85rem;
-    display:flex; align-items:center; gap:5px;
-}
-.badge-row { margin-top:5px; display:flex; gap:5px; flex-wrap:wrap; }
-.badge {
-    display:inline-block;
-    padding:2px 9px;
-    border-radius:20px;
-    font-size:.68rem;
-    font-weight:700;
-}
-.badge-espece { background:#e8f0fe; color:#1f6feb; }
-.badge-race   { background:#f3e8fd; color:#6f42c1; }
-.badge-sexe   { background:#fff3e0; color:#e65100; }
-
-.no-animal { color:#b0bcc9; font-size:.82rem; font-style:italic; }
-
-/* ===== HISTORIQUE COLUMN ===== */
-.histo-col { min-width:140px; }
-.histo-link {
-    display:flex; align-items:center; gap:6px;
-    padding:7px 12px;
-    border-radius:9px;
-    background:#e8f0fe;
-    color:#1f6feb;
-    font-size:.78rem;
-    font-weight:700;
-    text-decoration:none;
-    margin-bottom:6px;
-    transition:all .15s;
-}
-.histo-link:last-child { margin-bottom:0; }
-.histo-link:hover { background:#1f6feb; color:#fff; }
-.histo-link.client-histo { background:#0f172a; color:#fff; }
-.histo-link.client-histo:hover { background:#1f6feb; }
-
-/* ===== PAGINATION ===== */
-.pagination {
-    margin-top:18px;
-    display:flex;
-    gap:8px;
-    justify-content:flex-end;
-}
-.pagination button {
-    padding:8px 14px;
-    border:1.5px solid #e7ecf2;
-    background:#fff;
-    border-radius:9px;
-    cursor:pointer;
-    font-weight:600;
-    font-size:.82rem;
-    color:#5a6a7e;
-    transition:all .15s;
-}
-.pagination button:hover { border-color:#1f6feb; color:#1f6feb; }
-.pagination button.active { background:#1f6feb; color:#fff; border-color:#1f6feb; }
-
-/* ===== EMPTY ===== */
-.empty-state { text-align:center; padding:50px 20px; color:#b0bcc9; }
-.empty-state .icon { font-size:2.8rem; margin-bottom:12px; }
+/* États */
+.lc-vide { text-align:center; padding:50px 20px; color:#8A9AAD; background:#fff; border:1px dashed var(--trait); border-radius:18px; }
+.lc-vide .ic { font-size:2.4rem; display:block; margin-bottom:8px; }
+.lc-squelette { height:210px; border-radius:18px; background:linear-gradient(90deg,#EEF2F7 25%,#F7F9FC 37%,#EEF2F7 63%); background-size:400% 100%; animation:lcCharge 1.2s ease infinite; }
+@keyframes lcCharge { 0% { background-position:100% 0; } 100% { background-position:0 0; } }
+@media (prefers-reduced-motion: reduce) { .lc-squelette { animation:none; } }
+@media (max-width: 560px) { .lc-grille { grid-template-columns:1fr; } }
 
 /* ===== MODAL MODIFICATION CLIENT ===== */
 .modal-backdrop {
@@ -235,42 +140,47 @@ tbody tr:hover td { background:#f9fbff; }
 @media(max-width:650px) { .form-grid { grid-template-columns:1fr; } .form-group.full { grid-column:auto; } .modal-body { padding:16px; } .modal-head, .modal-foot { padding:15px 16px; } }
 </style>
 
-<div class="table-wrapper">
-
-    <!-- SEARCH -->
-    <div class="top-bar">
-        <input type="text" id="search" placeholder="🔎 Client, téléphone, adresse, animal...">
-        <select id="espece">
-            <option value="">Toutes espèces</option>
-            <option value="Chien">Chien</option>
-            <option value="Chat">Chat</option>
-            <option value="Bovin">Bovin</option>
-            <option value="Ovin">Ovin</option>
-            <option value="Caprin">Caprin</option>
-            <option value="Volaille">Volaille</option>
-            <option value="Cheval">Cheval</option>
-        </select>
-    </div>
-
-    <!-- TOOLBAR : STATS + ACTIONS -->
-    <div class="toolbar-row">
-        <div class="stats-pills">
-            <div class="stat-pill">👤 Clients : <span class="num" id="totalClients">0</span></div>
-            <div class="stat-pill">🐾 Animaux : <span class="num" id="totalAnimaux">0</span></div>
+<div class="lc">
+    <div class="lc-tete">
+        <div>
+            <h1>Clients et animaux</h1>
+            <div class="sous"><span id="totalClients">0</span> clients · <span id="totalAnimaux">0</span> animaux enregistrés</div>
         </div>
-        <div class="action-bar">
-            <a href="/clients/export/excel/" class="btn-excel">📊 Excel</a>
-            <a href="/clients/export/pdf/" class="btn-pdf">🖨️ PDF</a>
+        <div class="lc-actions">
+            <a href="/clients/export/excel/" class="lc-btn"><i class="fa-solid fa-file-excel" style="color:#15803D"></i> Excel</a>
+            <a href="/clients/export/pdf/" class="lc-btn"><i class="fa-solid fa-file-pdf" style="color:#DC2626"></i> PDF</a>
+            <a href="{% url 'nouvelle_consultation' %}" class="lc-btn lc-btn-p"><i class="fa-solid fa-stethoscope"></i> Nouvelle consultation</a>
         </div>
     </div>
 
-    <!-- TABLE -->
-    <div class="table-scroll">
-        <div id="tableContainer"></div>
+    <div class="lc-barre">
+        <div class="lc-recherche">
+            <div class="lc-champ">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="search" placeholder="Rechercher un client, un téléphone, une adresse ou un animal" autocomplete="off">
+                <button type="button" class="lc-effacer" id="effacer" aria-label="Effacer la recherche">✕</button>
+            </div>
+            <select id="tri" class="lc-tri" aria-label="Trier">
+                <option value="">Derniers ajoutés</option>
+                <option value="visite">Dernière visite</option>
+                <option value="nom">Ordre alphabétique</option>
+            </select>
+        </div>
+        <div class="lc-especes" role="group" aria-label="Filtrer par espèce">
+            <button type="button" class="lc-espece on" data-espece="">Toutes</button>
+            <button type="button" class="lc-espece" data-espece="Chien">🐕 Chiens</button>
+            <button type="button" class="lc-espece" data-espece="Chat">🐈 Chats</button>
+            <button type="button" class="lc-espece" data-espece="Ovin">🐑 Ovins</button>
+            <button type="button" class="lc-espece" data-espece="Caprin">🐐 Caprins</button>
+            <button type="button" class="lc-espece" data-espece="Bovin">🐄 Bovins</button>
+            <button type="button" class="lc-espece" data-espece="Cheval">🐎 Chevaux</button>
+            <button type="button" class="lc-espece" data-espece="Volaille">🐓 Volailles</button>
+        </div>
     </div>
 
-    <div class="pagination" id="pagination"></div>
-
+    <div class="lc-resume" id="resume"></div>
+    <div id="tableContainer" class="lc-grille" aria-live="polite"></div>
+    <div class="lc-pages" id="pagination"></div>
 </div>
 
 <!-- MODIFICATION CLIENT + ANIMAUX -->
@@ -456,120 +366,130 @@ async function enregistrerClient() {
     }
 }
 
+let espece = "";
+const COULEURS = ["#1f6feb", "#0EA5A4", "#7C3AED", "#EA580C", "#0B7A5E", "#DB2777", "#2563EB", "#B45309"];
+
+function emojiEspece(e) {
+    e = (e || "").toLowerCase();
+    if (e.includes("chien")) return "🐕";
+    if (e.includes("chat")) return "🐈";
+    if (e.includes("bovin") || e.includes("vache") || e.includes("boeuf")) return "🐄";
+    if (e.includes("ovin") || e.includes("mouton") || e.includes("bélier")) return "🐑";
+    if (e.includes("caprin") || e.includes("chèvre") || e.includes("chevre")) return "🐐";
+    if (e.includes("cheval") || e.includes("équin") || e.includes("âne")) return "🐎";
+    if (e.includes("volaille") || e.includes("poule") || e.includes("poulet")) return "🐓";
+    if (e.includes("lapin")) return "🐇";
+    return "🐾";
+}
+
+function sexeLibelle(s) {
+    if (s === "M") return "Mâle";
+    if (s === "F") return "Femelle";
+    return s || "";
+}
+
+function carteClient(c) {
+    const initiale = (c.nom || "?").trim().charAt(0).toUpperCase();
+    const couleur = COULEURS[c.id % COULEURS.length];
+    const animaux = c.animaux.length
+        ? c.animaux.map(a => `
+            <a class="lc-animal" href="/animaux/${a.id}/historique/" title="Historique de ${escapeHtml(a.nom)}">
+                <span class="e">${emojiEspece(a.espece)}</span>
+                <span><span class="n">${escapeHtml(a.nom)}</span><br>
+                <span class="d">${[a.espece, a.race, sexeLibelle(a.sexe)].filter(Boolean).map(escapeHtml).join(" · ")}</span></span>
+                <i class="fa-solid fa-chevron-right f"></i>
+            </a>`).join("")
+        : `<div class="lc-sans">Aucun animal enregistré</div>`;
+
+    const tel = c.telephone
+        ? `<a href="tel:${escapeHtml(c.telephone)}"><i class="fa-solid fa-phone"></i> ${escapeHtml(c.telephone)}</a>
+           ${c.telephone_wa ? `<a class="wa" href="https://wa.me/${c.telephone_wa}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}`
+        : `<span><i class="fa-solid fa-phone-slash"></i> Pas de téléphone</span>`;
+
+    const visite = c.derniere_visite
+        ? `Dernière visite <b>${escapeHtml(c.derniere_visite_depuis)}</b>`
+        : `Pas encore de consultation`;
+
+    return `
+    <article class="lc-carte">
+        <div class="lc-c-tete">
+            <span class="lc-ini" style="background:${couleur}">${escapeHtml(initiale)}</span>
+            <div style="min-width:0;">
+                <a class="lc-nom" href="/clients/${c.id}/historique/">${escapeHtml(c.nom)}</a>
+                <div class="lc-meta"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(c.adresse || "Adresse non renseignée")}</div>
+            </div>
+            <button class="lc-modif" title="Modifier le client et ses animaux" aria-label="Modifier ${escapeHtml(c.nom)}" onclick="ouvrirEditionClient(${c.id})">
+                <i class="fa-solid fa-pen"></i>
+            </button>
+        </div>
+        <div class="lc-coord">${tel}</div>
+        <div class="lc-animaux">${animaux}</div>
+        <div class="lc-pied">
+            <span class="lc-visite">${visite}${c.nb_consultations ? ` · ${c.nb_consultations} consultation${c.nb_consultations > 1 ? "s" : ""}` : ""}</span>
+            <a class="lc-ouvrir" href="/clients/${c.id}/historique/">Ouvrir le dossier</a>
+        </div>
+    </article>`;
+}
+
 function loadData(){
+    const search = document.getElementById("search").value.trim();
+    const tri = document.getElementById("tri").value;
+    const zone = document.getElementById("tableContainer");
+    document.getElementById("effacer").style.display = search ? "block" : "none";
+    zone.innerHTML = '<div class="lc-squelette"></div><div class="lc-squelette"></div><div class="lc-squelette"></div>';
 
-    const search = document.getElementById("search").value;
-    const espece = document.getElementById("espece").value;
-
-    fetch(`/clients/api/?search=${search}&espece=${espece}&page=${page}`)
+    const params = new URLSearchParams({ search: search, espece: espece, page: page, tri: tri });
+    fetch(`/clients/api/?${params}`)
     .then(r => r.json())
     .then(data => {
-
         document.getElementById("totalClients").innerText = data.total_clients;
         document.getElementById("totalAnimaux").innerText = data.total_animaux;
 
+        const filtre = search || espece;
+        document.getElementById("resume").innerHTML = filtre
+            ? `<b>${data.count}</b> client${data.count > 1 ? "s" : ""} trouvé${data.count > 1 ? "s" : ""}`
+              + (search ? ` pour « ${escapeHtml(search)} »` : "")
+              + (espece ? ` avec des ${escapeHtml(espece.toLowerCase())}s` : "")
+            : "";
+
         if (!data.results.length) {
-            document.getElementById("tableContainer").innerHTML = `
-                <div class="empty-state">
-                    <div class="icon">🐾</div>
-                    <p style="font-weight:700; margin:0;">Aucun client trouvé</p>
-                    <p style="font-size:.85rem; margin:4px 0 0;">Essayez une autre recherche ou un autre filtre.</p>
-                </div>
-            `;
+            zone.innerHTML = `
+                <div class="lc-vide" style="grid-column:1/-1;">
+                    <span class="ic">🔎</span>
+                    <b>Aucun client trouvé</b><br>
+                    <span style="font-size:.88rem;">Vérifiez l'orthographe, ou essayez avec le téléphone ou le nom de l'animal.</span>
+                </div>`;
             document.getElementById("pagination").innerHTML = "";
             return;
         }
-
-        let html = `
-        <table>
-            <thead>
-                <tr>
-                    <th>Client</th>
-                    <th>Téléphone</th>
-                    <th>Adresse</th>
-                    <th>Animaux</th>
-                    <th class="histo-col">Historique</th>
-                </tr>
-            </thead>
-            <tbody>
-        `;
-
-        data.results.forEach(c => {
-
-            let animaux = "";
-            let histoAnimaux = "";
-
-            if (c.animaux.length) {
-                c.animaux.forEach(a => {
-                    animaux += `
-                        <div class="animal-box">
-                            <div class="animal-name">🐾 ${escapeHtml(a.nom)}</div>
-                            <div class="badge-row">
-                                <span class="badge badge-espece">${escapeHtml(a.espece)}</span>
-                                ${a.race ? `<span class="badge badge-race">${escapeHtml(a.race)}</span>` : ""}
-                                ${a.sexe ? `<span class="badge badge-sexe">${escapeHtml(a.sexe)}</span>` : ""}
-                            </div>
-                        </div>
-                    `;
-                    histoAnimaux += `
-                        <a class="histo-link" href="/animaux/${a.id}/historique/">
-                            📜 ${escapeHtml(a.nom)}
-                        </a>
-                    `;
-                });
-            } else {
-                animaux = `<span class="no-animal">Aucun animal</span>`;
-            }
-
-            html += `
-                <tr>
-                    <td>
-                        <div class="client-name">
-                            <span>👤 ${escapeHtml(c.nom)}</span>
-                            <button class="edit-client-btn" title="Modifier le client et ses animaux" onclick="ouvrirEditionClient(${c.id})">✏️</button>
-                        </div>
-                    </td>
-                    <td>${escapeHtml(c.telephone || "-")}</td>
-                    <td>${escapeHtml(c.adresse || "-")}</td>
-                    <td>${animaux}</td>
-                    <td class="histo-col">
-                        <a class="histo-link client-histo" href="/clients/${c.id}/historique/">
-                            📁 Dossier client
-                        </a>
-                        ${histoAnimaux}
-                    </td>
-                </tr>
-            `;
-        });
-
-        html += "</tbody></table>";
-
-        document.getElementById("tableContainer").innerHTML = html;
-
+        zone.innerHTML = data.results.map(carteClient).join("");
         renderPagination(data);
+    })
+    .catch(() => {
+        zone.innerHTML = `<div class="lc-vide" style="grid-column:1/-1;"><span class="ic">⚠️</span><b>Impossible de charger les clients.</b><br>
+            <span style="font-size:.88rem;">Vérifiez la connexion, puis rechargez la page.</span></div>`;
     });
 }
 
 function renderPagination(data){
-
-    let html = "";
-
-    if(data.has_previous){
-        html += `<button onclick="changePage(${page-1})">⬅ Précédent</button>`;
-    }
-
-    html += `<button class="active">${page}</button>`;
-
-    if(data.has_next){
-        html += `<button onclick="changePage(${page+1})">Suivant ➡</button>`;
-    }
-
+    const total = data.num_pages || 1;
+    if (total <= 1) { document.getElementById("pagination").innerHTML = ""; return; }
+    const pages = new Set([1, total, page - 1, page, page + 1]);
+    let html = `<button ${page <= 1 ? "disabled" : ""} onclick="changePage(${page - 1})" aria-label="Page précédente">‹</button>`;
+    let precedent = 0;
+    [...pages].filter(p => p >= 1 && p <= total).sort((a, b) => a - b).forEach(p => {
+        if (p - precedent > 1) html += `<span>…</span>`;
+        html += `<button class="${p === page ? "on" : ""}" onclick="changePage(${p})">${p}</button>`;
+        precedent = p;
+    });
+    html += `<button ${page >= total ? "disabled" : ""} onclick="changePage(${page + 1})" aria-label="Page suivante">›</button>`;
     document.getElementById("pagination").innerHTML = html;
 }
 
 function changePage(p){
     page = p;
     loadData();
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 document.getElementById("search").addEventListener("input", function(){
@@ -578,9 +498,25 @@ document.getElementById("search").addEventListener("input", function(){
     timer = setTimeout(loadData, 300);
 });
 
-document.getElementById("espece").addEventListener("change", function(){
+document.getElementById("effacer").addEventListener("click", function(){
+    document.getElementById("search").value = "";
     page = 1;
     loadData();
+    document.getElementById("search").focus();
+});
+
+document.getElementById("tri").addEventListener("change", function(){
+    page = 1;
+    loadData();
+});
+
+document.querySelectorAll(".lc-espece").forEach(function (b) {
+    b.addEventListener("click", function () {
+        document.querySelectorAll(".lc-espece").forEach(x => x.classList.toggle("on", x === b));
+        espece = b.dataset.espece;
+        page = 1;
+        loadData();
+    });
 });
 
 window.onload = loadData;
