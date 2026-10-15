@@ -277,12 +277,37 @@ def rendez_vous_list(request):
 
     rendezvous_combines = list(rendezvous_qs) + [RDVManuelAdapter(rdv) for rdv in manuels_qs]
 
+    # Agenda : d'abord aujourd'hui et les jours à venir (du plus proche au plus
+    # lointain), puis les rendez-vous passés (du plus récent au plus ancien).
+    def _jour_local(rdv):
+        return timezone.localtime(rdv.date_rdv).date()
+
     rendezvous_combines.sort(
         key=lambda rdv: (
-            rdv.date_rdv.date() != today,
-            -rdv.date_rdv.timestamp()
+            _jour_local(rdv) < today,
+            rdv.date_rdv.timestamp() if _jour_local(rdv) >= today else -rdv.date_rdv.timestamp(),
         )
     )
+    jours = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    mois = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+            "août", "septembre", "octobre", "novembre", "décembre"]
+    for rdv in rendezvous_combines:
+        j = _jour_local(rdv)
+        ecart = (j - today).days
+        if ecart == 0:
+            libelle = "Aujourd'hui"
+        elif ecart == 1:
+            libelle = "Demain"
+        elif ecart == -1:
+            libelle = "Hier"
+        else:
+            libelle = f"{jours[j.weekday()].capitalize()} {j.day} {mois[j.month - 1]}"
+            if j.year != today.year:
+                libelle += f" {j.year}"
+        rdv.jour_libelle = libelle
+        rdv.est_passe = ecart < 0
+        rdv.est_aujourdhui = ecart == 0
+        rdv.groupe = ("passe-" if ecart < 0 else "avenir-") + j.isoformat()
 
     return render(
         request,
@@ -292,6 +317,8 @@ def rendez_vous_list(request):
             "nb_attente": nb_attente,
             "nb_confirme": nb_confirme,
             "nb_annule": nb_annule,
+            "nb_aujourdhui": sum(1 for r in rendezvous_combines if r.est_aujourdhui and r.statut != "ANNULE"),
+            "nb_a_venir": sum(1 for r in rendezvous_combines if not r.est_passe),
             "active_page": "rendez_vous",
             "today": today,
         },
