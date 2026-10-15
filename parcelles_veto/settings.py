@@ -42,6 +42,35 @@ ALLOWED_HOSTS = os.getenv(
 CSRF_TRUSTED_ORIGINS = [f"https://{d}" for d in DOMAINES]
 
 # ============================
+# Sécurité HTTPS (production uniquement)
+# ============================
+# Railway reçoit le HTTPS et transmet la requête en HTTP à Django en
+# indiquant le protocole d'origine dans X-Forwarded-Proto.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if not DEBUG:
+    # Toute adresse http:// est redirigée vers https://
+    SECURE_SSL_REDIRECT = True
+    # Les cookies de session et CSRF ne circulent qu'en HTTPS
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Le navigateur retient d'utiliser uniquement HTTPS pendant 1 an
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", 31536000))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
+# ============================
+# Cache des tentatives de connexion
+# ============================
+# Stocké dans la base pour être partagé entre les processus gunicorn
+# (table créée par « python manage.py createcachetable » dans le Procfile).
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "connexions": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_connexions",
+    },
+}
+
+# ============================
 # Application definition
 # ============================
 INSTALLED_APPS = [
@@ -77,6 +106,10 @@ MIDDLEWARE = [
     # Connexion obligatoire partout (session web ou jeton JWT de l'app) ;
     # bloque réellement quand la variable REQUIRE_LOGIN=True est définie.
     'parcelles_veto.middleware.ConnexionObligatoireMiddleware',
+    # Blocage temporaire après trop d'essais de mot de passe (site et app)
+    'parcelles_veto.middleware.LimiteConnexionMiddleware',
+    # Refus des requêtes API envoyées depuis un autre site (sans jeton JWT)
+    'parcelles_veto.middleware.ProtectionOrigineMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -164,6 +197,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'parametres.context_processors.clinique',
+                'dashboard.context_processors.menu',
             ],
         },
     },

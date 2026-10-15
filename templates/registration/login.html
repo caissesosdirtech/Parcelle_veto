@@ -232,7 +232,12 @@
       <h2>Connexion</h2>
       <p class="sous">Identifiez-vous pour accéder à votre espace de travail.</p>
 
-      {% if form.errors %}
+      {% if connexion_bloquee %}
+      <div class="pl-erreur" role="alert">
+        <i class="fa-solid fa-lock"></i>
+        <span>{{ connexion_bloquee }}</span>
+      </div>
+      {% elif form.errors %}
       <div class="pl-erreur" role="alert">
         <i class="fa-solid fa-circle-exclamation"></i>
         <span>Identifiant ou mot de passe incorrect. Vérifiez la saisie, puis réessayez.</span>

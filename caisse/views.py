@@ -7,6 +7,8 @@ from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.contrib.auth.views import redirect_to_login
+from functools import wraps
 
 # Dépendances ReportLab (PDF)
 from reportlab.lib import colors
@@ -25,6 +27,39 @@ from ventes.models import Vente
 from parametres.clinique import entete_html, logo_reportlab
 from parametres.models import ReglagesClinique
 from ventes.medicaments_vendus import recap_medicaments, texte_medicaments
+
+
+# ── ACCÈS ────────────────────────────────────────────────────────────────────
+# Le rapport de caisse et ses exports sont réservés au docteur. Le contrôle
+# porte sur chaque adresse (page, PDF, Excel, API) et pas seulement sur le
+# menu : un assistant qui tape l'adresse directement est refusé.
+# L'app mobile s'authentifie par jeton JWT ; le middleware de connexion a
+# alors déjà placé l'utilisateur du jeton dans request.user.
+
+def _est_docteur(user):
+    return bool(
+        user and user.is_authenticated
+        and (user.is_superuser or getattr(user, "role", None) == "DOCTEUR")
+    )
+
+
+def caisse_docteur(vue):
+    @wraps(vue)
+    def enveloppe(request, *args, **kwargs):
+        appel_api = (
+            "/api/" in request.path
+            or request.headers.get("Authorization", "").startswith("Bearer ")
+        )
+        if not request.user.is_authenticated:
+            if appel_api:
+                return JsonResponse({"error": "Authentification requise."}, status=401)
+            return redirect_to_login(request.get_full_path())
+        if not _est_docteur(request.user):
+            if appel_api:
+                return JsonResponse({"error": "Réservé au docteur."}, status=403)
+            raise PermissionDenied("Accès refusé : le rapport de caisse est réservé au docteur.")
+        return vue(request, *args, **kwargs)
+    return enveloppe
 
 
 # ── VUE WEB ───────────────────────────────────────────────────────────────────
@@ -85,6 +120,7 @@ def rapport_caisse(request):
 
 # ── API FLUTTER ───────────────────────────────────────────────────────────────
 
+@caisse_docteur
 def api_rapport_caisse(request):
     """
     GET /caisse/api/rapport/?date_debut=YYYY-MM-DD&date_fin=YYYY-MM-DD
@@ -152,6 +188,7 @@ def api_rapport_caisse(request):
 
 # ── PDF ───────────────────────────────────────────────────────────────────────
 
+@caisse_docteur
 def rapport_caisse_pdf(request):
     """Génère un rapport de caisse imprimable au format PDF."""
     date_debut = request.GET.get("date_debut")
@@ -309,6 +346,7 @@ def rapport_caisse_pdf(request):
 
 # ── EXPORT EXCEL ─────────────────────────────────────────────────────────────
 
+@caisse_docteur
 def export_caisse_excel(request):
     """Exporte les ventes de la caisse sous format tableur Excel (.xlsx)."""
     date_debut = request.GET.get("date_debut")
