@@ -99,6 +99,8 @@ class ConnexionObligatoireMiddleware:
 # Après trop d'échecs, la page de connexion du site et l'obtention du jeton
 # de l'app mobile (/api/token/) sont bloquées pendant 15 minutes :
 # - 5 échecs pour un même identifiant depuis une même adresse IP ;
+# - 10 échecs pour un même identifiant, quelle que soit l'adresse IP
+#   (au cas où l'adresse vue par le serveur changerait d'un essai à l'autre) ;
 # - 20 échecs depuis une même adresse IP, tous identifiants confondus.
 # Une connexion réussie remet le compteur de l'identifiant à zéro.
 # Les compteurs sont dans la base (cache « connexions ») pour être partagés
@@ -110,6 +112,7 @@ import json
 from django.core.cache import caches
 
 LIMITE_PAR_IDENTIFIANT = 5
+LIMITE_PAR_COMPTE = 10
 LIMITE_PAR_IP = 20
 DUREE_BLOCAGE = 15 * 60  # secondes
 
@@ -118,12 +121,15 @@ CHEMIN_JETON = "/api/token/"
 
 
 def adresse_ip(request):
-    """IP du client. Derrière le proxy de Railway, la dernière adresse de
-    X-Forwarded-For est celle ajoutée par le proxy (les précédentes peuvent
-    être inventées par le client)."""
+    """IP du client. Le proxy de Railway remplace X-Real-IP et
+    X-Forwarded-For par l'adresse réelle du client (les valeurs envoyées par
+    le client ne passent pas) ; X-Real-IP est la plus fiable."""
+    reelle = request.META.get("HTTP_X_REAL_IP", "").strip()
+    if reelle:
+        return reelle
     transmis = request.META.get("HTTP_X_FORWARDED_FOR", "")
     if transmis:
-        return transmis.split(",")[-1].strip()
+        return transmis.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR", "")
 
 
@@ -140,15 +146,18 @@ class LimiteConnexionMiddleware:
         identifiant = self._identifiant(request, api)
         cle_ip = f"cnx:ip:{ip}"
         cle_id = f"cnx:id:{ip}:{identifiant}"
+        cle_compte = f"cnx:compte:{identifiant}"
 
         try:
             cache = caches["connexions"]
-            echecs = cache.get_many([cle_ip, cle_id])
+            echecs = cache.get_many([cle_ip, cle_id, cle_compte])
         except Exception:
             logger.exception("[auth] cache des connexions indisponible")
             return self.get_response(request)
 
-        if echecs.get(cle_id, 0) >= LIMITE_PAR_IDENTIFIANT or echecs.get(cle_ip, 0) >= LIMITE_PAR_IP:
+        if echecs.get(cle_id, 0) >= LIMITE_PAR_IDENTIFIANT \
+                or echecs.get(cle_compte, 0) >= LIMITE_PAR_COMPTE \
+                or echecs.get(cle_ip, 0) >= LIMITE_PAR_IP:
             logger.warning("[auth] connexion bloquée (trop d'essais) : ip=%s identifiant=%s", ip, identifiant)
             return self._refus(request, api)
 
@@ -161,11 +170,15 @@ class LimiteConnexionMiddleware:
                 # La vue de connexion redirige si c'est bon, réaffiche le formulaire sinon
                 reussi, echoue = reponse.status_code == 302, reponse.status_code == 200
             if reussi:
-                cache.delete(cle_id)
+                cache.delete_many([cle_id, cle_compte])
             elif echoue:
-                for cle in (cle_ip, cle_id):
+                for cle in (cle_ip, cle_id, cle_compte):
                     cache.add(cle, 0, DUREE_BLOCAGE)
                     cache.incr(cle)
+                logger.warning(
+                    "[auth] échec de connexion %s/%s : ip=%s identifiant=%s",
+                    cache.get(cle_id, 0), LIMITE_PAR_IDENTIFIANT, ip, identifiant,
+                )
         except Exception:
             logger.exception("[auth] cache des connexions indisponible")
         return reponse
