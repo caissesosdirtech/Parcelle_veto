@@ -26,6 +26,9 @@ from consultations.models import Consultation
 
 from django.db import transaction
 import json
+from functools import wraps
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
 
 # ===================== EXPORTS (Excel / PDF) =====================
 from openpyxl import Workbook
@@ -407,6 +410,36 @@ def api_ventes_stats(request):
     })
 
 
+def _est_docteur(user):
+    return bool(
+        user and user.is_authenticated
+        and (user.is_superuser or getattr(user, "role", None) == "DOCTEUR")
+    )
+
+
+def vente_jour_docteur(vue):
+    """Réserve la vente du jour (et ses exports) au docteur et au super-admin.
+    L'app mobile envoie un jeton JWT ; le middleware a déjà placé l'utilisateur
+    du jeton dans request.user."""
+    @wraps(vue)
+    def enveloppe(request, *args, **kwargs):
+        appel_api = (
+            "/api/" in request.path
+            or request.headers.get("Authorization", "").startswith("Bearer ")
+        )
+        if not request.user.is_authenticated:
+            if appel_api:
+                return JsonResponse({"error": "Authentification requise."}, status=401)
+            return redirect_to_login(request.get_full_path())
+        if not _est_docteur(request.user):
+            if appel_api:
+                return JsonResponse({"error": "Réservé au docteur."}, status=403)
+            raise PermissionDenied("Accès refusé : la vente du jour est réservée au docteur.")
+        return vue(request, *args, **kwargs)
+    return enveloppe
+
+
+@vente_jour_docteur
 def api_vente_jour(request):
     """
     GET /ventes/api/vente-jour/?date=YYYY-MM-DD
@@ -486,6 +519,7 @@ def _client_de_la_vente(v):
         return "Anonyme"
 
 
+@vente_jour_docteur
 def export_vente_jour_excel(request):
     """GET /ventes/export/jour/excel/?date=YYYY-MM-DD"""
     ventes, jour_label = _ventes_du_jour(request)
@@ -539,6 +573,7 @@ def export_vente_jour_excel(request):
     return response
 
 
+@vente_jour_docteur
 def export_vente_jour_pdf(request):
     """GET /ventes/export/jour/pdf/?date=YYYY-MM-DD"""
     ventes, jour_label = _ventes_du_jour(request)
